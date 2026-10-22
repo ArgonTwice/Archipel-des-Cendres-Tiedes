@@ -4,6 +4,7 @@ const BA = preload("res://balance/balance_a.gd")
 const RngS = preload("res://autoload/Rng.gd")
 const ClockS = preload("res://autoload/Clock.gd")
 const BB = preload("res://balance/balance_b.gd")
+const BC = preload("res://balance/balance_c.gd")
 const Eco = preload("res://scripts/economy.gd")
 const Ic = preload("res://tests/headless/ic_model.gd")
 const D0: int = 1792627200 # 2026-10-22 00:00:00 UTC
@@ -28,6 +29,25 @@ func _moral_after(m: int, cadence: String, ticks: int) -> int:
 	for i in ticks:
 		m = Eco.moral_tick(m, cadence, "EATEN", 1)
 	return m
+
+func _sum(weights: Dictionary) -> int:
+	var t: int = 0
+	for v: int in weights.values():
+		t += v
+	return t
+
+func _parts(a: int, b: int, c: int) -> Array[int]:
+	return [a, b, c]
+
+# Monstre lié à l'élément de l'arme : résistance ; lié à l'autre élément : avantage ; neutre : 1,0.
+func _elem_expectation(weapon_elem: String, weights: Dictionary) -> float:
+	var e: float = 0.0
+	for k: String in weights:
+		var m: float = 1.0
+		if k != "NEUTRAL":
+			m = BA.ELEM_RESIST_MULT if k == weapon_elem + "_BOUND" else BA.ELEM_ADVANTAGE_MULT
+		e += m * weights[k] / float(_sum(weights))
+	return e
 
 func _initialize() -> void:
 	# XP
@@ -122,9 +142,56 @@ func _initialize() -> void:
 	for w: Array in want_best:
 		var ratio: float = Ic.best_ic(w[0], "LEGENDARY", 0.0) / Ic.best_ic(w[0], "COMMON", 0.0)
 		_check("ic: optimal, L=%d, ratio == %.4f (+-0,0005) et <= 1,40" % [w[0], w[1]], absf(ratio - w[1]) <= 0.0005 and ratio <= 1.40, "%.6f" % ratio)
-	var info: PackedStringArray = []
-	for lv: int in [1, 25, 50]:
-		info.append("%.4f" % (Ic.best_ic(lv, "LEGENDARY", BA.WEAPON_SAME_SCHOOL_3PIECE_AFFINITY_BONUS) / Ic.best_ic(lv, "COMMON", 0.0))) # bonus 3/3 côté Légendaire seulement
-	print("INFO ic 3/3 provisoire : %s / %s / %s (attendu 1,3712 / 1,4004 / 1,4027 ; bonus %.2f provisoire, Volet C)" % [info[0], info[1], info[2], BA.WEAPON_SAME_SCHOOL_3PIECE_AFFINITY_BONUS])
+	# IC 3/3 (bonus côté Légendaire seulement)
+	var want_33: Array = [[1, 1.3679], [25, 1.3948], [50, 1.3969]]
+	for w: Array in want_33:
+		var ratio: float = Ic.best_ic(w[0], "LEGENDARY", BC.SCHOOL_SET_3_WEAPON_ATK_BONUS) / Ic.best_ic(w[0], "COMMON", 0.0)
+		_check("ic 3/3: L=%d, ratio == %.4f (+-0,0005) et <= 1,40" % [w[0], w[1]], absf(ratio - w[1]) <= 0.0005 and ratio <= 1.40, "%.6f" % ratio)
+	# Volet C : poids
+	for iso: int in BC.ISOLAT_SCHOOL_DROP_WEIGHTS:
+		_check("poids: ISOLAT_SCHOOL_DROP_WEIGHTS[%d] somme 100" % iso, _sum(BC.ISOLAT_SCHOOL_DROP_WEIGHTS[iso]) == 100, str(_sum(BC.ISOLAT_SCHOOL_DROP_WEIGHTS[iso])))
+	_check("poids: VERTICAL_SLICE_DROP_WEIGHTS somme 100", _sum(BC.VERTICAL_SLICE_DROP_WEIGHTS) == 100, str(_sum(BC.VERTICAL_SLICE_DROP_WEIGHTS)))
+	for s: int in BC.SCHOOL_COMBAT_AFFIX_WEIGHTS:
+		_check("poids: SCHOOL_COMBAT_AFFIX_WEIGHTS[%s] somme 100" % BC.SchoolId.keys()[s], _sum(BC.SCHOOL_COMBAT_AFFIX_WEIGHTS[s]) == 100, str(_sum(BC.SCHOOL_COMBAT_AFFIX_WEIGHTS[s])))
+	_check("poids: ARMOR_COMBAT_AFFIX_WEIGHTS somme 100", _sum(BC.ARMOR_COMBAT_AFFIX_WEIGHTS) == 100, str(_sum(BC.ARMOR_COMBAT_AFFIX_WEIGHTS)))
+	# Volet C : identité offensive
+	for s: int in BC.SCHOOL_DATA:
+		var w: Dictionary = BC.SCHOOL_COMBAT_AFFIX_WEIGHTS[s]
+		var off: float = (w["FLAT_ATK"] + w["PCT_ATK"] + w["PCT_ASPD"] + w["PCT_CRIT_CHANCE"] + w["PCT_CRIT_DMG"]) / 100.0
+		_check("identite: %s part offensive == %.2f" % [BC.SchoolId.keys()[s], BC.SCHOOL_DATA[s]["offensive_share"]], is_equal_approx(off, BC.SCHOOL_DATA[s]["offensive_share"]), "%.4f" % off)
+	# Volet C : pièces
+	var share: float = 0.0
+	for f: float in BC.WEAPON_PART_ATK_SHARE:
+		share += f
+	_check("pieces: somme WEAPON_PART_ATK_SHARE == 1,0", is_equal_approx(share, 1.0), "%.6f" % share)
+	var p2: float = BC.DROP_PART_SAME_SCHOOL_PROB * BC.DROP_PART_SAME_SCHOOL_PROB
+	_check("pieces: DROP_PART_SAME_SCHOOL_PROB^2 == 0,49", absf(p2 - 0.49) <= 1e-9, "%.12f" % p2)
+	# Volet C : ATK_arme
+	var F: int = BC.SchoolId.FOYER
+	var Br: int = BC.SchoolId.BRASIER
+	for c: Array in [[1, 0, _parts(F, F, F), 10.35], [50, 2, _parts(F, F, Br), 258.16], [50, 2, _parts(Br, Br, Br), 267.1956]]:
+		var atk: float = BC.compute_weapon_atk(c[0], c[1], c[2])
+		_check("atk_arme(%d, %d, %s) == %s" % [c[0], c[1], str(c[2]), str(c[3])], absf(atk - c[3]) <= 1e-6, "%.8f" % atk)
+	# Volet C : budget
+	var b50: float = BC.get_piece_budget(50, 2)
+	_check("budget: get_piece_budget(50, 2) == 190,976", absf(b50 - 190.976) <= 1e-6, "%.8f" % b50)
+	var s50: float = BC.get_level_scale_s(50)
+	_check("budget: get_level_scale_s(50) == 12,4333 (+-1e-4)", absf(s50 - 12.4333) <= 1e-4, "%.8f" % s50)
+	var pc: float = BC.get_affix_point_cost("PCT_ATK", 6.0, 50)
+	_check("budget: get_affix_point_cost(PCT_ATK, 6, 50) == 34,316 (+-1e-3)", absf(pc - 34.316) <= 1e-3, "%.8f" % pc)
+	for c: Array in [[0, 1.00], [1, 0.60], [2, 0.50], [4, 0.45]]:
+		var m: float = BC.get_max_affix_budget_share(c[0])
+		_check("budget: get_max_affix_budget_share(%d) == %.2f" % [c[0], c[1]], is_equal_approx(m, c[1]), str(m))
+	# Volet C : remontage
+	for c: Array in [[0, 0, 24], [4, 0, 36], [4, 5, 18]]:
+		var g: int = BC.compute_part_swap_gold_cost(c[0], c[1])
+		_check("remontage: compute_part_swap_gold_cost(%d, %d) == %d" % [c[0], c[1], c[2]], g == c[2], str(g))
+	# Volet C : éléments (isolat 2, arme Braise et arme Givre)
+	for s: int in [BC.SchoolId.BRASIER, BC.SchoolId.ABYSSE]:
+		var e: float = _elem_expectation(BC.SCHOOL_DATA[s]["implicit_element"], BC.ISOLAT_MONSTER_ELEMENT_WEIGHTS[2])
+		_check("elements: E(M_elem) isolat 2, arme %s == 1,0125" % BC.SCHOOL_DATA[s]["implicit_element"], absf(e - 1.0125) <= 1e-9, "%.12f" % e)
+	# Garde-fou
+	var ba_script: Script = load("res://balance/balance_a.gd") # BA.get_script_constant_map() est refusé par le parseur (appel non statique sur une classe)
+	_check("garde-fou: BalanceA sans WEAPON_SAME_SCHOOL_3PIECE_AFFINITY_BONUS", not ba_script.get_script_constant_map().has("WEAPON_SAME_SCHOOL_3PIECE_AFFINITY_BONUS"))
 	print("--- %s (%d echec(s))" %["TOUS PASS" if _fails == 0 else "ECHEC", _fails])
 	quit(1 if _fails > 0 else 0)

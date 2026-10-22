@@ -192,7 +192,6 @@ const WEAPON_TYPES_COUNT: int = 5
 const WEAPON_PARTS_PER_TYPE: int = 3
 const WEAPON_SHAPE_VARIANTS_VERTICAL_SLICE: int = 1 # 15 sprites
 const WEAPON_SHAPE_VARIANTS_FULL_GAME: int = 3 # 45 sprites, 135 silhouettes
-const WEAPON_SAME_SCHOOL_3PIECE_AFFINITY_BONUS: float = 0.05 # provisoire : dépend de l'identité des Écoles
 
 # ==============================================================================
 # 4. FONCTIONS O(1) (simulateur headless)

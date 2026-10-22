@@ -3,10 +3,7 @@ extends RefCounted
 # Modèle IC du Volet A, 4 emplacements (Arme, Casque, Plastron, Bottes).
 
 const BA = preload("res://balance/balance_a.gd")
-# Référence du modèle IC du Volet A (FLAT_ATK / FLAT_HP) : 0,5 ATK et 3,0 PV par point de budget.
-# Elles passeront dans balance_c.gd quand le Volet C sera validé.
-const FLAT_ATK: float = 0.5
-const FLAT_HP: float = 3.0
+const BC = preload("res://balance/balance_c.gd")
 
 static func budget(level: int, rarity: String) -> float:
 	return (BA.LOOT_BUDGET_BASE + BA.LOOT_BUDGET_PER_ILVL * (level - 1)) * BA.RARITY_BUDGET_MULT[rarity]
@@ -16,8 +13,8 @@ static func ic(level: int, rarity: String, alpha: float, bonus_33: float) -> flo
 	var slots: float = BA.PLAYER_EQUIPMENT_SLOTS_COUNT
 	var atk: float = BA.PLAYER_BASE_ATK + BA.PLAYER_ATK_PER_LVL * (level - 1) \
 		+ (BA.WEAPON_BASE_ATK_START + BA.WEAPON_BASE_ATK_PER_ILVL * (level - 1)) * BA.WEAPON_RARITY_ATK_MULT[rarity] * (1.0 + bonus_33) \
-		+ slots * b * alpha * FLAT_ATK
-	var hp: float = BA.PLAYER_BASE_HP + BA.PLAYER_HP_PER_LVL * (level - 1) + slots * b * (1.0 - alpha) * FLAT_HP
+		+ slots * b * alpha * BC.AFFIX_DEFS["FLAT_ATK"]["unit_value"]
+	var hp: float = BA.PLAYER_BASE_HP + BA.PLAYER_HP_PER_LVL * (level - 1) + slots * b * (1.0 - alpha) * BC.AFFIX_DEFS["FLAT_HP"]["unit_value"]
 	var def: float = BA.PLAYER_BASE_DEF + BA.PLAYER_DEF_PER_LVL * (level - 1)
 	var k: float = BA.ARMOR_K_BASE + BA.ARMOR_K_PER_LVL * level
 	var u: float = 0.0
