@@ -1,0 +1,18 @@
+# Godot 4
+.godot/
+*.import
+build/
+
+# Export / signature
+*.apk
+*.aab
+*.keystore
+*.jks
+export_credentials.cfg
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Secrets
+.env
