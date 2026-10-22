@@ -3,6 +3,9 @@ extends SceneTree
 const BA = preload("res://balance/balance_a.gd")
 const RngS = preload("res://autoload/Rng.gd")
 const ClockS = preload("res://autoload/Clock.gd")
+const BB = preload("res://balance/balance_b.gd")
+const Eco = preload("res://scripts/economy.gd")
+const Ic = preload("res://tests/headless/ic_model.gd")
 const D0: int = 1792627200 # 2026-10-22 00:00:00 UTC
 var _fails: int = 0
 
@@ -20,6 +23,11 @@ func _seq(world_seed: int, node: String, n: int) -> Array[int]:
 	for i in n:
 		out.append(r.next_u32())
 	return out
+
+func _moral_after(m: int, cadence: String, ticks: int) -> int:
+	for i in ticks:
+		m = Eco.moral_tick(m, cadence, "EATEN", 1)
+	return m
 
 func _initialize() -> void:
 	# XP
@@ -80,5 +88,43 @@ func _initialize() -> void:
 	_check("clock: recul de 120 s -> 0 (gel doux)", ClockS.offline_hours(t, t - 120) == 0.0)
 	_check("clock: 6 h -> 6.0", is_equal_approx(ClockS.offline_hours(t, t + 6 * 3600), 6.0))
 	_check("clock: 48 h -> 12.0 (plafond)", is_equal_approx(ClockS.offline_hours(t, t + 48 * 3600), 12.0))
-	print("--- %s (%d echec(s))" % ["TOUS PASS" if _fails == 0 else "ECHEC", _fails])
+	# Constantes (Volet B)
+	_check("const: ISOLAT_GOLD_MULTIPLIERS == ISOLAT_XP_MULTIPLIERS", BB.ISOLAT_GOLD_MULTIPLIERS == BA.ISOLAT_XP_MULTIPLIERS)
+	_check("const: XP_VILLAGE_COUNTER_EVENT == 87", BA.XP_VILLAGE_COUNTER_EVENT == 87)
+	# Prix
+	var arb_ok: bool = true
+	var arb_bad: String = ""
+	for item: String in BB.ITEM_BASE_GOLD:
+		for iso in 5:
+			var high: int = Eco.sell_price(BB.ITEM_BASE_GOLD[item], iso, 0, 100)
+			var low: int = Eco.sell_price(BB.ITEM_BASE_GOLD[item], iso, 200, 100)
+			if Eco.buyback_price(high) > low:
+				arb_ok = false
+				arb_bad = "%s iso %d : rachat(%d) > %d" % [item, iso, high, low]
+	_check("prix: anti-arbitrage rachat(x1,25) <= vente(x0,75), 10 objets x 5 isolats", arb_ok, arb_bad)
+	var eq_sell: int = Eco.sell_price(BB.ITEM_BASE_GOLD["EQUIP_FORGE"], 0, 100, 100)
+	var mi_sell: int = Eco.sell_price(BB.ITEM_BASE_GOLD["MINERAI_FER_BRAISE"], 0, 100, 100)
+	_check("prix: EQUIP_FORGE 48 -> vente 48, rachat 28", eq_sell == 48 and Eco.buyback_price(eq_sell) == 28, "%d %d" % [eq_sell, Eco.buyback_price(eq_sell)])
+	_check("prix: MINERAI_FER_BRAISE 8 -> vente 8, rachat 4", mi_sell == 8 and Eco.buyback_price(mi_sell) == 4, "%d %d" % [mi_sell, Eco.buyback_price(mi_sell)])
+	# Moral
+	_check("moral: NORMAL/EATEN/maison 1, 80 -> 80", Eco.moral_tick(80, "NORMAL", "EATEN", 1) == 80)
+	_check("moral: NORMAL, 40 ticks depuis 50 -> 79", _moral_after(50, "NORMAL", 40) == 79, str(_moral_after(50, "NORMAL", 40)))
+	_check("moral: NORMAL, 40 ticks depuis 90 -> 81", _moral_after(90, "NORMAL", 40) == 81, str(_moral_after(90, "NORMAL", 40)))
+	_check("moral: FORGE_ARDENTE, 40 ticks depuis 80 -> 34", _moral_after(80, "FORGE_ARDENTE", 40) == 34, str(_moral_after(80, "FORGE_ARDENTE", 40)))
+	_check("moral: prod_mult(34) == 0.75", is_equal_approx(Eco.moral_prod_mult(34), 0.75))
+	# IC (split 50/50)
+	var want_half: Array = [[1, 1.3579], [25, 1.3791], [50, 1.3811]]
+	for w: Array in want_half:
+		var ratio: float = Ic.ic(w[0], "LEGENDARY", 0.5, 0.0) / Ic.ic(w[0], "COMMON", 0.5, 0.0)
+		_check("ic: alpha 0,5, L=%d, ratio == %.4f (+-0,0005)" % [w[0], w[1]], absf(ratio - w[1]) <= 0.0005, "%.6f" % ratio)
+	# IC (split optimal)
+	var want_best: Array = [[1, 1.3602], [25, 1.3818], [50, 1.3835]]
+	for w: Array in want_best:
+		var ratio: float = Ic.best_ic(w[0], "LEGENDARY", 0.0) / Ic.best_ic(w[0], "COMMON", 0.0)
+		_check("ic: optimal, L=%d, ratio == %.4f (+-0,0005) et <= 1,40" % [w[0], w[1]], absf(ratio - w[1]) <= 0.0005 and ratio <= 1.40, "%.6f" % ratio)
+	var info: PackedStringArray = []
+	for lv: int in [1, 25, 50]:
+		info.append("%.4f" % (Ic.best_ic(lv, "LEGENDARY", BA.WEAPON_SAME_SCHOOL_3PIECE_AFFINITY_BONUS) / Ic.best_ic(lv, "COMMON", 0.0))) # bonus 3/3 côté Légendaire seulement
+	print("INFO ic 3/3 provisoire : %s / %s / %s (attendu 1,3712 / 1,4004 / 1,4027 ; bonus %.2f provisoire, Volet C)" % [info[0], info[1], info[2], BA.WEAPON_SAME_SCHOOL_3PIECE_AFFINITY_BONUS])
+	print("--- %s (%d echec(s))" %["TOUS PASS" if _fails == 0 else "ECHEC", _fails])
 	quit(1 if _fails > 0 else 0)
