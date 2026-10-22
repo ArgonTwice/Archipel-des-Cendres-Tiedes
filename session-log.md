@@ -5,7 +5,7 @@ Un objet JSON par session, ajouté en fin de fichier.
 ## Sessions
 
 ```json
-{"date":"2026-10-22","outil":"Claude Code","statut":"termine","objectif":"Jalon 1b : integration Volet C (Ecoles de Forge, bonus 3/3)","fait":["balance/balance_c.gd et docs/Volet-C-valide.md integres tels quels, compilent sans correction","WEAPON_SAME_SCHOOL_3PIECE_AFFINITY_BONUS retire de balance_a.gd","ic_model.gd lit FLAT_ATK/FLAT_HP dans BalanceC.AFFIX_DEFS","run_all.gd : 77 tests PASS sous Godot 4.7.2 (38 nouveaux Volet C), ligne INFO supprimee"],"reste_a_faire":["Feu vert Antho pour commit feat: integration du Volet C (Ecoles de Forge, bonus 3/3) + ligne CHANGELOG","Volet D en cours chez Argon, rien a coder","docs/ASSETS-CANDIDATS.md non commite"],"fichiers_modifies":["balance/balance_c.gd","balance/balance_a.gd","docs/Volet-C-valide.md","tests/headless/ic_model.gd","tests/headless/run_all.gd","session-log.md"],"prochaine_action":"Valider le diff puis commiter"}
+{"date":"2026-10-22","outil":"Claude Code","statut":"termine","objectif":"Jalon 1b : integration Volet C (Ecoles de Forge, bonus 3/3)","fait":["balance/balance_c.gd et docs/Volet-C-valide.md integres tels quels, compilent sans correction","WEAPON_SAME_SCHOOL_3PIECE_AFFINITY_BONUS retire de balance_a.gd","ic_model.gd lit FLAT_ATK/FLAT_HP dans BalanceC.AFFIX_DEFS","run_all.gd : 77 tests PASS sous Godot 4.7.2 (38 nouveaux Volet C), ligne INFO supprimee"],"reste_a_faire":["Volet D en cours chez Argon, rien a coder","docs/ASSETS-CANDIDATS.md non commite"],"fichiers_modifies":["balance/balance_c.gd","balance/balance_a.gd","docs/Volet-C-valide.md","tests/headless/ic_model.gd","tests/headless/run_all.gd","session-log.md"],"prochaine_action":"Valider le diff puis commiter"}
 ```
 
 ```json
