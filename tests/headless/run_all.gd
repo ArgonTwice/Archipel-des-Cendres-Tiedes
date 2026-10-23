@@ -107,6 +107,17 @@ func _draws(world_seed: int) -> Array:
 		out.append(NewGameS.draw_traits(RngS.make_rng(world_seed, "npc/%d" % i)))
 	return out
 
+# Fichiers .gd sous dir, parcours récursif, triés.
+func _gd_files(dir: String) -> Array[String]:
+	var out: Array[String] = []
+	for f: String in DirAccess.get_files_at(dir):
+		if f.get_extension() == "gd":
+			out.append(dir.path_join(f))
+	for sub: String in DirAccess.get_directories_at(dir):
+		out.append_array(_gd_files(dir.path_join(sub)))
+	out.sort()
+	return out
+
 func _clean_saves() -> void:
 	for f: String in SaveS.SLOT_FILES:
 		if FileAccess.file_exists(TEST_SAVE_DIR.path_join(f)):
@@ -827,6 +838,47 @@ func _initialize() -> void:
 	for i in main_state.get_node_count():
 		main_nodes.append(main_state.get_node_name(i))
 	_check("scenes: main.tscn contient Camera2D, UI_Folded, UI_Unfolded, World", main_nodes.has("Camera2D") and main_nodes.has("UI_Folded") and main_nodes.has("UI_Unfolded") and main_nodes.has("World"), str(main_nodes))
+	# Jalon 6 : compilation de chaque script
+	for root: String in ["res://scripts", "res://autoload", "res://balance"]:
+		for path: String in _gd_files(root):
+			var scr: Script = load(path)
+			_check("compilation: %s" % path, scr != null and (scr as GDScript).can_instantiate())
+	# Jalon 6 : échelle entière
+	var base6: Vector2i = FoldModeS.base_size()
+	_check("fold: base_size == (180, 320)", base6 == Vector2i(180, 320), str(base6))
+	for c: Array in [[Vector2i(1080, 2520), 6], [Vector2i(1968, 2184), 6], [Vector2i(540, 1260), 3], [Vector2i(984, 1092), 3], [Vector2i(100, 100), 1]]:
+		var sc6: int = FoldModeS.integer_scale(c[0], Vector2i(180, 320))
+		_check("fold: integer_scale(%dx%d) == %d" % [c[0].x, c[0].y, c[1]], sc6 == c[1], str(sc6))
+	# Jalon 6 : preset Android
+	var cfg: ConfigFile = ConfigFile.new()
+	var cfg_err: Error = cfg.load("res://export_presets.cfg")
+	var sec: String = ""
+	for s6: String in cfg.get_sections():
+		if s6.begins_with("preset.") and not s6.ends_with(".options") and cfg.get_value(s6, "name", "") == "Android":
+			sec = s6
+	_check("preset: export_presets.cfg charge, section Android trouvee", cfg_err == OK and sec != "", "%s %s" % [error_string(cfg_err), sec])
+	if sec != "":
+		var opt: String = sec + ".options"
+		_check("preset: platform, filtres, chemin d'export", cfg.get_value(sec, "platform") == "Android" and cfg.get_value(sec, "export_filter") == "all_resources"
+			and "assets/fonts/silkscreen/OFL.txt" in cfg.get_value(sec, "include_filter", "") and "tests/*" in cfg.get_value(sec, "exclude_filter", "")
+			and cfg.get_value(sec, "export_path") == "build/archipel-debug.apk")
+		_check("preset: sans Gradle, arm64-v8a seule", cfg.get_value(opt, "gradle_build/use_gradle_build") == false and cfg.get_value(opt, "architectures/arm64-v8a") == true
+			and cfg.get_value(opt, "architectures/armeabi-v7a") == false and cfg.get_value(opt, "architectures/x86") == false and cfg.get_value(opt, "architectures/x86_64") == false)
+		_check("preset: app_category Game (2), package com.amicussoft.archipel, signe", cfg.get_value(opt, "package/app_category") == 2
+			and cfg.get_value(opt, "package/unique_name") == "com.amicussoft.archipel" and cfg.get_value(opt, "package/signed") == true)
+		var ks_bad: String = ""
+		for k: String in cfg.get_section_keys(opt):
+			if k.begins_with("keystore/") and str(cfg.get_value(opt, k)) != "":
+				ks_bad += k + " "
+		_check("preset: champs keystore/* vides", ks_bad == "", ks_bad)
+	# Jalon 6 : réglages du projet et .gitignore
+	_check("projet: orientation portrait (1) et resizable true", ProjectSettings.get_setting("display/window/handheld/orientation") == 1 and ProjectSettings.get_setting("display/window/size/resizable") == true)
+	var ignore_lines: PackedStringArray = FileAccess.get_file_as_string("res://.gitignore").replace("\r", "").split("\n")
+	var ignore_missing: String = ""
+	for ig: String in [".godot/", "build/", "*.apk", "*.keystore", "*.jks", "export_credentials.cfg"]:
+		if not ig in ignore_lines:
+			ignore_missing += ig + " "
+	_check(".gitignore: .godot/, build/, *.apk, *.keystore, *.jks, export_credentials.cfg", ignore_missing == "", ignore_missing)
 	# Garde-fou
 	var ba_script: Script = load("res://balance/balance_a.gd") # BA.get_script_constant_map() est refusé par le parseur (appel non statique sur une classe)
 	_check("garde-fou: BalanceA sans WEAPON_SAME_SCHOOL_3PIECE_AFFINITY_BONUS", not ba_script.get_script_constant_map().has("WEAPON_SAME_SCHOOL_3PIECE_AFFINITY_BONUS"))

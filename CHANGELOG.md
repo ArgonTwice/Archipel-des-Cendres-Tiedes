@@ -12,3 +12,5 @@ Format : `AAAA-MM-JJ — type: description`. Une ligne par changement validé.
 - 2026-10-23 — feat: SaveManager, frais fixes et usure des outils (jalon 3)
 - 2026-10-23 — feat: nouvelle partie, graine et village de départ (jalon 4)
 - 2026-10-23 — feat: UI plié / déplié, Rapport de veillée et police Silkscreen (jalon 5)
+- 2026-10-23 — feat: preset Android, premier APK debug et correctif de main.gd (jalon 6)
+- 2026-10-23 — chore: APK debug 0.6.0 (code 1) testé sur Z Fold 8

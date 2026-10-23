@@ -14,6 +14,13 @@ static func is_folded(window_size: Vector2i) -> bool:
 static func zoom_for(folded: bool) -> Vector2:
 	return ZOOM_FOLDED if folded else ZOOM_UNFOLDED
 
+static func base_size() -> Vector2i:
+	return Vector2i(ProjectSettings.get_setting("display/window/size/viewport_width"), ProjectSettings.get_setting("display/window/size/viewport_height"))
+
+# Échelle entière du stretch (scale_mode integer).
+static func integer_scale(window_size: Vector2i, base: Vector2i) -> int:
+	return maxi(1, mini(window_size.x / base.x, window_size.y / base.y))
+
 # Visibilité et process_mode seulement : aucune reconstruction d'UI.
 static func apply(folded: bool, ui_folded: CanvasLayer, ui_unfolded: CanvasLayer) -> void:
 	ui_folded.visible = folded

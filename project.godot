@@ -22,8 +22,6 @@ SaveManager="*res://autoload/SaveManager.gd"
 
 [display]
 
-; 1080 / 180 = 6 sur l'écran externe du Fold 7 ; échelle entière = pixels nets ;
-; expand = le déplié voit plus de monde à la même échelle. Résolutions du Fold 8 à mesurer sur l'appareil.
 window/size/viewport_width=180
 window/size/viewport_height=320
 window/size/resizable=true
@@ -41,6 +39,7 @@ theme/custom="res://assets/ui/theme.tres"
 [rendering]
 
 textures/canvas_textures/default_texture_filter=0
+textures/vram_compression/import_etc2_astc=true
 renderer/rendering_method="mobile"
 2d/snap/snap_2d_transforms_to_pixel=true
 2d/snap/snap_2d_vertices_to_pixel=true

@@ -51,7 +51,16 @@ build/             APK (ignoré par git)
 - Debug : `godot --headless --export-debug "Android" build/archipel-debug.apk`.
 - Release : keystore hors du dépôt. Aucun mot de passe, aucune clé dans git. `.gitignore` doit exclure `*.keystore`, `*.jks`, `export_credentials.cfg`, `.godot/`, `build/`.
 - Après chaque APK : noter version et date dans `CHANGELOG.md`.
-- Preset Android : ajouter assets/fonts/silkscreen/OFL.txt aux filtres de fichiers non-ressources à exporter.
+- Preset Android : OFL.txt est dans include_filter (fait au jalon 6).
+- Versions vérifiées : Godot 4.7.2, JDK 17, Android SDK platform-tools + build-tools 36.1.0.
+- Installation : `adb install -r build/archipel-debug.apk`. Logs : `adb logcat -s godot`.
+- Keystore debug de l'éditeur dans `%APPDATA%\Godot\keystores\`, hors dépôt.
+
+## Affichage et Android
+- L'éditeur Godot réécrit project.godot à l'enregistrement : il efface les commentaires et les lignes égales à la valeur par défaut (ex. window/size/resizable=true). Notes techniques durables ici, jamais dans project.godot. resizable vaut true par défaut : l'export lit la valeur effective, donc resizeableActivity reste true même si la ligne disparaît.
+- Base 180 × 320, stretch canvas_items, aspect expand, échelle entière. Ce calcul repose sur le Fold 7 (externe 1080 × 2520 → ×6 → 180 × 420 ; interne 1968 × 2184 → ×6 → 328 × 364). Les résolutions du Fold 8 se mesurent sur l'appareil : docs/MESURES-FOLD8.md. Ne change pas la base sans ces mesures.
+- Preset Android : package/app_category = Game obligatoire (exemption Android 16 sur grand écran), pas de build Gradle (min SDK 24 et target SDK 36 imposés par le modèle), arm64-v8a seule, OFL.txt dans include_filter, tests/* exclu.
+- L'activité Godot déclare configChanges avec screenSize|smallestScreenSize|screenLayout|density : pas de recréation d'activité au pliage.
 
 ## Tests
 - Le simulateur headless doit passer avant toute demande de commit : `godot --headless --script res://tests/headless/run_all.gd`.

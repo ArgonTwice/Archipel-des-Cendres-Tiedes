@@ -24,6 +24,24 @@ func _ready() -> void:
 	_apply_safe_area()
 	get_viewport().size_changed.connect(_on_size_changed)
 	SaveManager.synced.connect(_show)
+	_log_measure("ready", _folded)
+
+# Sonde du jalon 6 (build debug seulement) : mesures écran du Fold, lues par adb logcat -s godot.
+# folded : mode détecté pour cet événement (calculé avant le return anticipé de _on_size_changed).
+func _log_measure(event: String, folded: bool) -> void:
+	if not OS.is_debug_build():
+		return
+	var window: Vector2i = get_window().size
+	var screen: Vector2i = DisplayServer.screen_get_size()
+	var visible: Vector2i = Vector2i(get_viewport().get_visible_rect().size.round())
+	var safe: Rect2i = DisplayServer.get_display_safe_area()
+	var d: Dictionary = {"event": event, "folded": folded, "window": [window.x, window.y], "screen": [screen.x, screen.y],
+		"scale": FoldModeS.integer_scale(window, FoldModeS.base_size()), "visible": [visible.x, visible.y],
+		"safe": [safe.position.x, safe.position.y, safe.size.x, safe.size.y], "dpi": DisplayServer.screen_get_dpi(),
+		"screen_scale": DisplayServer.screen_get_scale(), "refresh": DisplayServer.screen_get_refresh_rate()}
+	if event == "ready":
+		d["user_dir"] = OS.get_user_data_dir()
+	print("[MESURE] " + JSON.stringify(d))
 
 func _show(r: Dictionary) -> void:
 	for layer in [_ui_folded, _ui_unfolded]: # ui_layer.gd
@@ -37,7 +55,9 @@ func _apply_safe_area() -> void:
 # Plusieurs size_changed pendant un pliage = une seule bascule.
 func _on_size_changed() -> void:
 	_apply_safe_area()
-	var folded: bool = FoldModeS.is_folded(get_window().size)	if folded == _folded:
+	var folded: bool = FoldModeS.is_folded(get_window().size)
+	_log_measure("size_changed", folded)
+	if folded == _folded:
 		return
 	_folded = folded
 	FoldModeS.apply(_folded, _ui_folded, _ui_unfolded)

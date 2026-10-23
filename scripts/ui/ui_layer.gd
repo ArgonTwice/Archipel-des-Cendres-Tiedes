@@ -2,6 +2,7 @@ extends CanvasLayer
 # Couche UI pliée ou dépliée (SOCLE §A3) : instanciée une fois dans main.tscn, jamais reconstruite.
 
 const VeilleeReportS = preload("res://scripts/ui/veillee_report.gd")
+const FoldModeS = preload("res://scripts/ui/fold_mode.gd")
 
 @export var compact: bool = true
 
@@ -39,8 +40,7 @@ func show_error(text: String) -> void:
 func apply_safe_area(window_size: Vector2i) -> void:
 	if not OS.has_feature("mobile"):
 		return
-	var base: Vector2i = Vector2i(ProjectSettings.get_setting("display/window/size/viewport_width"), ProjectSettings.get_setting("display/window/size/viewport_height"))
-	var scale: int = maxi(1, mini(window_size.x / base.x, window_size.y / base.y))
+	var scale: int = FoldModeS.integer_scale(window_size, FoldModeS.base_size())
 	var safe: Rect2i = DisplayServer.get_display_safe_area()
 	_margin.add_theme_constant_override("margin_left", ceili(float(safe.position.x) / scale))
 	_margin.add_theme_constant_override("margin_top", ceili(float(safe.position.y) / scale))
