@@ -9,3 +9,4 @@ Format : `AAAA-MM-JJ — type: description`. Une ligne par changement validé.
 - 2026-10-22 — docs: rapport des assets candidats
 - 2026-10-23 — feat: intégration du Volet D (Lien, traits, Griffes, Lanterne, Âtre)
 - 2026-10-23 — feat: DAG hors-ligne à 3 strates et grève (jalon 2)
+- 2026-10-23 — feat: SaveManager, frais fixes et usure des outils (jalon 3)

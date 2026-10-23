@@ -8,6 +8,8 @@ const BC = preload("res://balance/balance_c.gd")
 const BD = preload("res://balance/balance_d.gd")
 const Eco = preload("res://scripts/economy.gd")
 const Dag = preload("res://scripts/offline_dag.gd")
+const SaveS = preload("res://autoload/SaveManager.gd")
+const TEST_SAVE_DIR: String = "user://test_saves/"
 const Ic = preload("res://tests/headless/ic_model.gd")
 const D0: int = 1792627200 # 2026-10-22 00:00:00 UTC
 var _fails: int = 0
@@ -63,7 +65,7 @@ func _ticks(m: int, strike: bool, cadence: String, meal: String, traits: Array, 
 	return t
 
 func _npc(post: String, moral: int, manages: String) -> Dictionary:
-	return {"post": post, "stars": 2, "cadence": "NORMAL", "moral": moral, "on_strike": false, "tool_broken": false, "traits": [], "house_lvl": 1, "manages": manages}
+	return {"post": post, "stars": 2, "cadence": "NORMAL", "moral": moral, "on_strike": false, "tool_broken": false, "tool_durability": BB.TOOL_DURABILITY_MAX, "traits": [], "house_lvl": 1, "manages": manages}
 
 # Village B : 3 gérants producteurs + 2 gardes, 2 étoiles, NORMAL, Moral 80, stocks vides, niveau 1 EQUILIBRE sans Griffe.
 func _village(last_save: int) -> Dictionary:
@@ -75,6 +77,30 @@ func _village(last_save: int) -> Dictionary:
 	shops["FORGE"]["pot"] = 144
 	var npcs: Array = [_npc("EXTRACTION", 80, "MAT"), _npc("TAVERN", 80, "TAVERN"), _npc("FORGE", 80, "FORGE"), _npc("GUARD", 80, ""), _npc("GUARD", 80, "")]
 	return {"last_save_utc": last_save, "tz_offset_sec": 0, "last_tick_day": ClockS.day_index(last_save, 0), "isolat": 0, "player_gold": 0, "shops": shops, "npcs": npcs}
+
+func _durs(v: Dictionary) -> Array[float]:
+	var out: Array[float] = []
+	for npc: Dictionary in v["npcs"]:
+		out.append(npc["tool_durability"])
+	return out
+
+func _floats(values: Array) -> Array[float]:
+	var out: Array[float] = []
+	out.assign(values)
+	return out
+
+func _shop_vals(v: Dictionary, key: String) -> Array[int]:
+	return _bonds([v["shops"]["MAT"][key], v["shops"]["TAVERN"][key], v["shops"]["FORGE"][key]])
+
+func _clean_saves() -> void:
+	for f: String in SaveS.SLOT_FILES:
+		if FileAccess.file_exists(TEST_SAVE_DIR.path_join(f)):
+			DirAccess.remove_absolute(TEST_SAVE_DIR.path_join(f))
+
+func _write_bytes(path: String, bytes: PackedByteArray) -> void:
+	var f: FileAccess = FileAccess.open(path, FileAccess.WRITE)
+	f.store_buffer(bytes)
+	f.close()
 
 func _morals(v: Dictionary) -> Array[int]:
 	var out: Array[int] = []
@@ -413,7 +439,7 @@ func _initialize() -> void:
 	# Jalon 2 : resume, village B sur 7 jours
 	var vb: Dictionary = Dag.resume(_village(t10), t10 + 7 * 86400)["village"]
 	_check("resume B: 5 PNJ a 80", _morals(vb) == _bonds([80, 80, 80, 80, 80]), str(_morals(vb)))
-	_check("resume B: player_gold +37", vb["player_gold"] == 37, str(vb["player_gold"]))
+	_check("resume B: player_gold +13 (taxes 37 - frais 24)", vb["player_gold"] == 13, str(vb["player_gold"]))
 	var tre: Array[int] = _bonds([vb["shops"]["MAT"]["treasury"], vb["shops"]["TAVERN"]["treasury"], vb["shops"]["FORGE"]["treasury"]])
 	_check("resume B: tresoreries 150 / 168 / 202", tre == _bonds([150, 168, 202]), str(tre))
 	# Jalon 2 : resume, gérant de la Taverne Bout-en-train
@@ -429,6 +455,163 @@ func _initialize() -> void:
 	var vback: Dictionary = _village(D0 + 30 * 3600)
 	var ob2: Dictionary = Dag.resume(vback, D0 + 28 * 3600)
 	_check("resume: horloge reculee de 2 h, t_eff 0, aucun tick, village inchange", ob2["t_eff"] == 0.0 and not ob2["ticked"] and ob2["village"] == vback, "%s %s" % [str(ob2["t_eff"]), str(ob2["ticked"])])
+	# Jalon 3 : frais fixes et usure
+	for c: Array in [[[1, 1, 1], 24], [[2, 1, 3], 48], [[1, 2, 2], 40], [[], 0]]:
+		var fc: int = Eco.daily_fixed_sink(_bonds(c[0]))
+		_check("frais: daily_fixed_sink(%s) == %d" % [str(c[0]), c[1]], fc == c[1], str(fc))
+	var PE: int = BD.TraitId.PERFECTIONNISTE
+	for c: Array in [["[]", [], 20.0], ["[PERFECTIONNISTE]", [PE], 15.0], ["[PERFECTIONNISTE, COSTAUD]", [PE, CO], 15.0], ["[BOUT_EN_TRAIN]", [BE], 20.0]]:
+		var wr: float = Eco.tool_wear_per_day(_bonds(c[1]))
+		_check("usure: tool_wear_per_day(%s) == %.1f" % [c[0], c[2]], absf(wr - c[2]) <= 1e-9, str(wr))
+	var w7: int = t10 + 7 * 86400
+	# R1 : village B
+	var o1: Dictionary = Dag.resume(_village(t10), w7)
+	var v1: Dictionary = o1["village"]
+	_check("R1: player_gold 13, frais 24, 0 outil remplace", v1["player_gold"] == 13 and o1["fixed_cost_paid"] == 24 and o1["tools_replaced"] == 0, "%d %d %d" % [v1["player_gold"], o1["fixed_cost_paid"], o1["tools_replaced"]])
+	_check("R1: durabilites 80 / 80 / 80 / 100 / 100", _durs(v1) == _floats([80.0, 80.0, 80.0, 100.0, 100.0]), str(_durs(v1)))
+	_check("R1: tresoreries 150 / 168 / 202, Moral 5 x 80", _shop_vals(v1, "treasury") == _bonds([150, 168, 202]) and _morals(v1) == _bonds([80, 80, 80, 80, 80]), "%s %s" % [str(_shop_vals(v1, "treasury")), str(_morals(v1))])
+	# R2 : frais plafonnés par l'Or
+	var i2: Dictionary = _village(t10)
+	i2["npcs"][0]["moral"] = 10
+	i2["npcs"][0]["on_strike"] = true
+	var o2: Dictionary = Dag.resume(i2, w7)
+	var v2: Dictionary = o2["village"]
+	_check("R2: frais 17, player_gold 0", o2["fixed_cost_paid"] == 17 and v2["player_gold"] == 0, "%d %d" % [o2["fixed_cost_paid"], v2["player_gold"]])
+	_check("R2: durabilites 100 / 80 / 80 / 100 / 100, Moral 50 / 80 / 80 / 80 / 80", _durs(v2) == _floats([100.0, 80.0, 80.0, 100.0, 100.0]) and _morals(v2) == _bonds([50, 80, 80, 80, 80]), "%s %s" % [str(_durs(v2)), str(_morals(v2))])
+	# R3 : niveaux 2 / 1 / 3, 500 Or
+	var i3: Dictionary = _village(t10)
+	i3["shops"]["MAT"]["lvl"] = 2
+	i3["shops"]["FORGE"]["lvl"] = 3
+	i3["player_gold"] = 500
+	var o3: Dictionary = Dag.resume(i3, w7)
+	_check("R3: frais 48, player_gold 489", o3["fixed_cost_paid"] == 48 and o3["village"]["player_gold"] == 489, "%d %d" % [o3["fixed_cost_paid"], o3["village"]["player_gold"]])
+	# R4 : outil de l'extracteur brisé, stock Forge 3
+	var i4: Dictionary = _village(t10)
+	i4["npcs"][0]["tool_durability"] = 0.0
+	i4["npcs"][0]["tool_broken"] = true
+	i4["shops"]["FORGE"]["stock"] = 3
+	var o4: Dictionary = Dag.resume(i4, w7)
+	var v4: Dictionary = o4["village"]
+	_check("R4: 1 outil remplace, extracteur a 80 non brise", o4["tools_replaced"] == 1 and v4["npcs"][0]["tool_durability"] == 80.0 and not v4["npcs"][0]["tool_broken"], "%d %s" % [o4["tools_replaced"], str(v4["npcs"][0]["tool_durability"])])
+	var bad4: String = _diff(o4["dag"], [["MAT", "added", 36], ["FORGE", "before_sale", 15], ["FORGE", "sold", 11], ["FORGE", "tax", 26]])
+	_check("R4: DAG MAT +36, Forge 15 avant vente, 11 ventes (pot 132), taxe 26", bad4 == "", bad4)
+	_check("R4: stock Forge 4, player_gold 13, tresorerie Forge 202", v4["shops"]["FORGE"]["stock"] == 4 and v4["player_gold"] == 13 and v4["shops"]["FORGE"]["treasury"] == 202, "%d %d %d" % [v4["shops"]["FORGE"]["stock"], v4["player_gold"], v4["shops"]["FORGE"]["treasury"]])
+	# R5 : outil de l'extracteur brisé, stock Forge 0
+	var i5: Dictionary = _village(t10)
+	i5["npcs"][0]["tool_durability"] = 0.0
+	i5["npcs"][0]["tool_broken"] = true
+	var o5: Dictionary = Dag.resume(i5, w7)
+	var v5: Dictionary = o5["village"]
+	_check("R5: 0 outil remplace, extracteur toujours brise a 0", o5["tools_replaced"] == 0 and v5["npcs"][0]["tool_broken"] and v5["npcs"][0]["tool_durability"] == 0.0, "%d %s" % [o5["tools_replaced"], str(v5["npcs"][0]["tool_durability"])])
+	var bad5: String = _diff(o5["dag"], [["MAT", "added", 21], ["FORGE", "added", 7], ["FORGE", "sold", 7]])
+	_check("R5: DAG MAT +21 (rate 3,0), Forge +7, 7 ventes", bad5 == "", bad5)
+	_check("R5: pot Forge 60, tresorerie Forge 181, player_gold 1", v5["shops"]["FORGE"]["pot"] == 60 and v5["shops"]["FORGE"]["treasury"] == 181 and v5["player_gold"] == 1, "%d %d %d" % [v5["shops"]["FORGE"]["pot"], v5["shops"]["FORGE"]["treasury"], v5["player_gold"]])
+	# R6 : stock Forge 1, extracteur et forgeron brisés
+	var i6: Dictionary = _village(t10)
+	for n: int in [0, 2]:
+		i6["npcs"][n]["tool_durability"] = 0.0
+		i6["npcs"][n]["tool_broken"] = true
+	i6["shops"]["FORGE"]["stock"] = 1
+	var o6: Dictionary = Dag.resume(i6, w7)
+	var v6: Dictionary = o6["village"]
+	_check("R6: 1 outil remplace (extracteur), durabilites 80 / 80 / 0 / 100 / 100, forgeron brise", o6["tools_replaced"] == 1 and _durs(v6) == _floats([80.0, 80.0, 0.0, 100.0, 100.0]) and v6["npcs"][2]["tool_broken"], "%d %s" % [o6["tools_replaced"], str(_durs(v6))])
+	_check("R6: stocks 0 / 0 / 0, tresoreries 154 / 168 / 197, player_gold 12", _shop_vals(v6, "stock") == _bonds([0, 0, 0]) and _shop_vals(v6, "treasury") == _bonds([154, 168, 197]) and v6["player_gold"] == 12, "%s %s %d" % [str(_shop_vals(v6, "stock")), str(_shop_vals(v6, "treasury")), v6["player_gold"]])
+	# R7 : gérant de la Forge Perfectionniste à durabilité 30
+	var i7: Dictionary = _village(t10)
+	i7["npcs"][2]["traits"] = [PE]
+	i7["npcs"][2]["tool_durability"] = 30.0
+	var v7b: Dictionary = Dag.resume(i7, w7)["village"]
+	_check("R7: forgeron [PERFECTIONNISTE] 30 -> 15, non brise, Moral 81", v7b["npcs"][2]["tool_durability"] == 15.0 and not v7b["npcs"][2]["tool_broken"] and v7b["npcs"][2]["moral"] == 81, "%s %d" % [str(v7b["npcs"][2]["tool_durability"]), v7b["npcs"][2]["moral"]])
+	# R8 : sans tick
+	var i8: Dictionary = _village(D0 + 23 * 3600)
+	i8["player_gold"] = 100
+	i8["npcs"][0]["tool_durability"] = 0.0
+	i8["npcs"][0]["tool_broken"] = true
+	i8["shops"]["FORGE"]["stock"] = 3
+	var o8: Dictionary = Dag.resume(i8, D0 + 27 * 3600)
+	var v8: Dictionary = o8["village"]
+	_check("R8: sans tick, frais 0, 0 outil remplace, extracteur brise", not o8["ticked"] and o8["fixed_cost_paid"] == 0 and o8["tools_replaced"] == 0 and v8["npcs"][0]["tool_broken"], "%s %d %d" % [str(o8["ticked"]), o8["fixed_cost_paid"], o8["tools_replaced"]])
+	_check("R8: player_gold 112, stocks 0 / 2 / 0", v8["player_gold"] == 112 and _shop_vals(v8, "stock") == _bonds([0, 2, 0]), "%d %s" % [v8["player_gold"], str(_shop_vals(v8, "stock"))])
+	# R9 : 7 retours quotidiens
+	var v9: Dictionary = _village(t10)
+	var g9: Array[int] = []
+	var d9: Array[float] = []
+	var p9: Array[int] = []
+	var s9: Array[int] = []
+	var tr9: Array[int] = []
+	var same9: bool = true
+	var broken5: bool = false
+	for d in range(1, 8):
+		var o9: Dictionary = Dag.resume(v9, t10 + d * 86400)
+		v9 = o9["village"]
+		g9.append(v9["player_gold"])
+		d9.append(v9["npcs"][0]["tool_durability"])
+		p9.append(o9["tools_replaced"])
+		s9.append(v9["shops"]["FORGE"]["stock"])
+		tr9.append(v9["shops"]["FORGE"]["treasury"])
+		same9 = same9 and v9["npcs"][1]["tool_durability"] == d9[-1] and v9["npcs"][2]["tool_durability"] == d9[-1]
+		if d == 5:
+			broken5 = v9["npcs"][0]["tool_broken"] and v9["npcs"][1]["tool_broken"] and v9["npcs"][2]["tool_broken"]
+	_check("R9: player_gold 13 / 26 / 39 / 52 / 65 / 77 / 90", g9 == _bonds([13, 26, 39, 52, 65, 77, 90]), str(g9))
+	_check("R9: durabilite des 3 producteurs 80 / 60 / 40 / 20 / 0 (brises) / 80 / 60", d9 == _floats([80.0, 60.0, 40.0, 20.0, 0.0, 80.0, 60.0]) and same9 and broken5, "%s %s %s" % [str(d9), str(same9), str(broken5)])
+	_check("R9: outils remplaces 0 / 0 / 0 / 0 / 0 / 3 / 0", p9 == _bonds([0, 0, 0, 0, 0, 3, 0]), str(p9))
+	_check("R9: stock Forge 1 / 2 / 3 / 4 / 5 / 6 / 7", s9 == _bonds([1, 2, 3, 4, 5, 6, 7]), str(s9))
+	_check("R9: tresorerie Forge 202 / 254 / 306 / 358 / 410 / 464 / 516", tr9 == _bonds([202, 254, 306, 358, 410, 464, 516]), str(tr9))
+	# Jalon 3 : SaveManager
+	_clean_saves()
+	var S: Dictionary = {"format": 1, "seq": 1, "world_seed": RngS.fnv1a64("archipel"), "village": _village(t10)}
+	var rt: Dictionary = SaveS.unpack(SaveS.pack(S))
+	_check("save: unpack(pack(S)) == S", rt == S)
+	_check("save: types conserves (tool_durability float, player_gold int)", typeof(rt["village"]["npcs"][0]["tool_durability"]) == TYPE_FLOAT and typeof(rt["village"]["player_gold"]) == TYPE_INT)
+	_check("save: pack deterministe", SaveS.pack(S) == SaveS.pack(rt))
+	_check("save: graine, _seq(world_seed, map, 100) identique apres aller-retour", _seq(rt["world_seed"], "map", 100) == _seq(S["world_seed"], "map", 100))
+	var seqs: Array[int] = []
+	var slots: Array[String] = []
+	for i in 3:
+		var sv: Dictionary = SaveS.save(S, t10, TEST_SAVE_DIR)
+		seqs.append(sv["seq"])
+		slots.append(SaveS.slot_path(sv["seq"], TEST_SAVE_DIR).get_file())
+	var path_a: String = TEST_SAVE_DIR.path_join("save_a.dat")
+	var path_b: String = TEST_SAVE_DIR.path_join("save_b.dat")
+	var in_a: int = SaveS.unpack(FileAccess.get_file_as_bytes(path_a)).get("seq", -1)
+	var in_b: int = SaveS.unpack(FileAccess.get_file_as_bytes(path_b)).get("seq", -1)
+	_check("save: rotation seq 1 / 2 / 3 dans save_a / save_b / save_a", seqs == _bonds([1, 2, 3]) and slots == ["save_a.dat", "save_b.dat", "save_a.dat"] and in_a == 3 and in_b == 2, "%s %s %d %d" % [str(seqs), str(slots), in_a, in_b])
+	_check("save: load_latest rend seq 3", SaveS.load_latest(TEST_SAVE_DIR).get("seq", -1) == 3)
+	var bytes_a: PackedByteArray = FileAccess.get_file_as_bytes(path_a)
+	bytes_a[SaveS.HASH_SIZE + 5] ^= 0xFF
+	_write_bytes(path_a, bytes_a)
+	_check("save: save_a corrompu -> load_latest rend seq 2", SaveS.load_latest(TEST_SAVE_DIR).get("seq", -1) == 2)
+	_write_bytes(path_b, FileAccess.get_file_as_bytes(path_b).slice(0, 10))
+	_check("save: save_b tronque a 10 octets en plus -> {}", SaveS.load_latest(TEST_SAVE_DIR).is_empty())
+	var s_fmt: Dictionary = S.duplicate(true)
+	s_fmt["format"] = 2
+	var s_seq0: Dictionary = S.duplicate(true)
+	s_seq0["seq"] = 0
+	_check("save: format 2 refuse, seq 0 refuse", SaveS.unpack(SaveS.pack(s_fmt)).is_empty() and SaveS.unpack(SaveS.pack(s_seq0)).is_empty())
+	_clean_saves()
+	var s_clk: Dictionary = S.duplicate(true)
+	s_clk["village"]["last_save_utc"] = D0 + 7200
+	var keep: int = SaveS.save(s_clk, D0 + 3600, TEST_SAVE_DIR)["village"]["last_save_utc"]
+	var adv: int = SaveS.save(s_clk, D0 + 10800, TEST_SAVE_DIR)["village"]["last_save_utc"]
+	_check("save: horloge, now plus ancien garde 7200, now plus recent ecrit 10800", keep == D0 + 7200 and adv == D0 + 10800, "%d %d" % [keep - D0, adv - D0])
+	var b64: String = SaveS.export_base64(S)
+	_check("base64: import(export(S)) == S", SaveS.import_base64(b64) == S)
+	var mid: int = b64.length() / 2
+	var b64_bad: String = b64.substr(0, mid) + ("B" if b64[mid] == "A" else "A") + b64.substr(mid + 1)
+	_check("base64: un caractere du milieu remplace -> {}", SaveS.import_base64(b64_bad).is_empty())
+	_check("base64: \"pas du base64\" -> {}", SaveS.import_base64("pas du base64").is_empty())
+	_clean_saves()
+	SaveS.save(S, t10, TEST_SAVE_DIR)
+	var bt: Dictionary = SaveS.boot(w7, TEST_SAVE_DIR)
+	var bv: Dictionary = bt["state"]["village"]
+	_check("boot: village == resume(S.village, T10 + 7 j), player_gold 13, seq 2", bv == Dag.resume(S["village"], w7)["village"] and bv["player_gold"] == 13 and bt["state"]["seq"] == 2, "%d %d" % [bv["player_gold"], bt["state"]["seq"]])
+	_check("boot: load_latest rend le meme etat", SaveS.load_latest(TEST_SAVE_DIR) == bt["state"])
+	var bt2: Dictionary = SaveS.boot(w7, TEST_SAVE_DIR)
+	_check("boot: deuxieme boot au meme instant, t_eff 0, aucun tick, player_gold 13", bt2["t_eff"] == 0.0 and not bt2["ticked"] and bt2["state"]["village"]["player_gold"] == 13, "%s %s %d" % [str(bt2["t_eff"]), str(bt2["ticked"]), bt2["state"]["village"]["player_gold"]])
+	var bt3: Dictionary = SaveS.boot(w7 - 7200, TEST_SAVE_DIR)
+	_check("boot: horloge reculee de 2 h, t_eff 0, aucun tick, last_save_utc reste T10 + 7 j", bt3["t_eff"] == 0.0 and not bt3["ticked"] and bt3["state"]["village"]["last_save_utc"] == w7, "%s %s %d" % [str(bt3["t_eff"]), str(bt3["ticked"]), bt3["state"]["village"]["last_save_utc"] - w7])
+	_clean_saves()
+	_check("boot: dossier vide -> {}", SaveS.boot(w7, TEST_SAVE_DIR).is_empty())
 	# Garde-fou
 	var ba_script: Script = load("res://balance/balance_a.gd") # BA.get_script_constant_map() est refusé par le parseur (appel non statique sur une classe)
 	_check("garde-fou: BalanceA sans WEAPON_SAME_SCHOOL_3PIECE_AFFINITY_BONUS", not ba_script.get_script_constant_map().has("WEAPON_SAME_SCHOOL_3PIECE_AFFINITY_BONUS"))

@@ -69,6 +69,18 @@ static func npc_rate(prod_base: float, stars: int, cadence: String, moral: int, 
 	var m_wear: float = BB.TOOL_BROKEN_PROD_MULT if tool_broken else 1.0
 	return prod_base * (BB.APTITUDE_MULT_BASE + BB.APTITUDE_MULT_PER_STAR * stars) * BB.CADENCE_PROD_MULT[cadence] * m_moral * m_wear * BD.get_npc_trait_prod_mult(trait_ids)
 
+static func daily_fixed_sink(shop_lvls: Array[int]) -> int:
+	var total: int = 0
+	for lvl: int in shop_lvls:
+		total += lvl
+	return BB.SHOP_DAILY_FIXED_SINK_PER_LVL * total
+
+static func tool_wear_per_day(trait_ids: Array[int]) -> float:
+	var mult: float = 1.0
+	for t_id: int in trait_ids:
+		mult *= BD.TRAIT_DEFS[t_id]["tool_wear_mult"]
+	return BB.TOOL_WEAR_PER_WORK_HOUR * BB.MORAL_WORK_HOURS_PER_DAY * mult
+
 static func moral_prod_mult(m: int) -> float:
 	if m < BB.MORAL_STRIKE_ENTER_THRESHOLD:
 		return BB.MORAL_PROD_MULT_STRIKE

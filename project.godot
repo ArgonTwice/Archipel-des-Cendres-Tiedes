@@ -17,6 +17,7 @@ config/features=PackedStringArray("4.7", "Mobile")
 
 Clock="*res://autoload/Clock.gd"
 Rng="*res://autoload/Rng.gd"
+SaveManager="*res://autoload/SaveManager.gd"
 
 [display]
 

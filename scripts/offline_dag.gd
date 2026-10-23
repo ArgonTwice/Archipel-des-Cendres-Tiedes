@@ -10,10 +10,15 @@ extends RefCounted
 #       revenue, wages, tax, treasury, pot_left, moral_bonus, fiche (pot_prod, t_full, t_glean, consumed à 0 pour MAT).
 #   meals = min(npc_count, ventes de la Taverne).
 #
-# resume(village, now_utc) -> {"village": copie mise à jour, "t_eff": float, "ticked": bool, "fiches": Array[String]}
+# resume(village, now_utc) -> {"village": copie mise à jour, "t_eff": float, "ticked": bool, "fiches": Array[String],
+#   "fixed_cost_paid": int, "tools_replaced": int, "dag": sortie de resolve}
 #   village : last_save_utc, tz_offset_sec, last_tick_day, isolat, player_gold,
 #     shops {MAT, TAVERN, FORGE : stock, lvl, posture, griffe_trait, pot, treasury},
-#     npcs [post (EXTRACTION / TAVERN / FORGE / GUARD), stars, cadence, moral, on_strike, tool_broken, traits, house_lvl, manages].
+#     npcs [post (EXTRACTION / TAVERN / FORGE / GUARD), stars, cadence, moral, on_strike, tool_broken,
+#       tool_durability (0 à TOOL_DURABILITY_MAX ; brisé <=> <= 1e-9), traits, house_lvl, manages].
+#   Ordre : a. t_eff, tick_due ; b. si tick : pots du jour, remplacement des outils brisés (stock et pot de la Forge) ;
+#   c. rates ; d. resolve et application ; e. bonus de stock plein ; f. si tick : Moral, usure, frais fixes ;
+#   g. last_save_utc = max(last_save_utc, now). Sans tick : ni remplacement, ni usure, ni frais.
 
 const BB = preload("res://balance/balance_b.gd")
 const Eco = preload("res://scripts/economy.gd")
@@ -91,8 +96,29 @@ static func resume(village: Dictionary, now_utc: int) -> Dictionary:
 		if tick_due:
 			shop["pot"] = budget
 		var s_max: int = Eco.stock_max(key == "MAT", shop["lvl"], shop["griffe_trait"])
-		inputs[key] = {"stock": shop["stock"], "stock_max": s_max, "target": Eco.stock_target(s_max, shop["posture"]), "rate": 0.0,
-			"p_base": BB.ITEM_BASE_GOLD[SHOP_ITEM[key]], "budget_day": budget, "pot": shop["pot"], "tax_rate": BB.POSTURE_VILLAGE_TAX_RATE[shop["posture"]]}
+		inputs[key] = {"stock_max": s_max, "target": Eco.stock_target(s_max, shop["posture"]), "rate": 0.0,
+			"p_base": BB.ITEM_BASE_GOLD[SHOP_ITEM[key]], "budget_day": budget, "tax_rate": BB.POSTURE_VILLAGE_TAX_RATE[shop["posture"]]}
+	# b. Remplacement des outils brisés des producteurs, achetés à la Forge au prix du stock cible
+	var tools_replaced: int = 0
+	if tick_due:
+		var forge: Dictionary = v["shops"]["FORGE"]
+		var f_in: Dictionary = inputs["FORGE"]
+		var price: int = Eco.sell_price(BB.ITEM_BASE_GOLD["OUTIL_SIMPLE"], v["isolat"], f_in["target"], f_in["target"])
+		for npc: Dictionary in v["npcs"]:
+			if POST_SHOP.has(npc["post"]) and npc["tool_broken"] and forge["stock"] >= 1 and forge["pot"] >= price:
+				var wages: int = floori(price * BB.SHOP_REVENUE_NPC_WAGE_SHARE)
+				var tax: int = floori(price * f_in["tax_rate"])
+				forge["stock"] -= 1
+				forge["pot"] -= price
+				v["player_gold"] += tax
+				forge["treasury"] += price - wages - tax
+				npc["tool_durability"] = BB.TOOL_DURABILITY_MAX
+				npc["tool_broken"] = false
+				tools_replaced += 1
+	# c. Rates après remplacement
+	for key: String in SHOP_BUDGET_KEY:
+		inputs[key]["stock"] = v["shops"][key]["stock"]
+		inputs[key]["pot"] = v["shops"][key]["pot"]
 	for npc: Dictionary in v["npcs"]:
 		if POST_SHOP.has(npc["post"]):
 			var traits: Array[int] = []
@@ -115,15 +141,24 @@ static func resume(village: Dictionary, now_utc: int) -> Dictionary:
 			npc["moral"] = mini(npc["moral"] + res[POST_SHOP[npc["post"]]]["moral_bonus"], int(BB.MORAL_MAX))
 		if npc["manages"] != "":
 			manager_traits.append(npc["traits"])
+	# f. Tick unique : Moral, usure (producteurs qui ont travaillé avant le tick), puis frais fixes sans dette
+	var fixed_cost_paid: int = 0
 	if tick_due:
 		var griffe: float = Eco.griffe_moral_bonus(manager_traits)
 		for i in v["npcs"].size():
 			var npc: Dictionary = v["npcs"][i]
 			var traits: Array[int] = []
 			traits.assign(npc["traits"])
+			var worked: bool = POST_SHOP.has(npc["post"]) and not npc["on_strike"]
 			var tick: Dictionary = Eco.npc_daily_tick(npc["moral"], npc["on_strike"], npc["cadence"], "EATEN" if i < res["meals"] else "OFFLINE", npc["house_lvl"], traits, griffe)
 			npc["moral"] = tick["moral"]
 			npc["on_strike"] = tick["on_strike"]
+			if worked:
+				npc["tool_durability"] = maxf(0.0, npc["tool_durability"] - Eco.tool_wear_per_day(traits))
+				npc["tool_broken"] = npc["tool_durability"] <= 1e-9
+		var lvls: Array[int] = [v["shops"]["MAT"]["lvl"], v["shops"]["TAVERN"]["lvl"], v["shops"]["FORGE"]["lvl"]]
+		fixed_cost_paid = mini(v["player_gold"], Eco.daily_fixed_sink(lvls))
+		v["player_gold"] -= fixed_cost_paid
 		v["last_tick_day"] = today
 	v["last_save_utc"] = maxi(v["last_save_utc"], now_utc)
-	return {"village": v, "t_eff": t_eff, "ticked": tick_due, "fiches": fiches}
+	return {"village": v, "t_eff": t_eff, "ticked": tick_due, "fiches": fiches, "fixed_cost_paid": fixed_cost_paid, "tools_replaced": tools_replaced, "dag": res}
