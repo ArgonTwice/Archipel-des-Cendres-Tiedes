@@ -1,5 +1,6 @@
 extends Node
 # Autoload « Rng » : FNV-1a 64 bits + PCG32 maison. Aucun appel à randi()/randf()/RandomNumberGenerator.
+# Entropie : Crypto.generate_random_bytes (ni randi ni RandomNumberGenerator), une seule fois par nouvelle partie (entropy_seed).
 # int GDScript = int64 signé ; la doc de int garantit le bouclage au débordement.
 # La doc ne précise pas si >> est arithmétique ou logique sur les négatifs : tout >> est donc masqué.
 # Les littéraux > 2^63 ne sont pas documentés : on les assemble depuis deux moitiés de 32 bits.
@@ -14,6 +15,10 @@ static func fnv1a64(text: String) -> int:
 	for b: int in text.to_utf8_buffer():
 		h = (h ^ b) * FNV_PRIME
 	return h
+
+# Seule source d'entropie, une fois par nouvelle partie ; tout le reste dérive de world_seed par make_rng.
+static func entropy_seed() -> int:
+	return Crypto.new().generate_random_bytes(8).decode_s64(0)
 
 # Un RNG indépendant par système, initialisé par hash(world_seed + node_id).
 static func make_rng(world_seed: int, node_id: String) -> Pcg32:

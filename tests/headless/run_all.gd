@@ -9,6 +9,7 @@ const BD = preload("res://balance/balance_d.gd")
 const Eco = preload("res://scripts/economy.gd")
 const Dag = preload("res://scripts/offline_dag.gd")
 const SaveS = preload("res://autoload/SaveManager.gd")
+const NewGameS = preload("res://scripts/new_game.gd")
 const TEST_SAVE_DIR: String = "user://test_saves/"
 const Ic = preload("res://tests/headless/ic_model.gd")
 const D0: int = 1792627200 # 2026-10-22 00:00:00 UTC
@@ -91,6 +92,15 @@ func _floats(values: Array) -> Array[float]:
 
 func _shop_vals(v: Dictionary, key: String) -> Array[int]:
 	return _bonds([v["shops"]["MAT"][key], v["shops"]["TAVERN"][key], v["shops"]["FORGE"][key]])
+
+func _dag_vals(out: Dictionary, key: String) -> Array[int]:
+	return _bonds([out["dag"]["MAT"][key], out["dag"]["TAVERN"][key], out["dag"]["FORGE"][key]])
+
+func _draws(world_seed: int) -> Array:
+	var out: Array = []
+	for i in 5:
+		out.append(NewGameS.draw_traits(RngS.make_rng(world_seed, "npc/%d" % i)))
+	return out
 
 func _clean_saves() -> void:
 	for f: String in SaveS.SLOT_FILES:
@@ -611,7 +621,103 @@ func _initialize() -> void:
 	var bt3: Dictionary = SaveS.boot(w7 - 7200, TEST_SAVE_DIR)
 	_check("boot: horloge reculee de 2 h, t_eff 0, aucun tick, last_save_utc reste T10 + 7 j", bt3["t_eff"] == 0.0 and not bt3["ticked"] and bt3["state"]["village"]["last_save_utc"] == w7, "%s %s %d" % [str(bt3["t_eff"]), str(bt3["ticked"]), bt3["state"]["village"]["last_save_utc"] - w7])
 	_clean_saves()
-	_check("boot: dossier vide -> {}", SaveS.boot(w7, TEST_SAVE_DIR).is_empty())
+	# Jalon 4 : nouvelle partie
+	var SEED: int = RngS.fnv1a64("archipel")
+	var NO: int = BD.TraitId.NOCTAMBULE
+	_check("rng: jumeau make_rng(SEED, npc/0), 10 next_u32", SEED == -6068549941476399303 and _seq(SEED, "npc/0", 10) == _bonds([583857294, 2374001034, 2949803476, 1535391990, 4081604712, 2003029350, 1108202908, 3117921484, 105880901, 304449250]), str(_seq(SEED, "npc/0", 10)))
+	for c: Array in [["SEED", SEED, [[CO, TE], [BO], [PE], [PE, CO], [PE, CO]]], ["graine 0", 0, [[NO], [NO, BO], [PE], [PE, BE], [CO, BO]]], ["graine 42", 42, [[CO, BO], [PE, BE], [BE], [PE], [NO]]]]:
+		var got_t: Array = _draws(c[1])
+		_check("traits: %s, PNJ 0 a 4" % c[0], got_t == c[2], str(got_t))
+	var n2: int = 0
+	var principal: Array[int] = [0, 0, 0, 0, 0, 0]
+	var dup: int = 0
+	var incompat: int = 0
+	var pairs: Dictionary = {}
+	for s in 10000:
+		var tr: Array[int] = NewGameS.draw_traits(RngS.make_rng(s, "npc/0"))
+		principal[tr[0]] += 1
+		if tr.size() == 2:
+			n2 += 1
+			dup += 1 if tr[0] == tr[1] else 0
+			incompat += 1 if tr[1] in BD.TRAIT_INCOMPATIBILITIES[tr[0]] else 0
+			pairs["%d-%d" % [mini(tr[0], tr[1]), maxi(tr[0], tr[1])]] = true
+	_check("tirage: graines 0-9999, 5128 PNJ a 2 traits", n2 == 5128, str(n2))
+	_check("tirage: trait principal 1491 / 2004 / 1499 / 1512 / 2019 / 1475", principal == _bonds([1491, 2004, 1499, 1512, 2019, 1475]), str(principal))
+	_check("tirage: 0 doublon, 0 paire incompatible, 12 paires distinctes", dup == 0 and incompat == 0 and pairs.size() == 12, "%d %d %d" % [dup, incompat, pairs.size()])
+	var V: Dictionary = NewGameS.village(SEED, t10, 0)
+	var posts: Array = []
+	var mans: Array = []
+	var npc_ok: bool = true
+	for npc: Dictionary in V["npcs"]:
+		posts.append(npc["post"])
+		mans.append(npc["manages"])
+		npc_ok = npc_ok and npc["stars"] == 2 and npc["cadence"] == "NORMAL" and npc["moral"] == 80 and npc["house_lvl"] == 1 \
+			and typeof(npc["tool_durability"]) == TYPE_FLOAT and npc["tool_durability"] == 100.0 and not npc["tool_broken"] and not npc["on_strike"]
+	_check("village: posts et gerants", posts == ["EXTRACTION", "TAVERN", "FORGE", "GUARD", "GUARD"] and mans == ["MAT", "TAVERN", "FORGE", "", ""], "%s %s" % [str(posts), str(mans)])
+	_check("village: 5 x 2*, NORMAL, Moral 80, maison 1, durabilite 100,0 float, ni outil brise ni greve", npc_ok)
+	_check("village: griffe MAT COSTAUD, TAVERN BOSSEUR, FORGE PERFECTIONNISTE", _shop_vals(V, "griffe_trait") == _bonds([CO, BO, PE]), str(_shop_vals(V, "griffe_trait")))
+	var smax: Array[int] = []
+	var tgt: Array[int] = []
+	for k: String in ["MAT", "TAVERN", "FORGE"]:
+		smax.append(Eco.stock_max(k == "MAT", V["shops"][k]["lvl"], V["shops"][k]["griffe_trait"]))
+		tgt.append(Eco.stock_target(smax[-1], V["shops"][k]["posture"]))
+	_check("village: stock_max 69 / 30 / 30, cibles 41 / 18 / 18", smax == _bonds([69, 30, 30]) and tgt == _bonds([41, 18, 18]), "%s %s" % [str(smax), str(tgt)])
+	_check("village: stocks 0 / 0 / 0, pots 8 / 48 / 144, tresoreries 150 x 3", _shop_vals(V, "stock") == _bonds([0, 0, 0]) and _shop_vals(V, "pot") == _bonds([8, 48, 144]) and _shop_vals(V, "treasury") == _bonds([150, 150, 150]), "%s %s %s" % [str(_shop_vals(V, "stock")), str(_shop_vals(V, "pot")), str(_shop_vals(V, "treasury"))])
+	_check("village: player_gold 0, isolat 0, last_save_utc T10, last_tick_day 20748", V["player_gold"] == 0 and V["isolat"] == 0 and V["last_save_utc"] == t10 and V["last_tick_day"] == 20748, "%d %d %d %d" % [V["player_gold"], V["isolat"], V["last_save_utc"] - t10, V["last_tick_day"]])
+	_check("village: deterministe, graine 0 differente", NewGameS.village(SEED, t10, 0) == V and NewGameS.village(0, t10, 0) != V)
+	var tzd: Array[int] = []
+	for tz: int in [0, 7200, -36000]:
+		tzd.append(NewGameS.village(SEED, t10, tz)["last_tick_day"])
+	_check("village: last_tick_day 20748 / 20748 / 20747 pour tz 0 / 7200 / -36000", tzd == _bonds([20748, 20748, 20747]), str(tzd))
+	var ns: Dictionary = SaveS.new_state(SEED, t10, 0)
+	ns["seq"] = 1
+	_check("village: new_state seq 1 valide pour SaveManager, aller-retour pack/unpack", SaveS._is_valid(ns) and SaveS.unpack(SaveS.pack(ns)) == ns)
+	var n0: Dictionary = Dag.resume(V, t10)
+	_check("depart: resume au meme instant, pas de tick, t_eff 0, village identique", not n0["ticked"] and n0["t_eff"] == 0.0 and n0["village"] == V)
+	var n6: Dictionary = Dag.resume(V, t10 + 6 * 3600)
+	var v6n: Dictionary = n6["village"]
+	_check("depart: +6 h, pas de tick, t_eff 6, DAG added 17 / 6 / 3, sold 0 / 3 / 3, tax 0 / 4 / 7, meals 3", not n6["ticked"] and n6["t_eff"] == 6.0 and _dag_vals(n6, "added") == _bonds([17, 6, 3]) and _dag_vals(n6, "sold") == _bonds([0, 3, 3]) and _dag_vals(n6, "tax") == _bonds([0, 4, 7]) and n6["dag"]["meals"] == 3,
+		"%s %s %s %d" % [str(_dag_vals(n6, "added")), str(_dag_vals(n6, "sold")), str(_dag_vals(n6, "tax")), n6["dag"]["meals"]])
+	_check("depart: +6 h, player_gold 11, stocks 0 / 3 / 0, pots 8 / 24 / 108, tresoreries 150 / 160 / 163", v6n["player_gold"] == 11 and _shop_vals(v6n, "stock") == _bonds([0, 3, 0]) and _shop_vals(v6n, "pot") == _bonds([8, 24, 108]) and _shop_vals(v6n, "treasury") == _bonds([150, 160, 163]),
+		"%d %s %s %s" % [v6n["player_gold"], str(_shop_vals(v6n, "stock")), str(_shop_vals(v6n, "pot")), str(_shop_vals(v6n, "treasury"))])
+	_check("depart: +6 h, Moral 5 x 80, durabilites 5 x 100", _morals(v6n) == _bonds([80, 80, 80, 80, 80]) and _durs(v6n) == _floats([100.0, 100.0, 100.0, 100.0, 100.0]), "%s %s" % [str(_morals(v6n)), str(_durs(v6n))])
+	var n24: Dictionary = Dag.resume(V, t10 + 86400)
+	var v24: Dictionary = n24["village"]
+	_check("depart: +24 h, tick, t_eff 12, DAG added 34 / 6 / 12, sold 0 / 6 / 12, tax 0 / 9 / 28, meals 5", n24["ticked"] and n24["t_eff"] == 12.0 and _dag_vals(n24, "added") == _bonds([34, 6, 12]) and _dag_vals(n24, "sold") == _bonds([0, 6, 12]) and _dag_vals(n24, "tax") == _bonds([0, 9, 28]) and n24["dag"]["meals"] == 5,
+		"%s %s %s %d" % [str(_dag_vals(n24, "added")), str(_dag_vals(n24, "sold")), str(_dag_vals(n24, "tax")), n24["dag"]["meals"]])
+	_check("depart: +24 h, frais 24, player_gold 13, stocks 0 x 3, pots 8 / 0 / 0, tresoreries 150 / 168 / 202", n24["fixed_cost_paid"] == 24 and v24["player_gold"] == 13 and _shop_vals(v24, "stock") == _bonds([0, 0, 0]) and _shop_vals(v24, "pot") == _bonds([8, 0, 0]) and _shop_vals(v24, "treasury") == _bonds([150, 168, 202]),
+		"%d %d %s %s %s" % [n24["fixed_cost_paid"], v24["player_gold"], str(_shop_vals(v24, "stock")), str(_shop_vals(v24, "pot")), str(_shop_vals(v24, "treasury"))])
+	_check("depart: +24 h, Moral 82 / 79 / 81 / 81 / 81, durabilites 80 / 80 / 85 / 100 / 100", _morals(v24) == _bonds([82, 79, 81, 81, 81]) and _durs(v24) == _floats([80.0, 80.0, 85.0, 100.0, 100.0]), "%s %s" % [str(_morals(v24)), str(_durs(v24))])
+	var vd: Dictionary = V
+	var gd: Array[int] = []
+	for d in range(1, 8):
+		vd = Dag.resume(vd, t10 + d * 86400)["village"]
+		gd.append(vd["player_gold"])
+	_check("depart: 7 retours quotidiens, player_gold 13 / 26 / 39 / 52 / 65 / 78 / 91", gd == _bonds([13, 26, 39, 52, 65, 78, 91]), str(gd))
+	_check("depart: Moral au 7e jour 86 / 78 / 82 / 82 / 82", _morals(vd) == _bonds([86, 78, 82, 82, 82]), str(_morals(vd)))
+	var v359: Dictionary = NewGameS.village(SEED, D0 + 3 * 3600 + 59 * 60, 0)
+	var n401: Dictionary = Dag.resume(v359, D0 + 4 * 3600 + 60)
+	_check("depart: cree a 3 h 59, repris a 4 h 01 : jour 20747 -> 20748, tick, frais 0, pots 8 / 48 / 144", v359["last_tick_day"] == 20747 and n401["village"]["last_tick_day"] == 20748 and n401["ticked"] and n401["fixed_cost_paid"] == 0 and n401["village"]["player_gold"] == 0 and _shop_vals(n401["village"], "pot") == _bonds([8, 48, 144]),
+		"%d %d %s %d %s" % [v359["last_tick_day"], n401["village"]["last_tick_day"], str(n401["ticked"]), n401["fixed_cost_paid"], str(_shop_vals(n401["village"], "pot"))])
+	var e1: Variant = RngS.entropy_seed()
+	var e2: Variant = RngS.entropy_seed()
+	_check("rng: entropy_seed int, deux appels differents", typeof(e1) == TYPE_INT and e1 != e2)
+	_clean_saves()
+	var nb: Dictionary = SaveS.boot(t10, TEST_SAVE_DIR)
+	var nbs: Dictionary = nb["state"]
+	_check("boot: dossier vide -> nouvelle partie, seq 1, save_a.dat", nb["new_game"] and nbs["seq"] == 1 and FileAccess.file_exists(TEST_SAVE_DIR.path_join("save_a.dat")), "%s %d" % [str(nb["new_game"]), nbs["seq"]])
+	_check("boot: nouvelle partie, world_seed int, Or de depart, fuseau systeme, 5 PNJ, last_save_utc == now",
+		typeof(nbs["world_seed"]) == TYPE_INT and nbs["village"]["player_gold"] == BB.PLAYER_STARTING_GOLD and nbs["village"]["tz_offset_sec"] == NewGameS.system_tz_offset_sec() and nbs["village"]["npcs"].size() == 5 and nbs["village"]["last_save_utc"] == t10)
+	var nb2: Dictionary = SaveS.boot(t10, TEST_SAVE_DIR)
+	var same_v: Dictionary = nb2["state"]["village"].duplicate(true)
+	same_v["last_save_utc"] = nbs["village"]["last_save_utc"]
+	_check("boot: deuxieme boot, reprise, meme graine, seq 2, t_eff 0, aucun tick, village inchange", not nb2["new_game"] and nb2["state"]["world_seed"] == nbs["world_seed"] and nb2["state"]["seq"] == 2 and nb2["t_eff"] == 0.0 and not nb2["ticked"] and same_v == nbs["village"],
+		"%s %d %s %s" % [str(nb2["new_game"]), nb2["state"]["seq"], str(nb2["t_eff"]), str(nb2["ticked"])])
+	_clean_saves()
+	_write_bytes(TEST_SAVE_DIR.path_join("save_a.dat"), PackedByteArray([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]))
+	var nb3: Dictionary = SaveS.boot(t10, TEST_SAVE_DIR)
+	_check("boot: seul un save_a.dat de 10 octets -> {}, fichier intact, pas de save_b.dat", nb3.is_empty() and FileAccess.get_file_as_bytes(TEST_SAVE_DIR.path_join("save_a.dat")).size() == 10 and not FileAccess.file_exists(TEST_SAVE_DIR.path_join("save_b.dat")))
+	_clean_saves()
 	# Garde-fou
 	var ba_script: Script = load("res://balance/balance_a.gd") # BA.get_script_constant_map() est refusé par le parseur (appel non statique sur une classe)
 	_check("garde-fou: BalanceA sans WEAPON_SAME_SCHOOL_3PIECE_AFFINITY_BONUS", not ba_script.get_script_constant_map().has("WEAPON_SAME_SCHOOL_3PIECE_AFFINITY_BONUS"))

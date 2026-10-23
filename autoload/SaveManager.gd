@@ -7,6 +7,8 @@ extends Node
 
 const Dag = preload("res://scripts/offline_dag.gd")
 const ClockS = preload("res://autoload/Clock.gd")
+const RngS = preload("res://autoload/Rng.gd")
+const NewGameS = preload("res://scripts/new_game.gd")
 
 const SAVE_FORMAT_VERSION: int = 1
 const SLOT_FILES: Array[String] = ["save_a.dat", "save_b.dat"]
@@ -103,13 +105,25 @@ static func export_base64(s: Dictionary) -> String:
 static func import_base64(text: String) -> Dictionary:
 	return unpack(Marshalls.base64_to_raw(text.strip_edges()))
 
-# Reprise : dernier état valide, DAG hors-ligne, puis écriture. {} si aucune sauvegarde (nouvelle partie hors périmètre).
+# seq 0 : save() pose le seq.
+static func new_state(world_seed: int, now_utc: int, tz_offset_sec: int) -> Dictionary:
+	return {"format": SAVE_FORMAT_VERSION, "seq": 0, "world_seed": world_seed, "village": NewGameS.village(world_seed, now_utc, tz_offset_sec)}
+
+# Reprise : dernier état valide, DAG hors-ligne, puis écriture. Aucune sauvegarde : nouvelle partie.
+# Fichier présent mais illisible : {} et rien n'est écrit (le joueur ne perd pas sa partie sur une erreur).
 static func boot(now_utc: int, dir: String = DEFAULT_DIR) -> Dictionary:
 	var st: Dictionary = load_latest(dir)
 	if st.is_empty():
-		return {}
+		for f: String in SLOT_FILES:
+			if FileAccess.file_exists(dir.path_join(f)):
+				push_error("SaveManager : sauvegarde illisible, rien n'est écrit (%s)" % dir.path_join(f))
+				return {}
+		var created: Dictionary = save(new_state(RngS.entropy_seed(), now_utc, NewGameS.system_tz_offset_sec()), now_utc, dir)
+		if created.is_empty():
+			return {}
+		return {"state": created, "t_eff": 0.0, "ticked": false, "fiches": [], "fixed_cost_paid": 0, "tools_replaced": 0, "new_game": true}
 	var out: Dictionary = Dag.resume(st["village"], now_utc)
 	st["village"] = out["village"]
 	var saved: Dictionary = save(st, now_utc, dir)
 	return {"state": saved, "t_eff": out["t_eff"], "ticked": out["ticked"], "fiches": out["fiches"],
-		"fixed_cost_paid": out["fixed_cost_paid"], "tools_replaced": out["tools_replaced"]}
+		"fixed_cost_paid": out["fixed_cost_paid"], "tools_replaced": out["tools_replaced"], "new_game": false}

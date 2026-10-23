@@ -86,6 +86,7 @@ const MAX_ACTIVE_RUPTURE_FICHES_PER_SHOP: int = 1
 # 4. BOUTIQUES, STOCKS, PRIX DYNAMIQUES, BUDGETS CLIENTS ET PUITS D'OR
 # ==============================================================================
 const SHOP_INITIAL_TREASURY_GOLD: int = 150
+const PLAYER_STARTING_GOLD: int = 0 # tranché par Antho le 23/10/2026 : les profils du Volet B (§6) partent de 0 Or
 const SHOP_STOCK_MAX_MAT_BASE: int = 60
 const SHOP_STOCK_MAX_MAT_PER_LVL: int = 40
 const SHOP_STOCK_MAX_PROD_BASE: int = 30

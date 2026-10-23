@@ -43,3 +43,4 @@ Note : en prix unitaires entiers, les trésoreries de l'Assidu sont à −1 à �
 - COUNTER_EVENT_XP_REWARD (B) double XP_VILLAGE_COUNTER_EVENT (A) : garder celui de A.
 - CLOCK_DRIFT_TOLERANCE_SEC et OFFLINE_MAX_HOURS : retirer de Clock.gd, lire BalanceB.
 - NPC_NEW_SHOP_SAVINGS_THRESHOLD : inactif en tranche (budget dépensé à 100 %).
+- Or de départ du joueur : PLAYER_STARTING_GOLD = 0 (tranché par Antho le 23/10/2026, profils §6 inchangés).
