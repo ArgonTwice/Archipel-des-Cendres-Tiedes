@@ -1,8 +1,7 @@
 class_name Economy
 extends RefCounted
 # Fonctions pures de l'économie (Volets B et D). Constantes lues dans BalanceA / BalanceB / BalanceD, rien en dur.
-# Taxes, salaires, trésoreries : floor par boutique et par vente (à coder avec le DAG).
-# Grève (Volet-B-valide.md §4) : hors périmètre, elle a besoin d'un état par PNJ.
+# Taxes, salaires, trésoreries : floor par boutique, appliqués dans scripts/offline_dag.gd.
 
 const BA = preload("res://balance/balance_a.gd")
 const BB = preload("res://balance/balance_b.gd")
@@ -35,7 +34,10 @@ static func stock_target(p_stock_max: int, posture: String) -> int:
 
 # cadence : "PAISIBLE" | "NORMAL" | "FORGE_ARDENTE" ; meal : "EATEN" | "MISSED" | "OFFLINE".
 static func moral_tick(m: int, cadence: String, meal: String, house_lvl: int) -> int:
-	var work: float = -BB.MORAL_DRAIN_PER_WORK_HOUR[cadence] * BB.MORAL_WORK_HOURS_PER_DAY
+	return npc_daily_tick(m, false, cadence, meal, house_lvl, [], 0.0)["moral"]
+
+# Tick unique par day_index (Volet B §4). En grève : pas de travail, +MORAL_STRIKE_DAILY_ATRE_GAIN, sortie plafonnée.
+static func npc_daily_tick(m: int, on_strike: bool, cadence: String, meal: String, house_lvl: int, trait_ids: Array[int], griffe_bonus: float) -> Dictionary:
 	var meal_delta: float
 	match meal:
 		"EATEN": meal_delta = BB.MORAL_GAIN_DAILY_MEAL
@@ -43,8 +45,29 @@ static func moral_tick(m: int, cadence: String, meal: String, house_lvl: int) ->
 		"OFFLINE": meal_delta = BB.MORAL_GAIN_OFFLINE_MISSING_MEAL
 		_: assert(false, "repas inconnu : " + meal)
 	var bed: float = BB.MORAL_GAIN_SLEEP_BASE + BB.MORAL_GAIN_SLEEP_PER_HOUSE_LVL * (house_lvl - 1)
+	var extra: float = meal_delta + bed + BD.get_npc_trait_moral_delta(trait_ids) + griffe_bonus
 	var reversion: int = roundi((BB.MORAL_EQUILIBRIUM_TARGET - m) * BB.MORAL_ATRE_MEAN_REVERSION_RATE)
-	return clampi(m + roundi(work + meal_delta + bed) + reversion, int(BB.MORAL_MIN), int(BB.MORAL_MAX))
+	if on_strike:
+		var raw: int = m + roundi(BB.MORAL_STRIKE_DAILY_ATRE_GAIN + extra) + reversion
+		if raw >= BB.MORAL_STRIKE_EXIT_THRESHOLD:
+			return {"moral": int(BB.MORAL_STRIKE_EXIT_CAP_VALUE), "on_strike": false}
+		return {"moral": clampi(raw, int(BB.MORAL_MIN), int(BB.MORAL_MAX)), "on_strike": true}
+	var work: float = -BB.MORAL_DRAIN_PER_WORK_HOUR[cadence] * BB.MORAL_WORK_HOURS_PER_DAY
+	var m2: int = clampi(m + roundi(work + extra) + reversion, int(BB.MORAL_MIN), int(BB.MORAL_MAX))
+	return {"moral": m2, "on_strike": m2 < BB.MORAL_STRIKE_ENTER_THRESHOLD}
+
+# Trait principal de chaque gérant seul ; non cumulable : le meilleur, plafonné.
+static func griffe_moral_bonus(manager_traits: Array) -> float:
+	var best: float = 0.0
+	for traits: Array in manager_traits:
+		if not traits.is_empty() and BD.GRIFFE_DEFS.has(traits[0]):
+			best = maxf(best, BD.GRIFFE_DEFS[traits[0]]["client_moral_bonus"])
+	return minf(best, BD.GRIFFE_CLIENT_MORAL_MAX_BONUS)
+
+static func npc_rate(prod_base: float, stars: int, cadence: String, moral: int, on_strike: bool, tool_broken: bool, trait_ids: Array[int]) -> float:
+	var m_moral: float = BB.MORAL_PROD_MULT_STRIKE if on_strike else moral_prod_mult(moral)
+	var m_wear: float = BB.TOOL_BROKEN_PROD_MULT if tool_broken else 1.0
+	return prod_base * (BB.APTITUDE_MULT_BASE + BB.APTITUDE_MULT_PER_STAR * stars) * BB.CADENCE_PROD_MULT[cadence] * m_moral * m_wear * BD.get_npc_trait_prod_mult(trait_ids)
 
 static func moral_prod_mult(m: int) -> float:
 	if m < BB.MORAL_STRIKE_ENTER_THRESHOLD:
