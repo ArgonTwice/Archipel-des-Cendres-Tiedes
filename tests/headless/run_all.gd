@@ -5,6 +5,7 @@ const RngS = preload("res://autoload/Rng.gd")
 const ClockS = preload("res://autoload/Clock.gd")
 const BB = preload("res://balance/balance_b.gd")
 const BC = preload("res://balance/balance_c.gd")
+const BD = preload("res://balance/balance_d.gd")
 const Eco = preload("res://scripts/economy.gd")
 const Ic = preload("res://tests/headless/ic_model.gd")
 const D0: int = 1792627200 # 2026-10-22 00:00:00 UTC
@@ -35,6 +36,11 @@ func _sum(weights: Dictionary) -> int:
 	for v: int in weights.values():
 		t += v
 	return t
+
+func _bonds(values: Array) -> Array[int]:
+	var out: Array[int] = []
+	out.assign(values)
+	return out
 
 func _parts(a: int, b: int, c: int) -> Array[int]:
 	return [a, b, c]
@@ -190,6 +196,88 @@ func _initialize() -> void:
 	for s: int in [BC.SchoolId.BRASIER, BC.SchoolId.ABYSSE]:
 		var e: float = _elem_expectation(BC.SCHOOL_DATA[s]["implicit_element"], BC.ISOLAT_MONSTER_ELEMENT_WEIGHTS[2])
 		_check("elements: E(M_elem) isolat 2, arme %s == 1,0125" % BC.SCHOOL_DATA[s]["implicit_element"], absf(e - 1.0125) <= 1e-9, "%.12f" % e)
+	# Volet D : traits
+	_check("traits: TRAIT_DRAW_WEIGHTS somme 100", _sum(BD.TRAIT_DRAW_WEIGHTS) == 100, str(_sum(BD.TRAIT_DRAW_WEIGHTS)))
+	_check("traits: TRAIT_COUNT_WEIGHTS somme 100", _sum(BD.TRAIT_COUNT_WEIGHTS) == 100, str(_sum(BD.TRAIT_COUNT_WEIGHTS)))
+	var sym: bool = true
+	for a: int in BD.TRAIT_INCOMPATIBILITIES:
+		for b: int in BD.TRAIT_INCOMPATIBILITIES:
+			if (b in BD.TRAIT_INCOMPATIBILITIES[a]) != (a in BD.TRAIT_INCOMPATIBILITIES[b]):
+				sym = false
+	_check("traits: TRAIT_INCOMPATIBILITIES symetrique", sym)
+	var combos: Array = []
+	for a: int in BD.TraitId.values():
+		combos.append(_bonds([a]))
+		for b: int in BD.TraitId.values():
+			if b > a and not (b in BD.TRAIT_INCOMPATIBILITIES[a]):
+				combos.append(_bonds([a, b]))
+	_check("traits: 18 combinaisons valides", combos.size() == 18, str(combos.size()))
+	var p_min: float = INF
+	var p_max: float = -INF
+	var m_min: float = INF
+	var m_max: float = -INF
+	for c: Array[int] in combos:
+		p_min = minf(p_min, BD.get_npc_trait_prod_mult(c))
+		p_max = maxf(p_max, BD.get_npc_trait_prod_mult(c))
+		m_min = minf(m_min, BD.get_npc_trait_moral_delta(c))
+		m_max = maxf(m_max, BD.get_npc_trait_moral_delta(c))
+	_check("traits: prod_mult min 0,90 max 1,155 (+-1e-9)", absf(p_min - 0.90) <= 1e-9 and absf(p_max - 1.155) <= 1e-9, "%.12f %.12f" % [p_min, p_max])
+	_check("traits: moral_delta min -1 max +4", m_min == -1.0 and m_max == 4.0, "%.2f %.2f" % [m_min, m_max])
+	# Volet D : Lien
+	var bond_in: Array[int] = [-5, 0, 99, 100, 249, 250, 449, 450, 700, 999, 1000, 1500]
+	var bond_want: Array[int] = [0, 0, 0, 1, 1, 2, 2, 3, 4, 4, 5, 5]
+	var bond_got: Array[int] = []
+	for v: int in bond_in:
+		bond_got.append(BD.get_bond_tier(v))
+	_check("lien: get_bond_tier sur 12 valeurs de reference", bond_got == bond_want, str(bond_got))
+	# Volet D : synergie
+	for c: Array in [[[250, 250], 100.0, 1], [[250, 250, 250], 100.0, 3], [[250, 249, 1000], 50.0, 1], [[300, 300, 300], 20.0, 3], [[1000, 1000, 1000], 19.9, 0], [[250, 250, 250, 250], 100.0, 3], [[], 100.0, 0]]:
+		var n: int = BD.count_active_follower_synergy_pairs(_bonds(c[0]), c[1])
+		_check("synergie: (%s, %s) == %d" % [str(c[0]), str(c[1]), c[2]], n == c[2], str(n))
+	# Volet D : Grand Atre
+	for c: Array in [[1, 600, 40], [2, 2400, 80], [3, 5400, 120], [4, 9600, 160]]:
+		var g: int = BD.compute_atre_upgrade_gold_cost(c[0])
+		var mi: int = BD.compute_atre_upgrade_mineral_cost(c[0])
+		var t0: int = BD.compute_atre_upgrade_tier0_cost(c[0])
+		_check("atre: depuis Nv%d -> %d Or, %d minerai, %d tier 0" % [c[0], c[1], c[2], c[2]], g == c[1] and mi == c[2] and t0 == c[2], "%d %d %d" % [g, mi, t0])
+	_check("atre: ATRE_RADIUS_TILES", BD.ATRE_RADIUS_TILES == [12, 18, 24, 30, 36], str(BD.ATRE_RADIUS_TILES))
+	_check("atre: ATRE_WORK_POSTS_CAP", BD.ATRE_WORK_POSTS_CAP == [6, 10, 16, 23, 30], str(BD.ATRE_WORK_POSTS_CAP))
+	_check("atre: ATRE_NPC_CAP", BD.ATRE_NPC_CAP == [5, 10, 16, 23, 30], str(BD.ATRE_NPC_CAP))
+	# Volet D : Lanterne-Mere
+	_check("lanterne: LANTERN_UPGRADE_BRAISE_COST", BD.LANTERN_UPGRADE_BRAISE_COST == [0, 90, 300, 600, 1050], str(BD.LANTERN_UPGRADE_BRAISE_COST))
+	_check("lanterne: LANTERN_UPGRADE_COAL_COST", BD.LANTERN_UPGRADE_COAL_COST == [0, 10, 25, 50, 80], str(BD.LANTERN_UPGRADE_COAL_COST))
+	_check("lanterne: LANTERN_UPGRADE_GOLD_COST tout a 0", BD.LANTERN_UPGRADE_GOLD_COST == [0, 0, 0, 0, 0], str(BD.LANTERN_UPGRADE_GOLD_COST))
+	_check("lanterne: LANTERN_REQ_MAX_VOC_LEVEL", BD.LANTERN_REQ_MAX_VOC_LEVEL == [1, 5, 15, 25, 35], str(BD.LANTERN_REQ_MAX_VOC_LEVEL))
+	_check("lanterne: LANTERN_REQ_ISOLAT", BD.LANTERN_REQ_ISOLAT == [1, 1, 2, 3, 4], str(BD.LANTERN_REQ_ISOLAT))
+	# Volet D : auto-assignation
+	for c: Array in [[0, 60, false, 2.00], [30, 60, false, 1.25], [60, 60, false, 0.10], [10, 0, false, 1.00], [5, 60, true, 1.00]]:
+		var need: float = BD.compute_village_need(c[0], c[1], c[2])
+		_check("besoin: compute_village_need(%d, %d, %s) == %.2f" % [c[0], c[1], str(c[2]), c[3]], absf(need - c[3]) <= 1e-9, "%.12f" % need)
+	for c: Array in [[2, true, true, 0, 60, false, 2.50], [5, false, false, 30, 60, false, 2.00]]:
+		var sc: float = BD.compute_auto_assign_score(c[0], c[1], c[2], c[3], c[4], c[5])
+		_check("score: compute_auto_assign_score(%d, %s, %s, %d, %d, %s) == %.2f" % [c[0], str(c[1]), str(c[2]), c[3], c[4], str(c[5]), c[6]], absf(sc - c[6]) <= 1e-9, "%.12f" % sc)
+	# Volet D : Griffe Tete-en-l'air
+	var tea_max: float = BD.GRIFFE_DEFS[BD.TraitId.TETE_EN_L_AIR]["price_mult_max_override"]
+	var g_sell: int = Eco.sell_price(48, 0, 0, 1, tea_max)
+	_check("griffe: Tete-en-l'air 48 -> vente 55, rachat 33", g_sell == 55 and Eco.buyback_price(g_sell) == 33, "%d %d" % [g_sell, Eco.buyback_price(g_sell)])
+	var gain_max: int = -1000000
+	for item: String in BB.ITEM_BASE_GOLD:
+		for iso in 5:
+			var p: int = BB.ITEM_BASE_GOLD[item]
+			gain_max = maxi(gain_max, Eco.buyback_price(Eco.sell_price(p, iso, 0, 1, tea_max)) - Eco.sell_price(p, iso, 2, 1))
+	_check("griffe: anti-arbitrage plafond 1,15, gain max == -1", gain_max == -1, str(gain_max))
+	# Volet D : stocks
+	_check("stock: stock_max(mat, 1) == 60", Eco.stock_max(true, 1) == 60, str(Eco.stock_max(true, 1)))
+	_check("stock: stock_max(prod, 1) == 30", Eco.stock_max(false, 1) == 30, str(Eco.stock_max(false, 1)))
+	var cos: int = BD.TraitId.COSTAUD
+	for c: Array in [[true, [69, 115, 161]], [false, [34, 57, 80]]]:
+		var got_s: Array[int] = []
+		for lvl in [1, 2, 3]:
+			got_s.append(Eco.stock_max(c[0], lvl, cos))
+		_check("stock: Griffe Costaud %s Nv1-3 == %s" % ["materiaux" if c[0] else "produits", str(c[1])], got_s == _bonds(c[1]), str(got_s))
+	_check("stock: Griffe Bosseur materiaux Nv1 == 60", Eco.stock_max(true, 1, BD.TraitId.BOSSEUR) == 60, str(Eco.stock_max(true, 1, BD.TraitId.BOSSEUR)))
+	_check("stock: stock_target(60, EQUILIBRE) == 36", Eco.stock_target(60, "EQUILIBRE") == 36, str(Eco.stock_target(60, "EQUILIBRE")))
+	_check("stock: stock_target(30, EQUILIBRE) == 18", Eco.stock_target(30, "EQUILIBRE") == 18, str(Eco.stock_target(30, "EQUILIBRE")))
 	# Garde-fou
 	var ba_script: Script = load("res://balance/balance_a.gd") # BA.get_script_constant_map() est refusé par le parseur (appel non statique sur une classe)
 	_check("garde-fou: BalanceA sans WEAPON_SAME_SCHOOL_3PIECE_AFFINITY_BONUS", not ba_script.get_script_constant_map().has("WEAPON_SAME_SCHOOL_3PIECE_AFFINITY_BONUS"))
