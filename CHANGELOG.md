@@ -14,3 +14,5 @@ Format : `AAAA-MM-JJ — type: description`. Une ligne par changement validé.
 - 2026-10-23 — feat: UI plié / déplié, Rapport de veillée et police Silkscreen (jalon 5)
 - 2026-10-23 — feat: preset Android, premier APK debug et correctif de main.gd (jalon 6)
 - 2026-10-23 — chore: APK debug 0.6.0 (code 1) testé sur Z Fold 8
+- 2026-10-23 — fix: échelle d'interface 6 en plié et déplié, sans bandes noires (jalon 7)
+- 2026-10-23 — chore: APK debug 0.7.0 (code 2) testé sur Z Fold 8

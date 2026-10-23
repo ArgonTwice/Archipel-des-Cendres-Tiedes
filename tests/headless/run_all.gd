@@ -735,7 +735,7 @@ func _initialize() -> void:
 	_check("boot: seul un save_a.dat de 10 octets -> {}, fichier intact, pas de save_b.dat", nb3.is_empty() and FileAccess.get_file_as_bytes(TEST_SAVE_DIR.path_join("save_a.dat")).size() == 10 and not FileAccess.file_exists(TEST_SAVE_DIR.path_join("save_b.dat")))
 	_clean_saves()
 	# Jalon 5 : plié / déplié
-	for c: Array in [[Vector2i(1080, 2520), true], [Vector2i(1968, 2184), false], [Vector2i(540, 1260), true], [Vector2i(984, 1092), false], [Vector2i(1000, 1500), true], [Vector2i(1000, 1499), false]]:
+	for c: Array in [[Vector2i(1080, 2520), true], [Vector2i(1968, 2184), false], [Vector2i(540, 1260), true], [Vector2i(984, 1092), false], [Vector2i(1000, 1450), true], [Vector2i(1000, 1449), false]]:
 		_check("fold: is_folded(%dx%d) == %s" % [c[0].x, c[0].y, str(c[1])], FoldModeS.is_folded(c[0]) == c[1])
 	_check("fold: zoom_for plie (1, 1), deplie (0,5 ; 0,5), TWEEN_SEC <= 0,2", FoldModeS.zoom_for(true) == Vector2(1, 1) and FoldModeS.zoom_for(false) == Vector2(0.5, 0.5) and FoldModeS.TWEEN_SEC <= 0.2)
 	var lf: CanvasLayer = CanvasLayer.new()
@@ -879,6 +879,24 @@ func _initialize() -> void:
 		if not ig in ignore_lines:
 			ignore_missing += ig + " "
 	_check(".gitignore: .godot/, build/, *.apk, *.keystore, *.jks, export_credentials.cfg", ignore_missing == "", ignore_missing)
+	# Jalon 7 : échelle d'interface 6 en plié et déplié
+	for c: Array in [[Vector2i(1248, 1972), true], [Vector2i(1848, 2448), false]]:
+		_check("fold: is_folded(%dx%d) == %s (Fold 8)" % [c[0].x, c[0].y, str(c[1])], FoldModeS.is_folded(c[0]) == c[1])
+	for c: Array in [[Vector2i(1248, 1972), true, 6], [Vector2i(1848, 2448), false, 6], [Vector2i(1080, 2520), true, 6], [Vector2i(1968, 2184), false, 6], [Vector2i(540, 1260), true, 3], [Vector2i(984, 1092), false, 3]]:
+		var us: int = FoldModeS.ui_scale(c[0], c[1])
+		_check("fold: ui_scale(%dx%d, %s) == %d" % [c[0].x, c[0].y, "plie" if c[1] else "deplie", c[2]], us == c[2], str(us))
+	for c: Array in [[Vector2i(1248, 1972), 6, Vector2i(208, 328)], [Vector2i(1848, 2448), 6, Vector2i(308, 408)], [Vector2i(540, 1260), 3, Vector2i(180, 420)], [Vector2i(984, 1092), 3, Vector2i(328, 364)]]:
+		var cs: Vector2i = FoldModeS.content_size(c[0], c[1])
+		_check("fold: content_size(%dx%d, %d) == %dx%d" % [c[0].x, c[0].y, c[1], c[2].x, c[2].y], cs == c[2], str(cs))
+	for c: Array in [[Vector2i(1248, 1972), 6, Rect2i(0, 100, 1248, 1872), [0, 17, 0, 0]], [Vector2i(1848, 2448), 6, Rect2i(0, 0, 1848, 2448), [0, 0, 0, 0]],
+			[Vector2i(1848, 2448), 6, Rect2i(30, 90, 1788, 2310), [5, 15, 5, 8]], [Vector2i(540, 1260), 3, Rect2i(0, 0, 540, 1260), [0, 0, 0, 0]]]:
+		var sm7: PackedInt32Array = FoldModeS.safe_margins(c[0], c[1], c[2])
+		_check("fold: safe_margins(%dx%d, %d, %s) == %s" % [c[0].x, c[0].y, c[1], str(c[2]), str(c[3])], sm7 == PackedInt32Array(c[3]), str(sm7))
+	_check("fold: FOLDED_MIN_ASPECT 1,45, UNFOLDED_MIN_SIZE (240, 360), ZOOM_UNFOLDED (0,5 ; 0,5)", FoldModeS.FOLDED_MIN_ASPECT == 1.45 and FoldModeS.UNFOLDED_MIN_SIZE == Vector2i(240, 360) and FoldModeS.ZOOM_UNFOLDED == Vector2(0.5, 0.5))
+	var cr7: Node = load("res://scenes/ui/credits.tscn").instantiate()
+	var sb7: StyleBox = (cr7 as Control).get_theme_stylebox("panel")
+	_check("credits: StyleBoxFlat opaque (bg_color.a == 1)", sb7 is StyleBoxFlat and (sb7 as StyleBoxFlat).bg_color.a == 1.0)
+	cr7.free()
 	# Garde-fou
 	var ba_script: Script = load("res://balance/balance_a.gd") # BA.get_script_constant_map() est refusé par le parseur (appel non statique sur une classe)
 	_check("garde-fou: BalanceA sans WEAPON_SAME_SCHOOL_3PIECE_AFFINITY_BONUS", not ba_script.get_script_constant_map().has("WEAPON_SAME_SCHOOL_3PIECE_AFFINITY_BONUS"))

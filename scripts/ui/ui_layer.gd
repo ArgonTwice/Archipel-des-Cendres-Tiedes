@@ -36,16 +36,15 @@ func show_error(text: String) -> void:
 	_error.text = text
 	_error.visible = true
 
-# Zone sûre (encoche de l'écran externe), en pixels de viewport : division par l'échelle entière du stretch.
-func apply_safe_area(window_size: Vector2i) -> void:
+# Zone sûre (encoche de l'écran externe), en pixels de viewport, à l'échelle choisie par main.gd.
+func apply_safe_area(window_size: Vector2i, scale: int) -> void:
 	if not OS.has_feature("mobile"):
 		return
-	var scale: int = FoldModeS.integer_scale(window_size, FoldModeS.base_size())
-	var safe: Rect2i = DisplayServer.get_display_safe_area()
-	_margin.add_theme_constant_override("margin_left", ceili(float(safe.position.x) / scale))
-	_margin.add_theme_constant_override("margin_top", ceili(float(safe.position.y) / scale))
-	_margin.add_theme_constant_override("margin_right", ceili(float(window_size.x - safe.end.x) / scale))
-	_margin.add_theme_constant_override("margin_bottom", ceili(float(window_size.y - safe.end.y) / scale))
+	var m: PackedInt32Array = FoldModeS.safe_margins(window_size, scale, DisplayServer.get_display_safe_area())
+	_margin.add_theme_constant_override("margin_left", m[0])
+	_margin.add_theme_constant_override("margin_top", m[1])
+	_margin.add_theme_constant_override("margin_right", m[2])
+	_margin.add_theme_constant_override("margin_bottom", m[3])
 
 func _on_report_input(event: InputEvent) -> void:
 	if (event is InputEventMouseButton or event is InputEventScreenTouch) and event.pressed:

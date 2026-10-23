@@ -58,9 +58,11 @@ build/             APK (ignoré par git)
 
 ## Affichage et Android
 - L'éditeur Godot réécrit project.godot à l'enregistrement : il efface les commentaires et les lignes égales à la valeur par défaut (ex. window/size/resizable=true). Notes techniques durables ici, jamais dans project.godot. resizable vaut true par défaut : l'export lit la valeur effective, donc resizeableActivity reste true même si la ligne disparaît.
-- Base 180 × 320, stretch canvas_items, aspect expand, échelle entière. Ce calcul repose sur le Fold 7 (externe 1080 × 2520 → ×6 → 180 × 420 ; interne 1968 × 2184 → ×6 → 328 × 364). Les résolutions du Fold 8 se mesurent sur l'appareil : docs/MESURES-FOLD8.md. Ne change pas la base sans ces mesures.
+- Échelle d'interface choisie par le code : plié = échelle entière sur la base 180 × 320, déplié = échelle entière sur UNFOLDED_MIN_SIZE 240 × 360 (6 sur le Fold 8 dans les deux modes) ; Window.content_scale_size = fenêtre / échelle à chaque size_changed, donc pas de bandes noires. Seuil plié 1,45. Mesures : docs/MESURES-FOLD8.md.
 - Preset Android : package/app_category = Game obligatoire (exemption Android 16 sur grand écran), pas de build Gradle (min SDK 24 et target SDK 36 imposés par le modèle), arm64-v8a seule, OFL.txt dans include_filter, tests/* exclu.
 - L'activité Godot déclare configChanges avec screenSize|smallestScreenSize|screenLayout|density : pas de recréation d'activité au pliage.
+- content_scale_size s'affecte en set_deferred dans size_changed (affectation directe = échelle fausse au premier dépliage), directement dans _ready.
+- Android (multi fold policy) applique un portrait qui suit le capteur : retournement de 180° possible, jamais de paysage.
 
 ## Tests
 - Le simulateur headless doit passer avant toute demande de commit : `godot --headless --script res://tests/headless/run_all.gd`.

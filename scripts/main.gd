@@ -19,9 +19,10 @@ func _ready() -> void:
 	else:
 		_show(r)
 	_folded = FoldModeS.is_folded(get_window().size)
+	var s: int = _apply_scale(_folded)
 	FoldModeS.apply(_folded, _ui_folded, _ui_unfolded)
 	_camera.zoom = FoldModeS.zoom_for(_folded)
-	_apply_safe_area()
+	_apply_safe_area(s)
 	get_viewport().size_changed.connect(_on_size_changed)
 	SaveManager.synced.connect(_show)
 	_log_measure("ready", _folded)
@@ -36,7 +37,7 @@ func _log_measure(event: String, folded: bool) -> void:
 	var visible: Vector2i = Vector2i(get_viewport().get_visible_rect().size.round())
 	var safe: Rect2i = DisplayServer.get_display_safe_area()
 	var d: Dictionary = {"event": event, "folded": folded, "window": [window.x, window.y], "screen": [screen.x, screen.y],
-		"scale": FoldModeS.integer_scale(window, FoldModeS.base_size()), "visible": [visible.x, visible.y],
+		"scale": FoldModeS.ui_scale(window, folded), "content": [get_window().content_scale_size.x, get_window().content_scale_size.y], "visible": [visible.x, visible.y],
 		"safe": [safe.position.x, safe.position.y, safe.size.x, safe.size.y], "dpi": DisplayServer.screen_get_dpi(),
 		"screen_scale": DisplayServer.screen_get_scale(), "refresh": DisplayServer.screen_get_refresh_rate()}
 	if event == "ready":
@@ -48,14 +49,28 @@ func _show(r: Dictionary) -> void:
 		layer.show_gold(r["state"]["village"]["player_gold"])
 		layer.show_report(r)
 
-func _apply_safe_area() -> void:
+# Échelle d'interface choisie ici (FoldMode.ui_scale), zone = fenêtre / échelle : pas de bandes noires.
+# Affecter content_scale_size relance size_changed : la garde != empêche la boucle.
+# deferred : depuis size_changed, l'affectation directe est réentrante dans la mise à jour de la fenêtre et
+# laisse un rendu à l'échelle 5,6 avec bandes (mesuré au jalon 7 sur le Fold 8) ; on l'affecte après.
+func _apply_scale(folded: bool, deferred: bool = false) -> int:
+	var s: int = FoldModeS.ui_scale(get_window().size, folded)
+	var c: Vector2i = FoldModeS.content_size(get_window().size, s)
+	if get_window().content_scale_size != c:
+		if deferred:
+			get_window().set_deferred("content_scale_size", c)
+		else:
+			get_window().content_scale_size = c
+	return s
+
+func _apply_safe_area(s: int) -> void:
 	for layer in [_ui_folded, _ui_unfolded]: # ui_layer.gd
-		layer.apply_safe_area(get_window().size)
+		layer.apply_safe_area(get_window().size, s)
 
 # Plusieurs size_changed pendant un pliage = une seule bascule.
 func _on_size_changed() -> void:
-	_apply_safe_area()
 	var folded: bool = FoldModeS.is_folded(get_window().size)
+	_apply_safe_area(_apply_scale(folded, true))
 	_log_measure("size_changed", folded)
 	if folded == _folded:
 		return

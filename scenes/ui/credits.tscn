@@ -2,6 +2,9 @@
 
 [ext_resource type="Script" path="res://scripts/ui/credits.gd" id="1"]
 
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_opaque"]
+bg_color = Color(0.08, 0.08, 0.09, 1)
+
 [node name="Credits" type="PanelContainer"]
 visible = false
 layout_mode = 3
@@ -10,6 +13,7 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_opaque")
 script = ExtResource("1")
 
 [node name="Margin" type="MarginContainer" parent="."]

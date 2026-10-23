@@ -68,3 +68,42 @@ Aucune ligne SCRIPT ERROR ni ERROR dans `adb logcat -s godot` sur toute la sessi
 - **Anomalie 4** : appliquer la zone sûre après déduction de la bande noire, ou la supprimer une fois les bandes retirées.
 - **Anomalie 6** : un StyleBoxFlat opaque pour PanelContainer dans `theme.tres`.
 - **Anomalie 7** : créer `%APPDATA%\Godot\keystores\debug.keystore` et le régler dans les paramètres de l'éditeur (manipulation d'Antho).
+
+## Jalon 7 (APK 0.7.0, code 2)
+
+Échelle choisie par le code : plié = échelle entière sur la base 180 × 320, déplié = échelle entière sur UNFOLDED_MIN_SIZE 240 × 360 ; `Window.content_scale_size` = fenêtre / échelle. Seuil plié 1,45. Mesures du 2026-10-23, même appareil (SM-F971B, Android 17), Godot 4.7.2.
+
+| | Plié (écran externe) | Déplié (écran interne) |
+|---|---|---|
+| fenêtre | 1248 × 1972 | 1848 × 2448 |
+| content (`content_scale_size`) | 208 × 328 | 308 × 408 |
+| échelle d'interface | 6 | 6 |
+| reste en px physiques (mesuré sur capture) | 0 × 4 (2 px en haut, 2 px en bas) | 0 × 0 |
+| zone sûre brute [x, y, w, h] | [0, 104, 1248, 1868] | [0, 0, 1848, 2448] |
+| marges calculées [g, h, d, b] (px de viewport) | [0, 17, 0, 0] | [0, 0, 0, 0] |
+| px physiques par pixel de monde | 6 × 1 = 6 | 6 × 0,5 = 3 |
+| hauteur d'une capitale (mesurée) | 30 px | 30 px |
+| case de grille de 16 px (mesurée) | 96 px | 48 px |
+
+### Résultats R1 à R5
+
+| Test | Résultat | Preuve |
+|---|---|---|
+| R1 plié, lancement 0.7.0 | OK | `[MESURE] ready` content 208 × 328, scale 6 ; bandes 2 / 2 / 0 / 0 px ; texte sous la caméra frontale ; « Absence comptée : 0 h 14 », sauvegarde du jalon 6 reprise ; build/jalon7-R1.png |
+| R2 dépliage | OK après correctif | 1er essai : rendu à l'échelle 5,6 avec bandes 60 / 76 px (affectation de `content_scale_size` réentrante dans `size_changed`). Correctif : affectation différée (`set_deferred`) depuis `size_changed`. 2e essai : content 308 × 408, scale 6, 0 bande, capitale 30 px, grille 48 px ; build/jalon7-R2.png |
+| R3 repliage | OK | content 308 × 408 puis 208 × 328 (4 ms, affectation différée), scale 6 ; bandes 2 / 2 / 0 / 0, capitale 30 px, grille 96 px ; build/jalon7-R3.png |
+| R4 Crédits | OK | panneau opaque, ni grille ni UI visibles dessous ; build/jalon7-R4.png |
+| R5 Accueil, retour, arrêt forcé, relance | OK | écritures 13:42:04 (pause), 13:42:09 (reprise), 13:42:14 (relance) ; « Absence comptée : 0 h 43 », pas de nouvelle partie ; 0 bande ; build/jalon7-R5.png |
+
+Aucune SCRIPT ERROR ni ERROR dans `adb logcat -s godot`. Aucune boucle de `size_changed` : deux événements par pliage (le second vient de l'affectation différée).
+
+Observation : en R5, les Crédits ouverts en déplié disparaissent au pliage et reviennent au dépliage (l'écran Crédits n'existe que dans la couche dépliée). Comportement attendu.
+
+### Défauts du jalon 6
+
+1. Échelle différente plié / déplié : **corrigé** (6 et 6).
+2. Zoom 0,5 non entier en déplié : **corrigé** (3 px physiques par pixel de monde).
+3. Bandes noires : **corrigé** (reste de 4 px en hauteur en plié, 0 en déplié).
+4. Zone sûre comptée deux fois : **corrigé** (marge haute 17 px de viewport = 102 px + 2 px de reste = 104 px, la hauteur de la caméra frontale).
+5. Panneau Crédits semi-transparent : **corrigé** (StyleBoxFlat opaque, couleur provisoire).
+6. Deux écritures au repliage : non traité (sans effet).
