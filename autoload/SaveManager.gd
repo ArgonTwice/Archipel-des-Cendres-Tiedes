@@ -9,6 +9,7 @@ const Dag = preload("res://scripts/offline_dag.gd")
 const ClockS = preload("res://autoload/Clock.gd")
 const RngS = preload("res://autoload/Rng.gd")
 const NewGameS = preload("res://scripts/new_game.gd")
+const BB = preload("res://balance/balance_b.gd")
 
 const SAVE_FORMAT_VERSION: int = 1
 const SLOT_FILES: Array[String] = ["save_a.dat", "save_b.dat"]
@@ -16,14 +17,48 @@ const HASH_SIZE: int = 32
 const DEFAULT_DIR: String = "user://"
 const VILLAGE_KEYS: Array[String] = ["last_save_utc", "tz_offset_sec", "last_tick_day", "isolat", "player_gold", "shops", "npcs"]
 
+signal synced(report: Dictionary)
+
 var state: Dictionary = {}
 
-# Android : NOTIFICATION_APPLICATION_PAUSED à la mise en arrière-plan. Le pliage / dépliage arrive avec le jalon UI.
+# Android : pause (arrière-plan), reprise et fermeture. Le pliage / dépliage appelle sync depuis main.gd.
 func _notification(what: int) -> void:
-	if (what == NOTIFICATION_APPLICATION_PAUSED or what == NOTIFICATION_WM_CLOSE_REQUEST) and not state.is_empty():
-		var saved: Dictionary = save(state, ClockS.now_utc())
-		if not saved.is_empty(): # en cas d'échec, l'état en mémoire est conservé
-			state = saved
+	if what == NOTIFICATION_APPLICATION_PAUSED or what == NOTIFICATION_WM_CLOSE_REQUEST or what == NOTIFICATION_APPLICATION_RESUMED:
+		var r: Dictionary = sync(ClockS.now_utc())
+		if not r.is_empty():
+			synced.emit(r)
+
+func start(now_utc: int, dir: String = DEFAULT_DIR) -> Dictionary:
+	var r: Dictionary = boot(now_utc, dir)
+	if not r.is_empty():
+		state = r["state"]
+	return r
+
+# Sans simulation en session (hors jalon), le temps de session est compté comme hors-ligne à la prochaine reprise.
+# Reprendre à chaque pliage perdrait les arrondis du DAG (12 reprises de 30 min = 0 Or contre 11 Or en une reprise de 6 h) :
+# hors rattrapage dû, sync écrit l'état à son ANCRE (last_save_utc inchangé) et rend {}.
+func sync(now_utc: int, dir: String = DEFAULT_DIR) -> Dictionary:
+	if state.is_empty():
+		return {}
+	if catch_up_due(state["village"], now_utc):
+		var st: Dictionary = state.duplicate(true)
+		var gold_before: int = st["village"]["player_gold"]
+		var out: Dictionary = Dag.resume(st["village"], now_utc)
+		st["village"] = out["village"]
+		var saved: Dictionary = save(st, now_utc, dir)
+		if saved.is_empty(): # state inchangé : le prochain sync refait la reprise, rien n'est compté deux fois
+			return {}
+		state = saved
+		return _report(saved, out, gold_before)
+	var anchored: Dictionary = save(state, state["village"]["last_save_utc"], dir)
+	if not anchored.is_empty():
+		state = anchored
+	return {}
+
+# Nouveau jour de tick, ou absence au plafond du hors-ligne.
+static func catch_up_due(village: Dictionary, now_utc: int) -> bool:
+	return ClockS.day_index(now_utc, village["tz_offset_sec"]) > village["last_tick_day"] \
+		or ClockS.offline_hours(village["last_save_utc"], now_utc) >= BB.OFFLINE_MAX_HOURS
 
 static func _sha256(data: PackedByteArray) -> PackedByteArray:
 	var ctx: HashingContext = HashingContext.new()
@@ -121,9 +156,19 @@ static func boot(now_utc: int, dir: String = DEFAULT_DIR) -> Dictionary:
 		var created: Dictionary = save(new_state(RngS.entropy_seed(), now_utc, NewGameS.system_tz_offset_sec()), now_utc, dir)
 		if created.is_empty():
 			return {}
-		return {"state": created, "t_eff": 0.0, "ticked": false, "fiches": [], "fixed_cost_paid": 0, "tools_replaced": 0, "new_game": true}
+		return {"state": created, "t_eff": 0.0, "ticked": false, "fiches": [], "fixed_cost_paid": 0, "tools_replaced": 0, "new_game": true,
+			"gold_delta": 0, "strikes": 0}
+	var gold_before: int = st["village"]["player_gold"]
 	var out: Dictionary = Dag.resume(st["village"], now_utc)
 	st["village"] = out["village"]
-	var saved: Dictionary = save(st, now_utc, dir)
+	return _report(save(st, now_utc, dir), out, gold_before)
+
+# Rapport de reprise commun à boot et sync (Rapport de veillée, SOCLE §A4).
+static func _report(saved: Dictionary, out: Dictionary, gold_before: int) -> Dictionary:
+	var strikes: int = 0
+	for npc: Dictionary in out["village"]["npcs"]:
+		if npc["on_strike"]:
+			strikes += 1
 	return {"state": saved, "t_eff": out["t_eff"], "ticked": out["ticked"], "fiches": out["fiches"],
-		"fixed_cost_paid": out["fixed_cost_paid"], "tools_replaced": out["tools_replaced"], "new_game": false}
+		"fixed_cost_paid": out["fixed_cost_paid"], "tools_replaced": out["tools_replaced"], "new_game": false,
+		"gold_delta": out["village"]["player_gold"] - gold_before, "strikes": strikes}

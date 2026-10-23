@@ -51,6 +51,7 @@ build/             APK (ignoré par git)
 - Debug : `godot --headless --export-debug "Android" build/archipel-debug.apk`.
 - Release : keystore hors du dépôt. Aucun mot de passe, aucune clé dans git. `.gitignore` doit exclure `*.keystore`, `*.jks`, `export_credentials.cfg`, `.godot/`, `build/`.
 - Après chaque APK : noter version et date dans `CHANGELOG.md`.
+- Preset Android : ajouter assets/fonts/silkscreen/OFL.txt aux filtres de fichiers non-ressources à exporter.
 
 ## Tests
 - Le simulateur headless doit passer avant toute demande de commit : `godot --headless --script res://tests/headless/run_all.gd`.

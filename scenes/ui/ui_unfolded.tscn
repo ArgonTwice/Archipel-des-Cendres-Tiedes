@@ -1,0 +1,45 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://scripts/ui/ui_layer.gd" id="1"]
+[ext_resource type="PackedScene" path="res://scenes/ui/credits.tscn" id="2"]
+
+[node name="UI_Unfolded" type="CanvasLayer"]
+script = ExtResource("1")
+compact = false
+
+[node name="Margin" type="MarginContainer" parent="."]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="VBox" type="VBoxContainer" parent="Margin"]
+layout_mode = 2
+mouse_filter = 2
+
+[node name="Gold" type="Label" parent="Margin/VBox"]
+layout_mode = 2
+
+[node name="Report" type="PanelContainer" parent="Margin/VBox"]
+visible = false
+layout_mode = 2
+
+[node name="Lines" type="VBoxContainer" parent="Margin/VBox/Report"]
+layout_mode = 2
+mouse_filter = 2
+
+[node name="Error" type="Label" parent="Margin/VBox"]
+visible = false
+layout_mode = 2
+autowrap_mode = 3
+
+[node name="CreditsButton" type="Button" parent="Margin/VBox"]
+layout_mode = 2
+size_flags_horizontal = 0
+text = "Crédits"
+
+[node name="Credits" parent="." instance=ExtResource("2")]
+visible = false

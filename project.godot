@@ -11,6 +11,7 @@ config_version=5
 [application]
 
 config/name="Archipel des Cendres Tièdes"
+run/main_scene="res://scenes/main.tscn"
 config/features=PackedStringArray("4.7", "Mobile")
 
 [autoload]
@@ -21,17 +22,25 @@ SaveManager="*res://autoload/SaveManager.gd"
 
 [display]
 
-; PROVISOIRE : résolution 192x448 (hypothèse 21:9) et étirement à trancher au jalon UI.
-window/size/viewport_width=192
-window/size/viewport_height=448
-window/size/window_width_override=576
-window/size/window_height_override=1344
+; 1080 / 180 = 6 sur l'écran externe du Fold 7 ; échelle entière = pixels nets ;
+; expand = le déplié voit plus de monde à la même échelle. Résolutions du Fold 8 à mesurer sur l'appareil.
+window/size/viewport_width=180
+window/size/viewport_height=320
+window/size/resizable=true
+window/size/window_width_override=540
+window/size/window_height_override=1260
 window/stretch/mode="canvas_items"
+window/stretch/aspect="expand"
+window/stretch/scale_mode="integer"
 window/handheld/orientation=1
+
+[gui]
+
+theme/custom="res://assets/ui/theme.tres"
 
 [rendering]
 
-renderer/rendering_method="mobile"
 textures/canvas_textures/default_texture_filter=0
+renderer/rendering_method="mobile"
 2d/snap/snap_2d_transforms_to_pixel=true
 2d/snap/snap_2d_vertices_to_pixel=true

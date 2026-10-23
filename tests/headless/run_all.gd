@@ -10,6 +10,11 @@ const Eco = preload("res://scripts/economy.gd")
 const Dag = preload("res://scripts/offline_dag.gd")
 const SaveS = preload("res://autoload/SaveManager.gd")
 const NewGameS = preload("res://scripts/new_game.gd")
+const FoldModeS = preload("res://scripts/ui/fold_mode.gd")
+const VeilleeReportS = preload("res://scripts/ui/veillee_report.gd")
+const FONT_PATH: String = "res://assets/fonts/silkscreen/Silkscreen-Regular.ttf"
+const OFL_PATH: String = "res://assets/fonts/silkscreen/OFL.txt"
+const THEME_PATH: String = "res://assets/ui/theme.tres"
 const TEST_SAVE_DIR: String = "user://test_saves/"
 const Ic = preload("res://tests/headless/ic_model.gd")
 const D0: int = 1792627200 # 2026-10-22 00:00:00 UTC
@@ -718,6 +723,110 @@ func _initialize() -> void:
 	var nb3: Dictionary = SaveS.boot(t10, TEST_SAVE_DIR)
 	_check("boot: seul un save_a.dat de 10 octets -> {}, fichier intact, pas de save_b.dat", nb3.is_empty() and FileAccess.get_file_as_bytes(TEST_SAVE_DIR.path_join("save_a.dat")).size() == 10 and not FileAccess.file_exists(TEST_SAVE_DIR.path_join("save_b.dat")))
 	_clean_saves()
+	# Jalon 5 : plié / déplié
+	for c: Array in [[Vector2i(1080, 2520), true], [Vector2i(1968, 2184), false], [Vector2i(540, 1260), true], [Vector2i(984, 1092), false], [Vector2i(1000, 1500), true], [Vector2i(1000, 1499), false]]:
+		_check("fold: is_folded(%dx%d) == %s" % [c[0].x, c[0].y, str(c[1])], FoldModeS.is_folded(c[0]) == c[1])
+	_check("fold: zoom_for plie (1, 1), deplie (0,5 ; 0,5), TWEEN_SEC <= 0,2", FoldModeS.zoom_for(true) == Vector2(1, 1) and FoldModeS.zoom_for(false) == Vector2(0.5, 0.5) and FoldModeS.TWEEN_SEC <= 0.2)
+	var lf: CanvasLayer = CanvasLayer.new()
+	var lu: CanvasLayer = CanvasLayer.new()
+	FoldModeS.apply(true, lf, lu)
+	var ok_folded: bool = lf.visible and lf.process_mode == Node.PROCESS_MODE_INHERIT and not lu.visible and lu.process_mode == Node.PROCESS_MODE_DISABLED
+	FoldModeS.apply(false, lf, lu)
+	var ok_unfolded: bool = not lf.visible and lf.process_mode == Node.PROCESS_MODE_DISABLED and lu.visible and lu.process_mode == Node.PROCESS_MODE_INHERIT
+	_check("fold: apply plie (visible, INHERIT) / (cache, DISABLED), deplie l'inverse", ok_folded and ok_unfolded)
+	lf.free()
+	lu.free()
+	# Jalon 5 : rattrapage dû
+	var cu: Array[bool] = []
+	for dt: int in [3600, 11 * 3600 + 59 * 60, 12 * 3600, -3600]:
+		cu.append(SaveS.catch_up_due(V, t10 + dt))
+	_check("catch_up_due: +1 h faux, +11 h 59 faux, +12 h vrai, -1 h faux", cu == [false, false, true, false], str(cu))
+	var v3h: Dictionary = NewGameS.village(SEED, D0 + 3 * 3600, 0)
+	_check("catch_up_due: cree a 3 h, 3 h 59 faux, 4 h 01 vrai (nouveau jour)", not SaveS.catch_up_due(v3h, D0 + 3 * 3600 + 59 * 60) and SaveS.catch_up_due(v3h, D0 + 4 * 3600 + 60))
+	# Jalon 5 : Rapport de veillée
+	var rep6: Dictionary = Dag.resume(V, t10 + 6 * 3600)
+	rep6["gold_delta"] = rep6["village"]["player_gold"] - V["player_gold"]
+	rep6["strikes"] = 0
+	_check("rapport: +6 h, fiches [MAT, FORGE], gold_delta 11", rep6["fiches"] == ["MAT", "FORGE"] and rep6["gold_delta"] == 11, "%s %d" % [str(rep6["fiches"]), rep6["gold_delta"]])
+	var l6: PackedStringArray = VeilleeReportS.lines(rep6, false)
+	_check("rapport: +6 h deplie", l6 == PackedStringArray(["Absence comptée : 6 h 00", "Or : +11", "Fiches de rupture : 2"]), str(l6))
+	_check("rapport: +6 h plie", VeilleeReportS.lines(rep6, true) == PackedStringArray(["Absence comptée : 6 h 00", "Or : +11"]), str(VeilleeReportS.lines(rep6, true)))
+	var rep24: Dictionary = Dag.resume(V, t10 + 86400)
+	rep24["gold_delta"] = rep24["village"]["player_gold"] - V["player_gold"]
+	rep24["strikes"] = 0
+	var l24: PackedStringArray = VeilleeReportS.lines(rep24, false)
+	_check("rapport: +24 h deplie", l24 == PackedStringArray(["Absence comptée : 12 h 00 (plafond)", "Or : +13", "Frais fixes du jour : 24 Or", "Fiches de rupture : 3"]), str(l24))
+	_check("rapport: +24 h plie", VeilleeReportS.lines(rep24, true) == PackedStringArray(["Absence comptée : 12 h 00 (plafond)", "Or : +13"]), str(VeilleeReportS.lines(rep24, true)))
+	_check("rapport: nouvelle partie", VeilleeReportS.lines({"new_game": true}, true) == PackedStringArray(["Nouvelle partie : Clair-Foyer."]) and VeilleeReportS.lines({"new_game": true}, false) == PackedStringArray(["Nouvelle partie : Clair-Foyer."]))
+	var syn: Dictionary = {"new_game": false, "t_eff": 2.5, "ticked": true, "fixed_cost_paid": 0, "tools_replaced": 2, "fiches": ["MAT"], "gold_delta": -3, "strikes": 1}
+	var lsyn: PackedStringArray = VeilleeReportS.lines(syn, false)
+	_check("rapport: synthetique", lsyn == PackedStringArray(["Absence comptée : 2 h 30", "Or : -3", "Frais fixes du jour : 0 Or", "Outils remplacés : 2", "PNJ en grève : 1", "Fiches de rupture : 1"]), str(lsyn))
+	# Jalon 5 : rapport de boot
+	_clean_saves()
+	SaveS.save(SaveS.new_state(SEED, t10, 0), t10, TEST_SAVE_DIR)
+	var br: Dictionary = SaveS.boot(t10 + 6 * 3600, TEST_SAVE_DIR)
+	_check("boot rapport: gold_delta 11, strikes 0, fiches [MAT, FORGE], t_eff 6, reprise", br["gold_delta"] == 11 and br["strikes"] == 0 and br["fiches"] == ["MAT", "FORGE"] and br["t_eff"] == 6.0 and not br["new_game"],
+		"%d %d %s %s" % [br["gold_delta"], br["strikes"], str(br["fiches"]), str(br["t_eff"])])
+	_clean_saves()
+	var be: Dictionary = SaveS.boot(t10, TEST_SAVE_DIR)
+	_check("boot rapport: dossier vide, gold_delta 0, strikes 0", be["gold_delta"] == 0 and be["strikes"] == 0)
+	# Jalon 5 : sync
+	_clean_saves()
+	var sm = SaveS.new() # non typé : sync, start et state viennent du script
+	_check("sync: state vide -> {}, aucun fichier", sm.sync(t10, TEST_SAVE_DIR).is_empty() and not FileAccess.file_exists(TEST_SAVE_DIR.path_join("save_a.dat")) and not FileAccess.file_exists(TEST_SAVE_DIR.path_join("save_b.dat")))
+	SaveS.save(SaveS.new_state(SEED, t10, 0), t10, TEST_SAVE_DIR)
+	var rs: Dictionary = sm.start(t10, TEST_SAVE_DIR)
+	_check("sync: start -> reprise, t_eff 0, state non vide", not rs["new_game"] and rs["t_eff"] == 0.0 and not sm.state.is_empty())
+	var seq0: int = sm.state["seq"]
+	var a30: Dictionary = sm.sync(t10 + 1800, TEST_SAVE_DIR)
+	var seq1: int = sm.state["seq"]
+	var a60: Dictionary = sm.sync(t10 + 3600, TEST_SAVE_DIR)
+	_check("sync: +30 min et +1 h -> {}, seq +1 a chaque appel, last_save_utc reste T10, load_latest == state",
+		a30.is_empty() and a60.is_empty() and seq1 == seq0 + 1 and sm.state["seq"] == seq0 + 2 and sm.state["village"]["last_save_utc"] == t10 and SaveS.load_latest(TEST_SAVE_DIR) == sm.state,
+		"%d %d %d %d" % [seq0, seq1, sm.state["seq"], sm.state["village"]["last_save_utc"] - t10])
+	var banc: Dictionary = SaveS.boot(t10 + 6 * 3600, TEST_SAVE_DIR)
+	_check("sync: ancre prouvee, boot +6 h -> t_eff 6, player_gold 11", banc["t_eff"] == 6.0 and banc["state"]["village"]["player_gold"] == 11, "%s %d" % [str(banc["t_eff"]), banc["state"]["village"]["player_gold"]])
+	sm.free()
+	_clean_saves()
+	var sm2 = SaveS.new()
+	SaveS.save(SaveS.new_state(SEED, t10, 0), t10, TEST_SAVE_DIR)
+	sm2.start(t10, TEST_SAVE_DIR)
+	var rc12: Dictionary = sm2.sync(t10 + 12 * 3600, TEST_SAVE_DIR)
+	_check("sync: rattrapage +12 h, t_eff 12, pas de tick, gold_delta 37, fiches x 3, strikes 0", not rc12.is_empty() and rc12["t_eff"] == 12.0 and not rc12["ticked"] and rc12["gold_delta"] == 37 and rc12["fiches"] == ["MAT", "TAVERN", "FORGE"] and rc12["strikes"] == 0,
+		str(rc12.get("t_eff")) + " " + str(rc12.get("gold_delta")) + " " + str(rc12.get("fiches")))
+	_check("sync: last_save_utc == T10 + 12 h, puis +12 h 01 -> {} (ancre)", sm2.state["village"]["last_save_utc"] == t10 + 12 * 3600 and sm2.sync(t10 + 12 * 3600 + 60, TEST_SAVE_DIR).is_empty())
+	sm2.free()
+	_clean_saves()
+	# Jalon 5 : police
+	_check("police: SHA-256 Silkscreen-Regular.ttf", SaveS._sha256(FileAccess.get_file_as_bytes(FONT_PATH)).hex_encode() == "c845473330b94c2079ce9af01c51ac8ba2d99c24f4d14c039843bbb8e642ebd8")
+	_check("police: SHA-256 OFL.txt", SaveS._sha256(FileAccess.get_file_as_bytes(OFL_PATH)).hex_encode() == "86c5e9c9382cdcc5948704fdfe60f2aa164a719746931219a42736ecd9cefbd3")
+	var ff: FontFile = FontFile.new()
+	_check("police: load_dynamic_font == OK", ff.load_dynamic_font(FONT_PATH) == OK)
+	var missing: String = ""
+	for ch: String in "ÀÂÄÇÉÈÊËÎÏÔÖÙÛÜŸŒÆàâäçéèêëîïôöùûüÿœæ«»’…–—€0123456789:+-(). ":
+		if not ff.has_char(ch.unicode_at(0)):
+			missing += ch
+	_check("police: glyphes accentues, ponctuation et chiffres", missing == "", missing)
+	_check("police: premiere ligne de OFL.txt", FileAccess.get_file_as_string(OFL_PATH).split("\n")[0].strip_edges() == "Copyright 2001 The Silkscreen Project Authors (https://github.com/googlefonts/silkscreen)")
+	# Jalon 5 : thème
+	var th: Theme = load(THEME_PATH)
+	var line_h: int = int(th.default_font.get_height(8)) + th.get_constant("line_spacing", "Label")
+	_check("theme: default_font_size 8, ligne de Label 11 px, gui/theme/custom", th.default_font_size == 8 and line_h == 11 and ProjectSettings.get_setting("gui/theme/custom") == THEME_PATH, "%d %d" % [th.default_font_size, line_h])
+	# Jalon 5 : scènes
+	var uf = load("res://scenes/ui/ui_folded.tscn").instantiate()
+	var uu = load("res://scenes/ui/ui_unfolded.tscn").instantiate()
+	_check("scenes: ui_folded / ui_unfolded en CanvasLayer, compact true / false", uf is CanvasLayer and uu is CanvasLayer and uf.compact and not uu.compact)
+	_check("scenes: bouton Credits dans ui_unfolded seulement", uu.get_node_or_null("Margin/VBox/CreditsButton") is Button and uf.get_node_or_null("Margin/VBox/CreditsButton") == null)
+	uf.free()
+	uu.free()
+	var cr: Node = load("res://scenes/ui/credits.tscn").instantiate()
+	_check("scenes: credits.tscn s'instancie", cr != null)
+	cr.free()
+	var main_state: SceneState = (load("res://scenes/main.tscn") as PackedScene).get_state()
+	var main_nodes: Array[String] = []
+	for i in main_state.get_node_count():
+		main_nodes.append(main_state.get_node_name(i))
+	_check("scenes: main.tscn contient Camera2D, UI_Folded, UI_Unfolded, World", main_nodes.has("Camera2D") and main_nodes.has("UI_Folded") and main_nodes.has("UI_Unfolded") and main_nodes.has("World"), str(main_nodes))
 	# Garde-fou
 	var ba_script: Script = load("res://balance/balance_a.gd") # BA.get_script_constant_map() est refusé par le parseur (appel non statique sur une classe)
 	_check("garde-fou: BalanceA sans WEAPON_SAME_SCHOOL_3PIECE_AFFINITY_BONUS", not ba_script.get_script_constant_map().has("WEAPON_SAME_SCHOOL_3PIECE_AFFINITY_BONUS"))

@@ -11,3 +11,4 @@ Format : `AAAA-MM-JJ — type: description`. Une ligne par changement validé.
 - 2026-10-23 — feat: DAG hors-ligne à 3 strates et grève (jalon 2)
 - 2026-10-23 — feat: SaveManager, frais fixes et usure des outils (jalon 3)
 - 2026-10-23 — feat: nouvelle partie, graine et village de départ (jalon 4)
+- 2026-10-23 — feat: UI plié / déplié, Rapport de veillée et police Silkscreen (jalon 5)
