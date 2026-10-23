@@ -107,3 +107,19 @@ Observation : en R5, les Crédits ouverts en déplié disparaissent au pliage et
 4. Zone sûre comptée deux fois : **corrigé** (marge haute 17 px de viewport = 102 px + 2 px de reste = 104 px, la hauteur de la caméra frontale).
 5. Panneau Crédits semi-transparent : **corrigé** (StyleBoxFlat opaque, couleur provisoire).
 6. Deux écritures au repliage : non traité (sans effet).
+
+## Jalon 8 (APK 0.8.0, code 3) : village de Clair-Foyer
+
+Installé le 23/10 sur SM-F971B. Premier lancement plié à 01 h (nuit) : une ligne `[VILLAGE]` setup, échelle 6, contenu 208 × 328, 0 ERROR.
+
+V1 à V5 validés visuellement par Antho le 23/10 ; logcat, screencap et mesure des 48 px à faire au prochain branchement.
+
+| Test | Résultat |
+|---|---|
+| V1 plié : Âtre, flamme, halo, Taverne, Forge, Matériaux, UI lisible | OK à l'œil |
+| V2 déplié : rayon, lisière de Brume, maisons, Portes, route sud | OK à l'œil |
+| V3 PNJ à leur ancre, flânerie, aucun tremblement au repos | OK à l'œil ; PNJ figés en marchant (sprites à une image) : sautillement ajouté, à revérifier (V3 bis) |
+| V4 5 pliages / dépliages | OK à l'œil |
+| V5 arrêt forcé puis relance | OK à l'œil |
+
+À faire au prochain branchement : APK 0.8.0 ré-exporté avec le sautillement, V3 bis, logcat de V3 à V5, screencap de V1 et V2, mesure des 48 px par tuile en déplié.

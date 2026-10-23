@@ -1,0 +1,57 @@
+{
+	"atlases": {
+		"town": "res://assets/tiles/kenney_tiny_town/tilemap_packed.png",
+		"dungeon": "res://assets/tiles/kenney_tiny_dungeon/tilemap_packed.png"
+	},
+	"tiles": {
+		"herbe": ["town", 0],
+		"chemin": ["town", 43],
+		"dallage_hg": ["town", 96], "dallage_h": ["town", 97], "dallage_hd": ["town", 98],
+		"dallage_g": ["town", 108], "dallage_c": ["town", 109], "dallage_d": ["town", 110],
+		"dallage_bg": ["town", 120], "dallage_b": ["town", 121], "dallage_bd": ["town", 122],
+		"toit_rouge_g": ["town", 52], "toit_rouge_c": ["town", 53], "toit_rouge_d": ["town", 54],
+		"pignon_rouge_g": ["town", 64], "pignon_rouge_c": ["town", 67], "pignon_rouge_d": ["town", 66],
+		"toit_gris_g": ["town", 48], "toit_gris_c": ["town", 49], "toit_gris_d": ["town", 50],
+		"pignon_gris_g": ["town", 60], "pignon_gris_c": ["town", 63], "pignon_gris_d": ["town", 62],
+		"mur_bois": ["town", 75], "fenetre_bois": ["town", 84], "porte_bois": ["town", 85],
+		"mur_pierre_g": ["town", 76], "mur_pierre": ["town", 79], "fenetre_pierre": ["town", 88], "porte_pierre": ["town", 89],
+		"arbre_rond": ["town", 16], "arbre_pin": ["town", 28], "buisson": ["town", 5],
+		"pousse": ["town", 17],
+		"poteau": ["town", 47],
+		"roche": ["dungeon", 24], "fosse": ["dungeon", 12],
+		"torche": ["dungeon", 29],
+		"tonneau": ["dungeon", 82], "enclume": ["dungeon", 74], "caisse": ["dungeon", 63],
+		"pnj_mineur": ["dungeon", 86], "pnj_aubergiste": ["dungeon", 99], "pnj_forgeron": ["dungeon", 87],
+		"pnj_garde_visiere": ["dungeon", 97], "pnj_garde": ["dungeon", 96]
+	},
+	"trees": ["arbre_rond", "arbre_pin", "buisson"],
+	"tufts": ["pousse"],
+	"patterns": {
+		"taverne": [["toit_rouge_g", "toit_rouge_c", "toit_rouge_d"], ["pignon_rouge_g", "pignon_rouge_c", "pignon_rouge_d"], ["fenetre_bois", "porte_bois", "mur_bois"]],
+		"forge": [["toit_gris_g", "toit_gris_c", "toit_gris_d"], ["pignon_gris_g", "pignon_gris_c", "pignon_gris_d"], ["fenetre_pierre", "porte_pierre", "mur_pierre"]],
+		"materiaux": [["toit_rouge_g", "toit_rouge_c", "toit_rouge_d"], ["pignon_rouge_g", "pignon_rouge_c", "pignon_rouge_d"], ["mur_pierre_g", "porte_pierre", "fenetre_pierre"]],
+		"maison": [["pignon_gris_g", "pignon_gris_c", "pignon_gris_d"], ["fenetre_bois", "porte_bois", "mur_bois"]],
+		"gisement": [["roche", "fosse"], ["fosse", "roche"]],
+		"portes": [["poteau", "", "poteau"]],
+		"dallage": [["dallage_hg", "dallage_h", "dallage_hd"], ["dallage_g", "dallage_c", "dallage_d"], ["dallage_bg", "dallage_b", "dallage_bd"]]
+	},
+	"sites": {
+		"ATRE": {"pattern": "dallage", "origin": [-1, -1]},
+		"TAVERN": {"pattern": "taverne", "origin": [-1, -7], "access": [0, -4]},
+		"FORGE": {"pattern": "forge", "origin": [-6, -3], "access": [-5, 0]},
+		"MAT": {"pattern": "materiaux", "origin": [4, -3], "access": [5, 0]},
+		"GATE": {"pattern": "portes", "origin": [-1, 11], "access": [0, 10]},
+		"HOUSE0": {"pattern": "maison", "origin": [-9, -6], "access": [-8, -4]},
+		"HOUSE1": {"pattern": "maison", "origin": [7, -6], "access": [8, -4]},
+		"HOUSE2": {"pattern": "maison", "origin": [-10, 4], "access": [-9, 6]},
+		"HOUSE3": {"pattern": "maison", "origin": [8, 4], "access": [9, 6]},
+		"HOUSE4": {"pattern": "maison", "origin": [-5, 7], "access": [-4, 9]},
+		"GISEMENT": {"pattern": "gisement", "origin": [5, 6], "access": [5, 8]}
+	},
+	"props": [
+		{"cell": [2, -5], "tile": "tonneau"},
+		{"cell": [-7, -1], "tile": "enclume"},
+		{"cell": [7, -1], "tile": "caisse"}
+	],
+	"npc_sprites": ["pnj_mineur", "pnj_aubergiste", "pnj_forgeron", "pnj_garde_visiere", "pnj_garde"]
+}

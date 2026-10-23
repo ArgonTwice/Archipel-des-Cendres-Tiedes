@@ -12,6 +12,8 @@ const SaveS = preload("res://autoload/SaveManager.gd")
 const NewGameS = preload("res://scripts/new_game.gd")
 const FoldModeS = preload("res://scripts/ui/fold_mode.gd")
 const VeilleeReportS = preload("res://scripts/ui/veillee_report.gd")
+const VL = preload("res://scripts/village/village_layout.gd")
+const NpcS = preload("res://scripts/village/npc.gd")
 const FONT_PATH: String = "res://assets/fonts/silkscreen/Silkscreen-Regular.ttf"
 const OFL_PATH: String = "res://assets/fonts/silkscreen/OFL.txt"
 const THEME_PATH: String = "res://assets/ui/theme.tres"
@@ -875,10 +877,12 @@ func _initialize() -> void:
 	_check("projet: orientation portrait (1) et resizable true", ProjectSettings.get_setting("display/window/handheld/orientation") == 1 and ProjectSettings.get_setting("display/window/size/resizable") == true)
 	var ignore_lines: PackedStringArray = FileAccess.get_file_as_string("res://.gitignore").replace("\r", "").split("\n")
 	var ignore_missing: String = ""
-	for ig: String in [".godot/", "build/", "*.apk", "*.keystore", "*.jks", "export_credentials.cfg"]:
+	for ig: String in [".godot/", "build/*", "!build/.gdignore", "*.apk", "*.keystore", "*.jks", "export_credentials.cfg"]:
 		if not ig in ignore_lines:
 			ignore_missing += ig + " "
-	_check(".gitignore: .godot/, build/, *.apk, *.keystore, *.jks, export_credentials.cfg", ignore_missing == "", ignore_missing)
+	_check(".gitignore: .godot/, build/* sauf build/.gdignore, *.apk, *.keystore, *.jks, export_credentials.cfg", ignore_missing == "", ignore_missing)
+	# Jalon 8 : build/ hors import et export Godot
+	_check("build/.gdignore présent", FileAccess.file_exists("res://build/.gdignore"))
 	# Jalon 7 : échelle d'interface 6 en plié et déplié
 	for c: Array in [[Vector2i(1248, 1972), true], [Vector2i(1848, 2448), false]]:
 		_check("fold: is_folded(%dx%d) == %s (Fold 8)" % [c[0].x, c[0].y, str(c[1])], FoldModeS.is_folded(c[0]) == c[1])
@@ -897,6 +901,157 @@ func _initialize() -> void:
 	var sb7: StyleBox = (cr7 as Control).get_theme_stylebox("panel")
 	_check("credits: StyleBoxFlat opaque (bg_color.a == 1)", sb7 is StyleBoxFlat and (sb7 as StyleBoxFlat).bg_color.a == 1.0)
 	cr7.free()
+	# Jalon 8 : assets Kenney
+	for a: Array in [["kenney_tiny_town/tilemap_packed.png", "3a54d99ecde790d4fdea207a3644cf130fc56fa838f1beb1507c185a95b8e902"],
+			["kenney_tiny_town/License.txt", "c483c167cc3bdfe17c15f957ff847d409f64d81b410b28783636cf3b2b7814c5"],
+			["kenney_tiny_dungeon/tilemap_packed.png", "d24e60a41e4ac7a745c0304dfde121143688557f40215f23221c29cfe683825f"],
+			["kenney_tiny_dungeon/License.txt", "9f574a2f1f636a3db8a0665ba90212f34e2b5e61ecb533d77c05237766374111"]]:
+		var h8: String = SaveS._sha256(FileAccess.get_file_as_bytes("res://assets/tiles/" + a[0])).hex_encode()
+		_check("assets: SHA-256 %s" % a[0], h8 == a[1], h8)
+	for pack: String in ["kenney_tiny_town", "kenney_tiny_dungeon"]:
+		var lic: String = FileAccess.get_file_as_string("res://assets/tiles/%s/License.txt" % pack)
+		_check("assets: %s/License.txt CC0" % pack, "Creative Commons Zero" in lic or "CC0" in lic)
+	var assets_md: String = FileAccess.get_file_as_string("res://ASSETS.md")
+	_check("assets: ASSETS.md cite les 2 PNG", "assets/tiles/kenney_tiny_town/tilemap_packed.png" in assets_md and "assets/tiles/kenney_tiny_dungeon/tilemap_packed.png" in assets_md)
+	# Jalon 8 : village.json
+	var vd8: Dictionary = VL.load_data()
+	_check("village.json: se lit", not vd8.is_empty())
+	var bad_idx: String = ""
+	for tn: String in vd8["tiles"]:
+		var tex8: Texture2D = load(vd8["atlases"][vd8["tiles"][tn][0]])
+		if int(vd8["tiles"][tn][1]) >= (tex8.get_width() / 16) * (tex8.get_height() / 16):
+			bad_idx += tn + " "
+	_check("village.json: index de tuile < colonnes x rangees de l'atlas", bad_idx == "", bad_idx)
+	var unknown: String = ""
+	var used_names: Array = vd8["npc_sprites"] + vd8["trees"] + vd8["tufts"]
+	for pn: String in vd8["patterns"]:
+		for row: Array in vd8["patterns"][pn]:
+			used_names.append_array(row)
+	for pr: Dictionary in vd8["props"]:
+		used_names.append(pr["tile"])
+	for s8: String in vd8["sites"]:
+		if not vd8["patterns"].has(vd8["sites"][s8]["pattern"]):
+			unknown += "motif:" + vd8["sites"][s8]["pattern"] + " "
+	for un: String in used_names:
+		if un != "" and not vd8["tiles"].has(un):
+			unknown += un + " "
+	_check("village.json: motifs, props et sprites existent", unknown == "", unknown)
+	var houses: int = 0
+	for s8: String in vd8["sites"]:
+		if s8.begins_with("HOUSE"):
+			houses += 1
+	_check("village.json: 5 npc_sprites, 5 maisons == VERTICAL_SLICE_NPC_CAP", vd8["npc_sprites"].size() == 5 and houses == BD.VERTICAL_SLICE_NPC_CAP, "%d %d" % [vd8["npc_sprites"].size(), houses])
+	var shop_keys: Array = []
+	for s8: String in vd8["sites"]:
+		if Dag.SHOP_BUDGET_KEY.has(s8):
+			shop_keys.append(s8)
+	shop_keys.sort()
+	var dag_keys: Array = Dag.SHOP_BUDGET_KEY.keys()
+	dag_keys.sort()
+	_check("village.json: sites TAVERN, FORGE, MAT == cles de SHOP_BUDGET_KEY", shop_keys == dag_keys, str(shop_keys))
+	# Jalon 8 : disposition
+	var sites8: Dictionary = vd8["sites"]
+	var built8: Dictionary = VL.built_cells(sites8, vd8["patterns"])
+	var n_tiles8: int = 0
+	var out_r: String = ""
+	var on_built: String = ""
+	for s8: String in sites8:
+		var st8: Dictionary = VL.site_tiles(sites8[s8], vd8["patterns"])
+		n_tiles8 += st8.size()
+		for c: Vector2i in st8:
+			if not VL.in_radius(c, 12):
+				out_r += str(c)
+		if sites8[s8].has("access"):
+			var ac: Vector2i = VL.v2i(sites8[s8]["access"])
+			if not VL.in_radius(ac, 12):
+				out_r += str(ac)
+			if built8.has(ac):
+				on_built += s8 + " "
+	_check("disposition: bati et acces dans le rayon 12", out_r == "", out_r)
+	_check("disposition: aucun chevauchement, 72 cellules baties", n_tiles8 == built8.size() and built8.size() == 72, "%d %d" % [n_tiles8, built8.size()])
+	_check("disposition: aucun acces sur du bati", on_built == "", on_built)
+	# Jalon 8 : chemins
+	var p8: Dictionary = VL.paths(sites8, vd8["patterns"])
+	var want_len: Dictionary = {"TAVERN": 3, "FORGE": 4, "MAT": 4, "GATE": 9, "HOUSE0": 8, "HOUSE1": 8, "HOUSE2": 9, "HOUSE3": 9, "HOUSE4": 5, "GISEMENT": 5}
+	_check("chemins: longueurs TAVERN 3 ... GISEMENT 5, dans l'ordre des sites", p8["lengths"] == want_len and p8["lengths"].keys() == want_len.keys(), str(p8["lengths"]))
+	var path_on_built: int = 0
+	for c: Vector2i in p8["cells"]:
+		if built8.has(c):
+			path_on_built += 1
+	_check("chemins: 74 cellules route comprise, aucune sur du bati", p8["cells"].size() == 74 and path_on_built == 0, "%d %d" % [p8["cells"].size(), path_on_built])
+	var bad_prop: String = ""
+	for pr: Dictionary in vd8["props"]:
+		var pc8: Vector2i = VL.v2i(pr["cell"])
+		if built8.has(pc8) or p8["cells"].has(pc8):
+			bad_prop += str(pc8)
+		for s8: String in sites8:
+			if sites8[s8].has("access") and VL.v2i(sites8[s8]["access"]) == pc8:
+				bad_prop += str(pc8)
+	_check("chemins: props hors bati, acces et chemins", bad_prop == "", bad_prop)
+	# Jalon 8 : déco (blocked = bâti + chemins, sans props)
+	var blocked8: Dictionary = built8.duplicate()
+	blocked8.merge(p8["cells"])
+	for c: Array in [[1, 326, 13, Vector2i(-18, -26), 3, Vector2i(1, -8), 2], [42, 312, 18, Vector2i(-18, -26), 4, Vector2i(0, -10), 3]]:
+		var dc8: Dictionary = VL.deco(c[0], blocked8)
+		var counts8: Dictionary = {"tree": 0, "tuft": 0}
+		var first8: Dictionary = {}
+		var on_blocked: int = 0
+		for y in range(VL.GROUND_RECT.position.y, VL.GROUND_RECT.end.y):
+			for x in range(VL.GROUND_RECT.position.x, VL.GROUND_RECT.end.x):
+				var cell: Vector2i = Vector2i(x, y)
+				if dc8.has(cell):
+					counts8[dc8[cell][0]] += 1
+					if not first8.has(dc8[cell][0]):
+						first8[dc8[cell][0]] = [cell, dc8[cell][1]]
+					if blocked8.has(cell):
+						on_blocked += 1
+		_check("deco: graine %d -> %d arbres, %d touffes, premier arbre %s r %d, premiere touffe %s r %d, rien sur bloque" % c,
+			counts8["tree"] == c[1] and counts8["tuft"] == c[2] and first8.get("tree") == [c[3], c[4]] and first8.get("tuft") == [c[5], c[6]] and on_blocked == 0,
+			"%s %s %d" % [str(counts8), str(first8), on_blocked])
+	_check("deco: meme graine = meme resultat", VL.deco(7, blocked8) == VL.deco(7, blocked8))
+	# Jalon 8 : heure locale, phase, activité, ancres
+	for c: Array in [[0, 0, 0], [0, 7200, 2], [82859, 0, 23], [0, -3600, 23]]:
+		_check("local_hour(%d, %d) == %d" % c, VL.local_hour(c[0], c[1]) == c[2], str(VL.local_hour(c[0], c[1])))
+	for c: Array in [[5, BD.DayPhase.NIGHT], [6, BD.DayPhase.DAWN], [7, BD.DayPhase.DAWN], [8, BD.DayPhase.DAY], [18, BD.DayPhase.DAY], [19, BD.DayPhase.DUSK], [21, BD.DayPhase.DUSK], [22, BD.DayPhase.NIGHT]]:
+		_check("day_phase(%d) == %s" % [c[0], BD.DayPhase.find_key(c[1])], VL.day_phase(c[0]) == c[1])
+	for c: Array in [[false, false, {7: "SLEEP", 8: "WORK", 12: "WORK", 13: "MEAL", 14: "WORK", 18: "WORK", 19: "VEILLEE", 21: "VEILLEE", 22: "SLEEP", 3: "SLEEP"}],
+			[true, false, {19: "SLEEP", 20: "WORK", 0: "WORK", 1: "MEAL", 2: "WORK", 6: "WORK", 7: "VEILLEE", 9: "VEILLEE", 10: "SLEEP"}],
+			[false, true, {8: "STRIKE", 13: "MEAL", 23: "SLEEP"}]]:
+		var got8: Dictionary = {}
+		for h: int in c[2]:
+			got8[h] = VL.activity(h, c[0], c[1])
+		_check("activity %s: %s" % ["nocturne" if c[0] else ("greve" if c[1] else "diurne"), str(c[2])], got8 == c[2], str(got8))
+	var guard: Dictionary = {"post": "GUARD", "traits": [], "on_strike": false}
+	var anc8: Array[Vector2] = VL.anchors(["WORK", "WORK"], [guard, guard], sites8)
+	_check("anchor: 2 gardes en WORK -> acces GATE (0, 10), -6 et +6 px", anc8 == [Vector2(-6, 160), Vector2(6, 160)], str(anc8))
+	var v0: Vector2 = VL.anchor("VEILLEE", 0, guard, sites8)
+	_check("anchor: VEILLEE du PNJ 0 -> (0, -28)", v0.is_equal_approx(Vector2(0, -28)), str(v0))
+	# Jalon 8 : scènes
+	var vs8: Node = load("res://scenes/village/village.tscn").instantiate()
+	var np8: Node = load("res://scenes/village/npc.tscn").instantiate()
+	var vnodes: String = ""
+	for nn: String in ["Jour", "Sol", "Chemins", "Entites", "Entites/Batiments", "Entites/Deco", "Entites/Atre"]:
+		if vs8 == null or vs8.get_node_or_null(nn) == null:
+			vnodes += nn + " "
+	_check("scenes: village.tscn et npc.tscn s'instancient, Jour, Sol, Chemins, Entites, Batiments, Deco, Atre", vs8 != null and np8 != null and vnodes == "", vnodes)
+	vs8.free()
+	np8.free()
+	var world_scene: String = ""
+	for i in main_state.get_node_count():
+		if main_state.get_node_name(i) == "World" and main_state.get_node_instance(i) != null:
+			world_scene = main_state.get_node_instance(i).resource_path
+	_check("scenes: World de main.tscn est une instance de village.tscn", world_scene == "res://scenes/village/village.tscn", world_scene)
+	_check("scenes: debug_grid.gd n'existe plus", not FileAccess.file_exists("res://scripts/ui/debug_grid.gd"))
+	var cr8: Node = load("res://scenes/ui/credits.tscn").instantiate()
+	var kl: Label = cr8.get_node_or_null("Margin/VBox/Kenney")
+	_check("credits: ligne Kenney", kl != null and kl.text == "Tuiles et personnages : Kenney (kenney.nl), CC0")
+	cr8.free()
+	# Jalon 8 : sautillement des PNJ
+	_check("npc: BOB_PX 1, BOB_PERIOD_SEC 0,3", NpcS.BOB_PX == 1 and NpcS.BOB_PERIOD_SEC == 0.3)
+	for tb: float in [0.0, 0.07, 0.15, 0.3, 12.34]:
+		_check("npc: bob_offset(%.2f, repos) == 0" % tb, NpcS.bob_offset(tb, false) == 0)
+	for c: Array in [[0.0, -1], [0.15, 0], [0.30, -1]]:
+		_check("npc: bob_offset(%.2f, marche) == %d" % [c[0], c[1]], NpcS.bob_offset(c[0], true) == c[1], str(NpcS.bob_offset(c[0], true)))
 	# Garde-fou
 	var ba_script: Script = load("res://balance/balance_a.gd") # BA.get_script_constant_map() est refusé par le parseur (appel non statique sur une classe)
 	_check("garde-fou: BalanceA sans WEAPON_SAME_SCHOOL_3PIECE_AFFINITY_BONUS", not ba_script.get_script_constant_map().has("WEAPON_SAME_SCHOOL_3PIECE_AFFINITY_BONUS"))

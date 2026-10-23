@@ -37,13 +37,14 @@ build/             APK (ignoré par git)
 - Sauvegarde : graine + delta du joueur, double fichier tournant `save_a.dat` / `save_b.dat`, export/import Base64, écriture à chaque pliage/dépliage.
 - Hors-ligne : calcul O(1) en DAG à 3 strates (Extraction → Transformation → Vente). Aucune simulation par agent hors-ligne.
 - UI : `UI_Folded` et `UI_Unfolded` (CanvasLayer) instanciés au lancement. Le changement d'état ne fait que basculer `visible` et `process_mode`, plus un Tween de zoom Camera2D ≤ 0,2 s. Ne jamais reconstruire une UI lourde sur `size_changed`.
-- Pixel art : tuiles 16×16, sprites personnages 16×24, fiches d'armes en haute résolution côté déplié.
+- Pixel art : tuiles 16×16, personnages 16×16 Kenney jusqu'à la tranche verticale (16×24 ensuite), fiches d'armes en haute résolution côté déplié.
 - Accents et genre grammatical : jetons grammaticaux FR dès le premier jalon.
 
 ## Assets
 - Uniquement gratuits et open source. Licences acceptées : CC0, CC-BY, MIT, OFL pour les polices. Pas de « non commercial » ni de licence floue sans accord d'Antho.
 - Chaque asset ajouté : une ligne dans `ASSETS.md` (nom, auteur, licence, URL source, fichier, usage), dans le même commit.
 - Les attributions CC-BY sont reprises dans un écran Crédits.
+- Village : data/village/village.json (tuiles, motifs, disposition), palette Cendre Grise = shader sur le décor seul, PNJ et feux non teintés.
 
 ## Build Android (APK)
 - Prérequis : Godot 4.x stable avec modèles d'export Android, JDK 17, Android SDK (command-line tools, build-tools, platform), éditeur configuré avec ces chemins.

@@ -41,6 +41,11 @@ layout_mode = 2
 text = "SIL Open Font License 1.1"
 autowrap_mode = 3
 
+[node name="Kenney" type="Label" parent="Margin/VBox"]
+layout_mode = 2
+text = "Tuiles et personnages : Kenney (kenney.nl), CC0"
+autowrap_mode = 3
+
 [node name="Scroll" type="ScrollContainer" parent="Margin/VBox"]
 layout_mode = 2
 size_flags_vertical = 3

@@ -16,3 +16,5 @@ Format : `AAAA-MM-JJ — type: description`. Une ligne par changement validé.
 - 2026-10-23 — chore: APK debug 0.6.0 (code 1) testé sur Z Fold 8
 - 2026-10-23 — fix: échelle d'interface 6 en plié et déplié, sans bandes noires (jalon 7)
 - 2026-10-23 — chore: APK debug 0.7.0 (code 2) testé sur Z Fold 8
+- 2026-10-23 — feat: village de Clair-Foyer affiché, tuiles Kenney et Grand Âtre (jalon 8)
+- 2026-10-23 — chore: APK debug 0.8.0 (code 3) testé sur Z Fold 8

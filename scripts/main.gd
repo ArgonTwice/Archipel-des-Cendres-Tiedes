@@ -4,6 +4,7 @@ extends Node
 const FoldModeS = preload("res://scripts/ui/fold_mode.gd")
 const ClockS = preload("res://autoload/Clock.gd")
 
+@onready var _world: Node2D = $World # village.gd
 @onready var _camera: Camera2D = $Camera2D
 @onready var _ui_folded: CanvasLayer = $UI_Folded
 @onready var _ui_unfolded: CanvasLayer = $UI_Unfolded
@@ -12,11 +13,15 @@ var _folded: bool = true
 var _tween: Tween
 
 func _ready() -> void:
-	var r: Dictionary = SaveManager.start(ClockS.now_utc())
+	var now: int = ClockS.now_utc()
+	var r: Dictionary = SaveManager.start(now)
+	var capture: String = _debug_args()
 	if r.is_empty(): # state reste vide : plus aucune sauvegarde
+		_world.setup(0, {}, now)
 		for layer in [_ui_folded, _ui_unfolded]: # ui_layer.gd
 			layer.show_error("Sauvegarde illisible. Rien n'a été écrit.")
 	else:
+		_world.setup(r["state"]["world_seed"], r["state"]["village"], now)
 		_show(r)
 	_folded = FoldModeS.is_folded(get_window().size)
 	var s: int = _apply_scale(_folded)
@@ -26,6 +31,23 @@ func _ready() -> void:
 	get_viewport().size_changed.connect(_on_size_changed)
 	SaveManager.synced.connect(_show)
 	_log_measure("ready", _folded)
+	if capture != "":
+		await get_tree().create_timer(1.0).timeout
+		get_viewport().get_texture().get_image().save_png(capture)
+		get_tree().quit()
+
+# Vérification sur PC (build debug seulement), après « -- » : --hour=H force l'heure locale (rendu et ancres),
+# --capture=chemin.png enregistre le viewport au bout d'une seconde puis quitte. Rend le chemin de capture.
+func _debug_args() -> String:
+	var capture: String = ""
+	if not OS.is_debug_build():
+		return capture
+	for a: String in OS.get_cmdline_user_args():
+		if a.begins_with("--hour="):
+			_world.hour_override = a.get_slice("=", 1).to_int()
+		elif a.begins_with("--capture="):
+			capture = a.get_slice("=", 1)
+	return capture
 
 # Sonde du jalon 6 (build debug seulement) : mesures écran du Fold, lues par adb logcat -s godot.
 # folded : mode détecté pour cet événement (calculé avant le return anticipé de _on_size_changed).
@@ -48,6 +70,7 @@ func _show(r: Dictionary) -> void:
 	for layer in [_ui_folded, _ui_unfolded]: # ui_layer.gd
 		layer.show_gold(r["state"]["village"]["player_gold"])
 		layer.show_report(r)
+	_world.refresh(r["state"]["village"], ClockS.now_utc())
 
 # Échelle d'interface choisie ici (FoldMode.ui_scale), zone = fenêtre / échelle : pas de bandes noires.
 # Affecter content_scale_size relance size_changed : la garde != empêche la boucle.
