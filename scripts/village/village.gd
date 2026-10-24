@@ -7,6 +7,7 @@ const VL = preload("res://scripts/village/village_layout.gd")
 const BD = preload("res://balance/balance_d.gd")
 const ClockS = preload("res://autoload/Clock.gd")
 const NpcScene = preload("res://scenes/village/npc.tscn")
+const SG = preload("res://scripts/segment/segment_gen.gd")
 
 const REFRESH_SEC: float = 60.0
 const PHASE_COLOR: Dictionary = {BD.DayPhase.DAWN: Color(0.82, 0.76, 0.8), BD.DayPhase.DAY: Color(1, 1, 1),
@@ -17,6 +18,7 @@ const TILE_SORT_ORIGIN: int = 8 # bas de la tuile
 const FLAT_SORT_ORIGIN: int = -8 # haut de la tuile : touffes toujours sous un PNJ debout dans la cellule
 const SHADOW_SIZE: Vector2i = Vector2i(12, 4)
 const SHADOW_ALPHA: float = 0.35
+const BRAZIER_LIGHT_SCALE: float = 1.5 # Brasero = copie réduite de l'Âtre. PROPOSÉ, à valider (jalon 11)
 
 @onready var _day: CanvasModulate = $Jour
 @onready var _ground: TileMapLayer = $Sol
@@ -27,7 +29,7 @@ const SHADOW_ALPHA: float = 0.35
 @onready var _torch: Sprite2D = $Entites/Atre/Torche
 @onready var _light: PointLight2D = $Entites/Atre/Lumiere
 @onready var _player: Node2D = $Entites/Joueur # player.gd
-@onready var _lisiere: Node2D = $Entites/Lisiere # lisiere.gd
+@onready var _segment: Node2D = $Entites/Segment # segment.gd
 
 var hour_override: int = -1 # debug (--hour=H) : rendu et ancres seulement
 var _data: Dictionary = {}
@@ -37,6 +39,7 @@ var _npcs: Array[Node2D] = []
 var _acts: Array = []
 var _base_energy: float = 0.0
 var _t: float = 0.0
+var _brazier_light: PointLight2D
 
 func setup(world_seed: int, village: Dictionary, now_utc: int) -> void:
 	_data = VL.load_data()
@@ -70,8 +73,7 @@ func setup(world_seed: int, village: Dictionary, now_utc: int) -> void:
 	_torch.texture = _tile_texture("torche")
 	var solid: Dictionary = VL.solid_cells(sites, patterns, _data["props"], deco)
 	_player.setup(VL.cell_center(VL.PLAYER_SPAWN_CELL), _tile_texture(_data["player_sprite"]), shadow, solid)
-	var lis: Dictionary = _data["lisiere"]
-	_lisiere.setup(world_seed, village.get("isolat", 0), _player, solid, lis["spawns"], _tile_texture(lis["mob_sprite"]), shadow)
+	_setup_segment(world_seed, village.get("isolat", 0), solid, shadow)
 	_village = village
 	var npcs: Array = village.get("npcs", [])
 	var hour: int = _hour(now_utc)
@@ -92,6 +94,32 @@ func setup(world_seed: int, village: Dictionary, now_utc: int) -> void:
 
 func player() -> Node2D:
 	return _player
+
+func segment() -> Node2D:
+	return _segment
+
+# Rectangle du lieu où se trouve pos : sol du village ou nœud de Brume.
+func rect_at(pos: Vector2) -> Rect2i:
+	var i: int = SG.node_index(Vector2i(floori((pos.x + VL.CELL / 2.0) / VL.CELL), floori((pos.y + VL.CELL / 2.0) / VL.CELL)))
+	return VL.GROUND_RECT if i == SG.VILLAGE else SG.node_rect(i)
+
+# Segment de Brume : sol et arbres des 3 nœuds (même shader que le village), Brasero = copie réduite de l'Âtre.
+func _setup_segment(world_seed: int, isolat: int, village_solid: Dictionary, shadow: Texture2D) -> void:
+	var seg: Dictionary = _data["segment"]
+	var names: Array = _data["trees"]
+	for i in SG.NODE_FIRST_ROW.size():
+		var map: Dictionary = SG.node_map(world_seed, i)
+		var r: Rect2i = map["rect"]
+		for y in range(r.position.y, r.end.y):
+			for x in range(r.position.x, r.end.x):
+				_paint(_ground, Vector2i(x, y), "herbe")
+		for c: Vector2i in map["trees"]:
+			_paint(_deco, c, names[map["trees"][c] % names.size()])
+	var brazier: Node2D = $Entites/Atre.duplicate()
+	brazier.name = "Brasero"
+	_brazier_light = brazier.get_node("Lumiere")
+	_brazier_light.texture_scale = BRAZIER_LIGHT_SCALE
+	_segment.setup(world_seed, isolat, _player, village_solid, _tile_texture(seg["mob_sprite"]), _tile_texture(seg["mist_sprite"]), shadow, brazier)
 
 func refresh(village: Dictionary, now_utc: int) -> void:
 	if _data.is_empty():
@@ -115,6 +143,8 @@ func _process(delta: float) -> void:
 	for f: Vector2 in FLICKER:
 		k += f.x * sin(_t * f.y)
 	_light.energy = _base_energy * k
+	if _brazier_light != null:
+		_brazier_light.energy = _light.energy
 
 func _hour(now_utc: int) -> int:
 	return hour_override if hour_override >= 0 else VL.local_hour(now_utc, _village.get("tz_offset_sec", 0))

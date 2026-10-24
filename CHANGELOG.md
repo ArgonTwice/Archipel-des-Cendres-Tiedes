@@ -24,3 +24,5 @@ Format : `AAAA-MM-JJ — type: description`. Une ligne par changement validé.
 - 2026-10-24 — chore: APK debug 0.10.0 (code 5) testé sur Z Fold 8
 - 2026-10-24 — feat: rythme des monstres dans BalanceA, déplié en temps réel et fondu d'évacuation (jalon 10 bis)
 - 2026-10-24 — chore: APK debug 0.10.1 (code 6) testé sur Z Fold 8
+- 2026-10-24 — feat: segment de Brume à 3 nœuds, Cendre Vive et saturation (jalon 11)
+- 2026-10-24 — chore: APK debug 0.11.0 (code 7) testé sur Z Fold 8

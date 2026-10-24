@@ -23,7 +23,7 @@
 		"tonneau": ["dungeon", 82], "enclume": ["dungeon", 74], "caisse": ["dungeon", 63],
 		"pnj_mineur": ["dungeon", 86], "pnj_aubergiste": ["dungeon", 99], "pnj_forgeron": ["dungeon", 87],
 		"pnj_garde_visiere": ["dungeon", 97], "pnj_garde": ["dungeon", 96],
-		"joueur": ["dungeon", 112], "monstre": ["dungeon", 121]
+		"joueur": ["dungeon", 112], "monstre": ["dungeon", 121], "noeud_brume": ["dungeon", 56]
 	},
 	"trees": ["arbre_rond", "arbre_pin", "buisson"],
 	"tufts": ["pousse"],
@@ -56,5 +56,5 @@
 	],
 	"npc_sprites": ["pnj_mineur", "pnj_aubergiste", "pnj_forgeron", "pnj_garde_visiere", "pnj_garde"],
 	"player_sprite": "joueur",
-	"lisiere": {"spawns": [[0, 16], [0, 20], [0, 24]], "mob_sprite": "monstre"}
+	"segment": {"mob_sprite": "monstre", "mist_sprite": "noeud_brume"}
 }

@@ -23,6 +23,10 @@ mouse_filter = 2
 [node name="Gold" type="Label" parent="Margin/VBox"]
 layout_mode = 2
 
+[node name="Expedition" type="Label" parent="Margin/VBox"]
+visible = false
+layout_mode = 2
+
 [node name="Report" type="PanelContainer" parent="Margin/VBox"]
 visible = false
 layout_mode = 2

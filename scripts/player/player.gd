@@ -10,6 +10,7 @@ const CombatS = preload("res://scripts/combat/combat.gd")
 const VL = preload("res://scripts/village/village_layout.gd")
 
 signal evacuation_started
+signal teleported # sous le noir, mort ou passage
 
 enum State { IDLE, MOVE, DODGE }
 
@@ -35,8 +36,15 @@ var def: int = 0
 var _spawn: Vector2
 var _last_strike: float = -1.0 # -1 = aucun coup encore
 var _hit_t: float = 0.0
-var _evac_t: float = -1.0 # -1 = pas d'évacuation
-var _evac_home: bool = false # retour devant l'Âtre déjà fait pendant cette évacuation
+var _bounds: Rect2i = VL.GROUND_RECT
+var _home_solid: Dictionary = {}
+var _home_bounds: Rect2i = VL.GROUND_RECT
+var _fade_t: float = -1.0 # -1 = aucun fondu (évacuation ou passage)
+var _fade_death: bool = false
+var _fade_moved: bool = false # déplacement sous le noir déjà fait pendant ce fondu
+var _fade_target: Vector2
+var _fade_solid: Dictionary = {}
+var _fade_bounds: Rect2i
 
 # Nœuds lus ici et non en @onready : setup peut précéder _ready (simulateur headless).
 func setup(pos: Vector2, texture: Texture2D, shadow: Texture2D, solid: Dictionary) -> void:
@@ -45,6 +53,9 @@ func setup(pos: Vector2, texture: Texture2D, shadow: Texture2D, solid: Dictionar
 	$Ombre.texture = shadow
 	position = pos
 	_solid = solid
+	_bounds = VL.GROUND_RECT
+	_home_solid = solid
+	_home_bounds = VL.GROUND_RECT
 	_spawn = VL.cell_center(VL.PLAYER_SPAWN_CELL)
 	var stats: Dictionary = CombatS.player_stats(level, CombatS.starting_weapon_atk())
 	max_hp = stats["hp"]
@@ -61,7 +72,7 @@ func set_move_dir(dir: Vector2) -> void:
 		_log("marche" if dir != Vector2.ZERO else "arret")
 
 func dodge(dir: Vector2) -> bool:
-	if is_evacuating() or _dodge_t >= 0.0 or not PM.can_dodge(_clock, _dodge_start):
+	if in_fade() or _dodge_t >= 0.0 or not PM.can_dodge(_clock, _dodge_start):
 		_log("esquive_refusee")
 		return false
 	_dodge_dir = dir
@@ -72,7 +83,7 @@ func dodge(dir: Vector2) -> bool:
 
 # Auto-attaque à l'arrêt seulement (IDLE), cadence continue.
 func can_strike() -> bool:
-	return not is_evacuating() and state == State.IDLE and (_last_strike < 0.0 or _clock - _last_strike >= CombatS.attack_period())
+	return not in_fade() and state == State.IDLE and (_last_strike < 0.0 or _clock - _last_strike >= CombatS.attack_period())
 
 func strike(target_pos: Vector2) -> void:
 	_last_strike = _clock
@@ -82,9 +93,9 @@ func strike(target_pos: Vector2) -> void:
 func is_invulnerable() -> bool:
 	return _dodge_t >= 0.0 and PM.in_iframes(_dodge_t)
 
-# Faux si les i-frames ou l'évacuation annulent le coup. À 0 PV : évacuation (Engourdi reporté).
+# Faux si les i-frames ou un fondu annulent le coup. À 0 PV : évacuation (Engourdi reporté).
 func take_hit(dmg: int) -> bool:
-	if is_evacuating() or is_invulnerable():
+	if in_fade() or is_invulnerable():
 		return false
 	_set_hp(hp - dmg)
 	_hit_t = CombatS.PLAYER_HIT_SEC
@@ -93,18 +104,37 @@ func take_hit(dmg: int) -> bool:
 	if hp <= 0:
 		if OS.is_debug_build():
 			print("[COMBAT] " + JSON.stringify({"event": "mort_joueur", "pos": _xy(position)}))
-		_evac_t = 0.0
-		_evac_home = false
-		_dodge_t = -1.0
+		_start_fade(true, _spawn, _home_solid, _home_bounds)
 		evacuation_started.emit()
 	return true
 
-# Évacuation : fondu au noir, retour devant l'Âtre sous le noir, fondu de retour. Ni marche, ni esquive, ni coup.
+# Passage entre le village et les nœuds : même fondu que l'évacuation, sans soin. Le doigt tenu n'est pas oublié :
+# le joueur repart dans la même direction à la fin du fondu.
+func travel(target: Vector2, solid: Dictionary, bounds: Rect2i) -> void:
+	_start_fade(false, target, solid, bounds)
+
+func _start_fade(death: bool, target: Vector2, solid: Dictionary, bounds: Rect2i) -> void:
+	_fade_t = 0.0
+	_fade_death = death
+	_fade_moved = false
+	_fade_target = target
+	_fade_solid = solid
+	_fade_bounds = bounds
+	_dodge_t = -1.0
+
+# Fondu en cours (mort ou passage) : invulnérable, ni marche, ni esquive, ni coup.
+func in_fade() -> bool:
+	return _fade_t >= 0.0
+
+# Évacuation = fondu de mort seulement.
 func is_evacuating() -> bool:
-	return _evac_t >= 0.0
+	return in_fade() and _fade_death
 
 func fade_alpha() -> float:
-	return CombatS.evac_alpha(_evac_t) if is_evacuating() else 0.0
+	return CombatS.evac_alpha(_fade_t) if in_fade() else 0.0
+
+func bounds() -> Rect2i:
+	return _bounds
 
 func on_input_reset() -> void:
 	_log("reset")
@@ -112,26 +142,30 @@ func on_input_reset() -> void:
 func _process(delta: float) -> void:
 	_clock += delta
 	var motion: Vector2 = Vector2.ZERO
-	if is_evacuating():
-		_evac_t += delta
-		if not _evac_home and _evac_t >= CombatS.EVAC_FADE_OUT_SEC: # écran noir
-			_evac_home = true
-			position = _spawn
-			_set_hp(max_hp)
-			_last_strike = -1.0
-			_log("retour")
-		if _evac_t >= CombatS.evac_duration():
-			_evac_t = -1.0
+	if in_fade():
+		_fade_t += delta
+		if not _fade_moved and _fade_t >= CombatS.EVAC_FADE_OUT_SEC: # écran noir
+			_fade_moved = true
+			position = _fade_target
+			_solid = _fade_solid
+			_bounds = _fade_bounds
+			if _fade_death:
+				_set_hp(max_hp)
+				_last_strike = -1.0
+			_log("retour" if _fade_death else "passage")
+			teleported.emit()
+		if _fade_t >= CombatS.evac_duration():
+			_fade_t = -1.0
 	elif _dodge_t >= 0.0:
 		motion = _dodge_dir * (PM.dodge_progress(_dodge_t + delta) - PM.dodge_progress(_dodge_t))
 		_dodge_t += delta
 	else:
 		motion = _dir * BA.PLAYER_BASE_MSPD * delta
-	position = PM.move(position, motion, _solid)
+	position = PM.move(position, motion, _solid, _bounds)
 	if _dodge_t >= BA.DODGE_DURATION_SEC:
 		_dodge_t = -1.0
 		_log("esquive", {"de": _xy(_dodge_from), "a": _xy(position), "dist": snappedf(_dodge_from.distance_to(position), 0.01)})
-	if is_evacuating():
+	if in_fade():
 		state = State.IDLE
 	else:
 		state = State.DODGE if _dodge_t >= 0.0 else (State.MOVE if _dir != Vector2.ZERO else State.IDLE)
@@ -142,7 +176,7 @@ func _process(delta: float) -> void:
 			_hit_t -= delta
 			if _hit_t <= 0.0:
 				_sprite.modulate = Color.WHITE
-	if CombatS.in_village(position): # le village soigne
+	if CombatS.in_safe_zone(position): # le village et le Brasero soignent. PROPOSÉ, à valider (jalon 11) pour le Brasero
 		_set_hp(max_hp)
 
 func _set_hp(value: int) -> void:

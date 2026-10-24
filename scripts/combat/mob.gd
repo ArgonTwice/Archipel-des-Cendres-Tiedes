@@ -6,6 +6,7 @@ const BA = preload("res://balance/balance_a.gd")
 const CombatS = preload("res://scripts/combat/combat.gd")
 const PM = preload("res://scripts/player/player_motion.gd")
 const PlayerS = preload("res://scripts/player/player.gd")
+const VL = preload("res://scripts/village/village_layout.gd")
 
 var index: int = 0
 var home: Vector2
@@ -18,17 +19,19 @@ var def: int = 0
 var dead_t: float = 0.0 # minuteur de mort, tenu par lisiere.gd
 var _sprite: Sprite2D
 var _solid: Dictionary = {}
+var _bounds: Rect2i = VL.GROUND_RECT
 var _t: float = 0.0
 var _windup_t: float = -1.0 # -1 = pas de télégraphe
 var _last_attack: float = -1.0 # début du télégraphe précédent, -1 = aucun
 var _flash_t: float = 0.0
 
 # Nœuds lus ici : setup peut précéder _ready (simulateur headless).
-func setup(home_pos: Vector2, texture: Texture2D, shadow: Texture2D, solid: Dictionary, stats: Dictionary) -> void:
+func setup(home_pos: Vector2, texture: Texture2D, shadow: Texture2D, solid: Dictionary, stats: Dictionary, bounds: Rect2i = VL.GROUND_RECT) -> void:
 	_sprite = $Sprite
 	_sprite.texture = texture
 	$Ombre.texture = shadow
 	_solid = solid
+	_bounds = bounds
 	home = home_pos
 	max_hp = stats["hp"]
 	atk = stats["atk"]
@@ -103,7 +106,7 @@ func _advance(target: Vector2, delta: float) -> void:
 	var dir: Vector2 = (target - position).normalized()
 	if absf(dir.x) >= PlayerS.FLIP_MIN_X:
 		_sprite.flip_h = dir.x < 0.0
-	position = PM.move(position, dir * BA.MOB_BASE_MSPD * delta, _solid)
+	position = PM.move(position, dir * BA.MOB_BASE_MSPD * delta, _solid, _bounds)
 
 func _set_hp(value: int) -> void:
 	if value != hp:

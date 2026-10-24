@@ -3,11 +3,13 @@ extends CanvasLayer
 
 const VeilleeReportS = preload("res://scripts/ui/veillee_report.gd")
 const FoldModeS = preload("res://scripts/ui/fold_mode.gd")
+const BA = preload("res://balance/balance_a.gd")
 
 @export var compact: bool = true
 
 @onready var _margin: MarginContainer = $Margin
 @onready var _gold: Label = $Margin/VBox/Gold
+@onready var _expedition: Label = $Margin/VBox/Expedition
 @onready var _report: PanelContainer = $Margin/VBox/Report
 @onready var _report_lines: VBoxContainer = $Margin/VBox/Report/Lines
 @onready var _error: Label = $Margin/VBox/Error
@@ -20,6 +22,11 @@ func _ready() -> void:
 
 func show_gold(gold: int) -> void:
 	_gold.text = "Or : %d" % gold
+
+# Compteur d'expédition (volet E §3) : Cendre Vive sur le budget avant l'Élite, Éclats.
+func show_expedition(shown: bool, cendre: int, shards: int) -> void:
+	_expedition.visible = shown
+	_expedition.text = "Cendre %d/%d  Éclats %d" % [cendre, BA.SEGMENT_PRE_ELITE_CENDRE_BUDGET, shards]
 
 func show_report(report: Dictionary) -> void:
 	for child: Node in _report_lines.get_children():

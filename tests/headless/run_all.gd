@@ -18,6 +18,11 @@ const PlayerMotionS = preload("res://scripts/player/player_motion.gd")
 const StickS = preload("res://scripts/ui/touch_stick.gd")
 const CombatS = preload("res://scripts/combat/combat.gd")
 const LisiereS = preload("res://scripts/combat/lisiere.gd")
+const SegGenS = preload("res://scripts/segment/segment_gen.gd")
+const SegmentS = preload("res://scripts/segment/segment.gd")
+const ExpeditionS = preload("res://scripts/segment/expedition.gd")
+const MistS = preload("res://scripts/segment/mist_node.gd")
+const LISIERE_SPAWNS_10: Array = [[0, 16], [0, 20], [0, 24]] # banc d'essai du jalon 10, retiré du village au jalon 11
 const FONT_PATH: String = "res://assets/fonts/silkscreen/Silkscreen-Regular.ttf"
 const OFL_PATH: String = "res://assets/fonts/silkscreen/OFL.txt"
 const THEME_PATH: String = "res://assets/ui/theme.tres"
@@ -307,11 +312,11 @@ func _jalon_10(vd: Dictionary, built: Dictionary, p: Dictionary) -> void:
 	mob42.merge(vc)
 	_check("combat: solid monstres graine 1 == 767 (joueur 393), graine 42 == 753", mob1.size() == 767 and solid1.size() == 393 and mob42.size() == 753, "%d %d %d" % [mob1.size(), solid1.size(), mob42.size()])
 	var bad_spawn: String = ""
-	for sp: Array in vd["lisiere"]["spawns"]:
+	for sp: Array in LISIERE_SPAWNS_10:
 		var sc: Vector2 = VL.cell_center(VL.v2i(sp))
 		if PlayerMotionS.overlaps(sc, mob1) or CombatS.in_village(sc):
 			bad_spawn += str(sc) + " "
-	_check("combat: 3 spawns libres pour les monstres, hors du village", vd["lisiere"]["spawns"].size() == 3 and bad_spawn == "", bad_spawn)
+	_check("combat: 3 spawns libres pour les monstres, hors du village", LISIERE_SPAWNS_10.size() == 3 and bad_spawn == "", bad_spawn)
 	var at_edge: Vector2 = PlayerMotionS.move(Vector2(0, 256), Vector2(0, -100), mob1)
 	_check("combat: move((0, 256), (0, -100), solid monstres) == (0, 203)", at_edge == Vector2(0, 203), str(at_edge))
 	# RNG
@@ -412,16 +417,314 @@ func _jalon_10(vd: Dictionary, built: Dictionary, p: Dictionary) -> void:
 		mob_nodes.append(mob_state.get_node_name(i))
 	_check("scenes: mob.tscn = Monstre, Ombre, Sprite", mob_nodes == ["Monstre", "Ombre", "Sprite"], str(mob_nodes))
 	var vil: Node = load("res://scenes/village/village.tscn").instantiate()
-	var lis: Node2D = vil.get_node_or_null("Entites/Lisiere")
-	_check("scenes: village.tscn contient Entites/Lisiere, y_sort_enabled", lis != null and lis.y_sort_enabled)
-	_check("scenes: village.gd sans set_combat_active, Lisiere en PROCESS_MODE_INHERIT", not vil.has_method("set_combat_active") and lis.process_mode == Node.PROCESS_MODE_INHERIT)
+	var lis: Node2D = vil.get_node_or_null("Entites/Segment")
+	_check("scenes: village.tscn contient Entites/Segment, y_sort_enabled", lis != null and lis.y_sort_enabled)
+	_check("scenes: village.gd sans set_combat_active, Segment en PROCESS_MODE_INHERIT", not vil.has_method("set_combat_active") and lis.process_mode == Node.PROCESS_MODE_INHERIT)
 	vil.free()
 	_jalon_10b(vd, solid1)
 	var mi: Array = vd["tiles"]["monstre"]
 	var clash: bool = mi == vd["tiles"]["joueur"]
 	for n: String in vd["npc_sprites"]:
 		clash = clash or vd["tiles"][n] == mi
-	_check("village.json: monstre ni joueur ni PNJ, lisiere 3 spawns, mob_sprite monstre", not clash and vd["lisiere"]["spawns"].size() == 3 and vd["lisiere"]["mob_sprite"] == "monstre")
+	_check("village.json: monstre ni joueur ni PNJ, segment mob_sprite monstre", not clash and vd["segment"]["mob_sprite"] == "monstre")
+	_jalon_11(vd, solid1)
+
+# Jalon 11 : segment de Brume, expédition, saturation. Jumeau Python : prep_jalon_11.py.
+func _jalon_11(vd: Dictionary, solid1: Dictionary) -> void:
+	# BalanceA (n°26, n°27, volet E)
+	_check("balanceA: bloc segment (n°26, n°27)", BA.SEGMENT_NODES_COUNT_VERTICAL_SLICE == 3 and BA.SEGMENT_NODE_NORMAL_MOBS == [6, 6, 12]
+		and BA.SEGMENT_NODE_MIST_NODES == [4, 4, 0] and BA.SEGMENT_ELITE_NODE_INDEX == 2 and BA.SEGMENT_PRE_ELITE_CENDRE_BUDGET == 80
+		and BA.SEGMENT_STD_RUN_CENDRE_CAP == 100 and BA.SIM_ROUTINE_A_NORMAL_MOBS == [6, 6, 12] and BA.SIM_ROUTINE_A_MIST_NODES == [2, 2, 0]
+		and BA.SIM_ROUTINE_B_NORMAL_MOBS == [2, 6, 0] and BA.SIM_ROUTINE_B_MIST_NODES == [4, 4, 0]
+		and BA.ARENA_INTER_WAVE_REST_SEC == 5.0 and BA.ARENA_INTER_WAVE_HEAL_RATIO == 0.50)
+	_check("balanceA: 24 normaux et 8 nœuds de Brume sur le segment", _sum_ints(BA.SEGMENT_NODE_NORMAL_MOBS) == 24 and _sum_ints(BA.SEGMENT_NODE_MIST_NODES) == 8)
+	_check("balanceA: SEGMENT_STD_RUN_CENDRE_CAP == SEGMENT_PRE_ELITE_CENDRE_BUDGET + CENDRE_GAIN_ELITE_MOB", BA.SEGMENT_STD_RUN_CENDRE_CAP == BA.SEGMENT_PRE_ELITE_CENDRE_BUDGET + BA.CENDRE_GAIN_ELITE_MOB)
+	var waves: Array = [BA.ARENA_WAVE_1_SPAWN_SEC, BA.ARENA_WAVE_2_SPAWN_SEC, BA.ARENA_WAVE_3_SPAWN_SEC]
+	var wave_ok: bool = true
+	var gaps: Array[float] = []
+	for w in 3:
+		var t: Array = waves[w]
+		wave_ok = wave_ok and t.size() == BA.ARENA_WAVE_NORMAL_MOBS[w] + BA.ARENA_WAVE_ELITE_MOBS[w]
+		var gap: float = INF
+		for k in t.size():
+			wave_ok = wave_ok and t[k] < BA.ARENA_WAVE_DURATION_SEC
+			if k > 0:
+				gap = minf(gap, t[k] - t[k - 1])
+		gaps.append(gap)
+	_check("balanceA: arène 5 / 7 / 1 apparitions, écarts min 5,0 et 4,0 s (>= 3,80), toutes < 30 s",
+		wave_ok and waves[0].size() == 5 and waves[1].size() == 7 and waves[2].size() == 1 and gaps[0] == 5.0 and gaps[1] == 4.0 and gaps[1] >= 3.80, str(gaps))
+	# Profils A et B (1 expédition standard)
+	var crafts: Dictionary = {"A": 2, "B": 4}
+	var fiche: Dictionary = {"A": BA.XP_BOARD_FICHE_COMBAT, "B": BA.XP_BOARD_FICHE_ARTISAN}
+	var mobs_r: Dictionary = {"A": BA.SIM_ROUTINE_A_NORMAL_MOBS, "B": BA.SIM_ROUTINE_B_NORMAL_MOBS}
+	var mist_r: Dictionary = {"A": BA.SIM_ROUTINE_A_MIST_NODES, "B": BA.SIM_ROUTINE_B_MIST_NODES}
+	for r: String in ["A", "B"]:
+		var kills: int = _sum_ints(mobs_r[r])
+		var nodes: int = _sum_ints(mist_r[r])
+		var xp: int = kills * BA.XP_KILL_NORMAL + nodes * BA.XP_GATHER_MIST_NODE + BA.XP_KILL_ELITE + fiche[r] + crafts[r] * BA.XP_CRAFT_WITH_CENDRE
+		var cendre: int = kills * BA.CENDRE_GAIN_NORMAL_MOB + nodes * BA.CENDRE_GAIN_MIST_NODE + BA.CENDRE_GAIN_ELITE_MOB
+		var shards: float = kills * BA.SHARD_DROP_CHANCE_NORMAL + nodes * BA.SHARD_DROP_CHANCE_MIST_NODE + BA.SHARD_DROP_CHANCE_ELITE
+		var cost: int = crafts[r] * BA.CENDRE_COST_STANDARD_CRAFT
+		_check("profil %s: XP 1 680, Cendre 100, Éclats 3,0, crafts %d <= 100" % [r, cost], xp == 1680 and cendre == 100 and _approx(shards, 3.0, 1e-9) and cost <= cendre,
+			"%d %d %f %d" % [xp, cendre, shards, cost])
+	# PlayerMotion borné
+	_check("move: overlaps((0, 1632), {}, node_rect(0)) faux, overlaps((0, 1632), {}) vrai",
+		not PlayerMotionS.overlaps(Vector2(0, 1632), {}, SegGenS.node_rect(0)) and PlayerMotionS.overlaps(Vector2(0, 1632), {}))
+	# SegmentGen : références du jumeau
+	var m0: Dictionary = SegGenS.node_map(1, 0)
+	var rows0: Array[int] = []
+	for k in SegGenS.slot_count(0):
+		rows0.append(SegGenS.slot_row(k, SegGenS.slot_count(0)))
+	_check("segment graine 1 nœud 0: lignes, 6 monstres, 4 nœuds, 853 arbres, 857 pleines",
+		rows0 == [12, 20, 28, 36, 44, 52, 60, 68, 76, 84]
+		and m0["mobs"] == [Vector2i(-13, 120), Vector2i(8, 128), Vector2i(-7, 144), Vector2i(-12, 160), Vector2i(-4, 168), Vector2i(5, 184)]
+		and m0["mist"] == [Vector2i(5, 112), Vector2i(-11, 136), Vector2i(-9, 152), Vector2i(5, 176)]
+		and m0["trees"].size() == 853 and SegGenS.solid_cells(m0).size() == 857, "%s %s %s %d" % [str(rows0), str(m0["mobs"]), str(m0["mist"]), m0["trees"].size()])
+	var m1: Dictionary = SegGenS.node_map(1, 1)
+	_check("segment graine 1 nœud 1: Brasero (0, 248), 29 sûres, 6 monstres, 4 nœuds, 852 arbres, 857 / 885 pleines",
+		m1.get("brazier") == Vector2i(0, 248) and m1["safe"].size() == 29
+		and m1["mobs"] == [Vector2i(-9, 211), Vector2i(13, 218), Vector2i(6, 233), Vector2i(13, 240), Vector2i(-14, 255), Vector2i(6, 284)]
+		and m1["mist"] == [Vector2i(-14, 226), Vector2i(-11, 262), Vector2i(14, 269), Vector2i(7, 277)]
+		and m1["trees"].size() == 852 and SegGenS.solid_cells(m1).size() == 857 and SegGenS.mob_solid_cells(m1).size() == 885,
+		"%s %s %d %d" % [str(m1["mobs"]), str(m1["mist"]), m1["trees"].size(), SegGenS.mob_solid_cells(m1).size()])
+	var m2: Dictionary = SegGenS.node_map(1, 2)
+	_check("segment graine 1 nœud 2: 12 monstres, aucun nœud, 844 arbres, (0, 395) arbre",
+		m2["mobs"] == [Vector2i(-11, 311), Vector2i(12, 318), Vector2i(-10, 324), Vector2i(-4, 331), Vector2i(13, 338), Vector2i(-14, 344),
+			Vector2i(-5, 351), Vector2i(-8, 358), Vector2i(-11, 364), Vector2i(11, 371), Vector2i(5, 378), Vector2i(-4, 384)]
+		and m2["mist"].is_empty() and m2["trees"].size() == 844 and m2["trees"].has(Vector2i(0, 395)), "%s %d" % [str(m2["mobs"]), m2["trees"].size()])
+	var g0: Dictionary = SegGenS.node_map(42, 0)
+	var g1: Dictionary = SegGenS.node_map(42, 1)
+	var g2: Dictionary = SegGenS.node_map(42, 2)
+	_check("segment graine 42: nœud 0 contenu et 819 arbres, nœud 1 841 / 846, nœud 2 824",
+		g0["mobs"] == [Vector2i(8, 120), Vector2i(14, 128), Vector2i(4, 152), Vector2i(-13, 160), Vector2i(13, 168), Vector2i(10, 184)]
+		and g0["mist"] == [Vector2i(9, 112), Vector2i(14, 136), Vector2i(6, 144), Vector2i(-8, 176)] and g0["trees"].size() == 819
+		and g1["trees"].size() == 841 and SegGenS.solid_cells(g1).size() == 846 and g2["trees"].size() == 824,
+		"%s %s %d %d %d %d" % [str(g0["mobs"]), str(g0["mist"]), g0["trees"].size(), g1["trees"].size(), SegGenS.solid_cells(g1).size(), g2["trees"].size()])
+	# Accessibilité et isolement des monstres
+	var min_gap: Array[float] = []
+	for seed: int in [1, 42]:
+		for i in 3:
+			var m: Dictionary = SegGenS.node_map(seed, i)
+			var solid: Dictionary = SegGenS.solid_cells(m)
+			var rect: Rect2i = m["rect"]
+			var start: Vector2i = Vector2i(0, rect.position.y + 2)
+			var seen: Dictionary = {start: true}
+			var queue: Array[Vector2i] = [start]
+			while not queue.is_empty():
+				var c: Vector2i = queue.pop_front()
+				for d: Vector2i in VL.NEIGHBORS:
+					var n: Vector2i = c + d
+					if rect.has_point(n) and not solid.has(n) and not seen.has(n):
+						seen[n] = true
+						queue.append(n)
+			var bad: String = ""
+			for c: Vector2i in m["mobs"]:
+				if not seen.has(c):
+					bad += "monstre %s " % str(c)
+			for c: Vector2i in m["mist"]:
+				var near: bool = false
+				for d: Vector2i in VL.NEIGHBORS:
+					near = near or seen.has(c + d)
+				if not near:
+					bad += "brume %s " % str(c)
+			for c: Vector2i in m["passages"]:
+				if not seen.has(c):
+					bad += "passage %s " % str(c)
+			var gap: float = INF
+			for a in m["mobs"].size():
+				for b in range(a + 1, m["mobs"].size()):
+					gap = minf(gap, VL.cell_center(m["mobs"][a]).distance_to(VL.cell_center(m["mobs"][b])))
+			if seed == 1:
+				min_gap.append(snappedf(gap, 0.1))
+			_check("segment graine %d nœud %d: monstres, nœuds de Brume et passages accessibles ; monstres à plus de 96 px" % [seed, i], bad == "" and gap > 96.0, "%s %f" % [bad, gap])
+	_check("segment graine 1: écarts min 181,0 / 158,4 / 107,3 px", min_gap.size() == 3 and _approx(min_gap[0], 181.0, 0.05) and _approx(min_gap[1], 158.4, 0.05) and _approx(min_gap[2], 107.3, 0.05), str(min_gap))
+	var pass_ok: bool = SegGenS.passages() == {Vector2i(0, 26): [0, Vector2i(0, 102)], Vector2i(0, 100): [-1, Vector2i(0, 24)], Vector2i(0, 195): [1, Vector2i(0, 202)],
+		Vector2i(0, 200): [0, Vector2i(0, 193)], Vector2i(0, 295): [2, Vector2i(0, 302)], Vector2i(0, 300): [1, Vector2i(0, 293)]}
+	_check("segment: passages() == table de l'étape 3", pass_ok, str(SegGenS.passages()))
+	_check("segment: node_index (0, 26) -1, (0, 100) 0, (0, 295) 1, (0, 396) -1", SegGenS.node_index(Vector2i(0, 26)) == -1 and SegGenS.node_index(Vector2i(0, 100)) == 0
+		and SegGenS.node_index(Vector2i(0, 295)) == 1 and SegGenS.node_index(Vector2i(0, 396)) == -1)
+	_check("segment: in_brazier_zone (0, 251) (2, 250) vrais, (0, 252) (3, 250) faux", SegGenS.in_brazier_zone(Vector2i(0, 251)) and SegGenS.in_brazier_zone(Vector2i(2, 250))
+		and not SegGenS.in_brazier_zone(Vector2i(0, 252)) and not SegGenS.in_brazier_zone(Vector2i(3, 250)))
+	_check("combat: in_safe_zone (0, 32) et (0, 3968) vrais, (0, 3200) faux", CombatS.in_safe_zone(Vector2(0, 32)) and CombatS.in_safe_zone(Vector2(0, 3968)) and not CombatS.in_safe_zone(Vector2(0, 3200)))
+	# Expedition
+	var rng0: RngS.Pcg32 = RngS.make_rng(1, "loot/eclats/0")
+	var draws: Array[float] = []
+	var want: Array[float] = [0.697933, 0.510035, 0.840335, 0.677033, 0.077122, 0.299925, 0.98673, 0.081554, 0.246956, 0.506639, 0.763717, 0.567947]
+	var draws_ok: bool = true
+	for k in 12:
+		draws.append(rng0.next_float())
+		draws_ok = draws_ok and _approx(draws[k], want[k], 1e-6)
+	_check("expédition: 12 premiers tirages de loot/eclats/0, 1er de loot/eclats/1 == 0,177019", draws_ok and _approx(RngS.make_rng(1, "loot/eclats/1").next_float(), 0.177019, 1e-6), str(draws))
+	var ex: ExpeditionS = ExpeditionS.new(1, 0)
+	var n_kills: int = 0
+	var mist_closed_at: int = -1
+	while ex.normals_open():
+		ex.on_kill(0)
+		n_kills += 1
+		if mist_closed_at < 0 and not ex.mist_open():
+			mist_closed_at = n_kills
+	_check("expédition: kills seuls -> 40, Cendre 80, 0 Éclat, XP 1 200, nœuds fermés au 37e kill (Cendre 74)",
+		n_kills == 40 and ex.cendre == 80 and ex.shards == 0 and ex.xp == 1200 and mist_closed_at == 37, "%d %d %d %d %d" % [n_kills, ex.cendre, ex.shards, ex.xp, mist_closed_at])
+	ex = ExpeditionS.new(1, 0)
+	for k in 8:
+		ex.on_gather(0)
+	var after8: Array = [ex.cendre, ex.shards, ex.mist_open()]
+	for k in 8:
+		ex.on_kill(0)
+	_check("expédition: 8 nœuds -> Cendre 64, 2 Éclats, nœuds ouverts ; + 8 kills -> Cendre 80, 2 Éclats, XP 744",
+		after8 == [64, 2, true] and ex.cendre == 80 and ex.shards == 2 and ex.xp == 744 and not ex.normals_open(), "%s %d %d %d" % [str(after8), ex.cendre, ex.shards, ex.xp])
+	ex = ExpeditionS.new(1, 0)
+	for k in 10:
+		ex.on_gather(0)
+	_check("expédition: 10 nœuds -> Cendre 80, normaux fermés", ex.cendre == 80 and not ex.normals_open())
+	# Récolte, contrôleur seul
+	var r1: Array = _gather_alone(Vector2(64, 1792), 200)
+	_check("récolte: joueur à 16 px -> GATHERED à la 91e image, signal 1 fois", r1[0] == 91 and r1[1] == 1, str(r1))
+	var r2: Array = _gather_alone(Vector2(55, 1792), 200)
+	_check("récolte: joueur à 25 px -> toujours AVAILABLE après 200 images", r2[0] == -1 and r2[1] == 0, str(r2))
+	# Passages, avec Segment
+	var ctx: Array = _seg_ctx(solid1, Vector2(0, 416))
+	var pl: Node2D = ctx[0]
+	var seg: Node2D = ctx[1]
+	var tp: Array[int] = [0]
+	var changes: Array = []
+	pl.teleported.connect(func() -> void: tp[0] += 1)
+	seg.expedition_changed.connect(func(s: bool, c: int, e: int) -> void: changes.append([s, c, e]))
+	_seg_frame(pl, seg)
+	var fade1: bool = pl.in_fade()
+	var still: bool = true
+	for f in range(2, 26):
+		_seg_frame(pl, seg)
+		still = still and pl.position == Vector2(0, 416)
+	_check("passage: image 1 détecté (fondu), images 1 à 25 en (0, 416)", fade1 and still, str(pl.position))
+	_seg_frame(pl, seg)
+	_check("passage: image 26 en (0, 1632), nœud 0 actif, expédition 0, teleported 1 fois, expedition_changed(true, 0, 0)",
+		pl.position == Vector2(0, 1632) and seg.active == 0 and seg.expedition != null and tp[0] == 1 and changes == [[true, 0, 0]],
+		"%s %d %d %s" % [str(pl.position), seg.active, tp[0], str(changes)])
+	var fade_66: bool = false
+	for f in range(27, 68):
+		_seg_frame(pl, seg)
+		if f == 66:
+			fade_66 = pl.in_fade()
+	_check("passage: fondu fini à l'image 67", fade_66 and not pl.in_fade())
+	pl.position = Vector2(0, 1600)
+	for f in 26:
+		_seg_frame(pl, seg)
+	_check("passage nord: 25 images plus tard en (0, 384), nœud -1, fin « retour »", pl.position == Vector2(0, 384) and seg.active == -1 and seg.last_end == "retour" and seg.expedition == null,
+		"%s %d %s" % [str(pl.position), seg.active, seg.last_end])
+	_seg_free(ctx)
+	ctx = _seg_ctx(solid1, Vector2(0, 416))
+	pl = ctx[0]
+	seg = ctx[1]
+	for f in 67: # fondu d'arrivée fini : invulnérable avant
+		_seg_frame(pl, seg)
+	pl.hp = 5
+	pl.take_hit(9)
+	for f in 25:
+		_seg_frame(pl, seg)
+	_check("mort au nœud 0: 25 images plus tard en (0, 32), PV 100, fin « mort », bounds et solid du village",
+		pl.position == Vector2(0, 32) and pl.hp == 100 and seg.last_end == "mort" and pl.bounds() == VL.GROUND_RECT and pl._solid == solid1,
+		"%s %d %s %s" % [str(pl.position), pl.hp, seg.last_end, str(pl.bounds())])
+	_seg_free(ctx)
+	# Récolte avec Segment
+	ctx = _seg_ctx(solid1, Vector2(0, 416))
+	pl = ctx[0]
+	seg = ctx[1]
+	for f in 67:
+		_seg_frame(pl, seg)
+	pl.position = Vector2(64, 1792)
+	for f in 91:
+		_seg_frame(pl, seg)
+	var ex1: ExpeditionS = seg.expedition
+	_check("récolte avec Segment: Cendre 8, XP 63, 0 Éclat", ex1.cendre == 8 and ex1.xp == 63 and ex1.shards == 0, "%d %d %d" % [ex1.cendre, ex1.xp, ex1.shards])
+	_seg_free(ctx)
+	# Saturation
+	ctx = _seg_ctx(solid1, Vector2(0, 416))
+	pl = ctx[0]
+	seg = ctx[1]
+	for f in 67:
+		_seg_frame(pl, seg)
+	seg.expedition.cendre = 78
+	var node0: Node2D = seg.nodes()[0]
+	var target: Node2D = node0.mobs()[0]
+	while target.alive:
+		node0._strike(target)
+	var all_dead: bool = true
+	for n: Node2D in seg.nodes():
+		for m: Node2D in n.mobs():
+			all_dead = all_dead and not m.alive and not m.visible
+	for f in 1300:
+		_seg_frame(pl, seg)
+	var none_back: bool = true
+	var all_vitrified: bool = true
+	for n: Node2D in seg.nodes():
+		for m: Node2D in n.mobs():
+			none_back = none_back and not m.alive
+		for mn: Node2D in n.mist_nodes():
+			all_vitrified = all_vitrified and mn.state == MistS.State.VITRIFIED
+	_check("saturation: un kill à 78 -> Cendre 80, monstres des 3 nœuds morts et invisibles, aucune réapparition après 1 300 images, nœuds VITRIFIED",
+		seg.expedition.cendre == 80 and all_dead and none_back and all_vitrified, "%d %s %s %s" % [seg.expedition.cendre, str(all_dead), str(none_back), str(all_vitrified)])
+	_seg_free(ctx)
+	# Brasero
+	var pb: Node2D = load("res://scenes/player/player.tscn").instantiate()
+	root.add_child(pb)
+	pb.setup(Vector2(0, 3984), null, null, {})
+	pb.hp = 40
+	pb._process(1.0 / 60.0)
+	_check("Brasero: 40 PV en (0, 3984) -> 100 après une image", pb.hp == 100, str(pb.hp))
+	pb.free()
+	# Scènes et données
+	var vil: Node = load("res://scenes/village/village.tscn").instantiate()
+	var sg: Node2D = vil.get_node_or_null("Entites/Segment")
+	_check("scenes: Entites/Segment (y_sort_enabled), plus d'Entites/Lisiere", sg != null and sg.y_sort_enabled and vil.get_node_or_null("Entites/Lisiere") == null)
+	vil.free()
+	_check("village.json: sans lisiere, avec segment et la tuile noeud_brume", not vd.has("lisiere") and vd.has("segment") and vd["segment"]["mist_sprite"] == "noeud_brume" and vd["tiles"].has("noeud_brume"))
+
+# Contrôleur seul (graine 1, nœud 0, sans monstre), un nœud de Brume en (5, 112), joueur immobile en pos.
+# Rend [image de la récolte (-1 si aucune), nombre de signaux gathered].
+func _gather_alone(pos: Vector2, frames: int) -> Array:
+	var m0: Dictionary = SegGenS.node_map(1, 0)
+	var pl: Node2D = load("res://scenes/player/player.tscn").instantiate()
+	root.add_child(pl)
+	pl.setup(pos, null, null, {})
+	var lis: Node2D = LisiereS.new()
+	root.add_child(lis)
+	lis.setup(1, 0, pl, SegGenS.solid_cells(m0), [], null, null, SegGenS.node_rect(0))
+	var cells: Array[Vector2i] = [Vector2i(5, 112)]
+	lis.add_mist_nodes(cells, null, null)
+	var count: Array[int] = [0]
+	lis.gathered.connect(func(_i: int) -> void: count[0] += 1)
+	var at: int = -1
+	for f in range(1, frames + 1):
+		pl._process(1.0 / 60.0)
+		lis._process(1.0 / 60.0)
+		if at < 0 and lis.mist_nodes()[0].state == MistS.State.GATHERED:
+			at = f
+	lis.free()
+	pl.free()
+	return [at, count[0]]
+
+# Joueur et Segment (graine 1, isolat 0), sans textures.
+func _seg_ctx(village_solid: Dictionary, pos: Vector2) -> Array:
+	var pl: Node2D = load("res://scenes/player/player.tscn").instantiate()
+	root.add_child(pl)
+	pl.setup(pos, null, null, village_solid)
+	var seg: Node2D = SegmentS.new()
+	root.add_child(seg)
+	seg.setup(1, 0, pl, village_solid, null, null, null)
+	return [pl, seg]
+
+# Une image : Joueur, puis Segment, puis le nœud actif.
+func _seg_frame(pl: Node2D, seg: Node2D) -> void:
+	pl._process(1.0 / 60.0)
+	seg._process(1.0 / 60.0)
+	var a: Node2D = seg.active_node()
+	if a != null:
+		a._process(1.0 / 60.0)
+
+func _seg_free(ctx: Array) -> void:
+	ctx[1].free()
+	ctx[0].free()
 
 # Jalon 10 bis : mort = évacuation (fondu), sans téléportation immédiate.
 func _evacuation_10b(solid: Dictionary) -> void:
@@ -461,7 +764,7 @@ func _jalon_10b(vd: Dictionary, solid1: Dictionary) -> void:
 	_check("balanceA: SegmentNodeType 0 à 4", ba_map["SegmentNodeType"].values() == [0, 1, 2, 3, 4], str(ba_map["SegmentNodeType"]))
 	_check("balanceA: arène 3 vagues, 12 normaux, 1 Élite", BA.ARENA_WAVE_COUNT == 3 and BA.ARENA_WAVE_DURATION_SEC == 30.0
 		and _sum_ints(BA.ARENA_WAVE_NORMAL_MOBS) == 12 and _sum_ints(BA.ARENA_WAVE_ELITE_MOBS) == 1)
-	_check("balanceA: STD_RUN_ROUTINE_A_NORMAL_MOBS absent", not ba_map.has("STD_RUN_ROUTINE_A_NORMAL_MOBS") and not ba_map.has("SEGMENT_NODES_COUNT_VERTICAL_SLICE"))
+	_check("balanceA: STD_RUN_ROUTINE_A_NORMAL_MOBS absent", not ba_map.has("STD_RUN_ROUTINE_A_NORMAL_MOBS")) # SEGMENT_NODES_COUNT_VERTICAL_SLICE entré au jalon 11 (n°26)
 	var cb_map: Dictionary = (load("res://scripts/combat/combat.gd") as Script).get_script_constant_map()
 	_check("combat: plus de MOB_MSPD ni MOB_WINDUP_SEC, mob_attack_period == 1,0", not cb_map.has("MOB_MSPD") and not cb_map.has("MOB_WINDUP_SEC") and CombatS.mob_attack_period() == 1.0)
 	# Fondu
@@ -479,7 +782,7 @@ func _jalon_10b(vd: Dictionary, solid1: Dictionary) -> void:
 	pl.setup(Vector2(0, 216), null, null, solid1)
 	var lis: Node2D = LisiereS.new()
 	root.add_child(lis)
-	lis.setup(1, 0, pl, solid1, vd["lisiere"]["spawns"], null, null)
+	lis.setup(1, 0, pl, solid1, LISIERE_SPAWNS_10, null, null)
 	var m0: Node2D = lis.mobs()[0]
 	var death_frame: int = -1
 	for f in range(1, 168):
@@ -519,7 +822,7 @@ func _s1(vd: Dictionary, solid: Dictionary, dt: float, frames: int, teleport: in
 	pl.setup(Vector2(0, 216), null, null, solid)
 	var lis: Node2D = LisiereS.new()
 	root.add_child(lis)
-	lis.setup(1, 0, pl, solid, vd["lisiere"]["spawns"], null, null)
+	lis.setup(1, 0, pl, solid, LISIERE_SPAWNS_10, null, null)
 	var mobs: Array[Node2D] = lis.mobs()
 	var out: Dictionary = {"strikes": [], "mob_hp": [], "crits": 0, "mob_death": -1, "windups": [], "received": [], "player_hp": [], "chased12": false, "hp_261": -1, "respawn": -1}
 	var prev_mob: int = mobs[0].hp

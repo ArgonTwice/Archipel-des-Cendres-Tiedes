@@ -40,7 +40,8 @@ build/             APK (ignoré par git)
 - Pixel art : tuiles 16×16, personnages 16×16 Kenney jusqu'à la tranche verticale (16×24 ensuite), fiches d'armes en haute résolution côté déplié.
 - Accents et genre grammatical : jetons grammaticaux FR dès le premier jalon.
 - Contrôles plié : joystick flottant (UI_Folded/Stick, inactif en déplié), balayage = esquive, collisions par cellules (PlayerMotion.move, pas de moteur physique), valeurs de jeu lues dans BalanceA ; constantes du joystick = techniques, réglées par Antho.
-- Combat (jalon 10) : Combat = statiques pures, Lisiere sous Entites ; monstres jamais dans le rayon de l'Âtre (ses cellules sont pleines pour eux), déplié hors du rayon de l'Âtre = temps réel, caméra sur le joueur (BalanceA.UNFOLDED_*) ; mort = fondu d'évacuation, rien de sauvegardé ; valeurs lues dans BalanceA / BalanceC ; rythme des monstres dans BalanceA (n°25) ; arme de départ = proposition d'Antho dans combat.gd.
+- Combat (jalon 10) : Combat = statiques pures, Segment sous Entites (3 nœuds lisiere.gd, un seul actif) ; monstres jamais dans le rayon de l'Âtre (ses cellules sont pleines pour eux), déplié hors du rayon de l'Âtre = temps réel, caméra sur le joueur (BalanceA.UNFOLDED_*) ; mort = fondu d'évacuation, rien de sauvegardé ; valeurs lues dans BalanceA / BalanceC ; rythme des monstres dans BalanceA (n°25) ; arme de départ = proposition d'Antho dans combat.gd.
+- Segment (jalon 11) : cartes SegmentGen (RNG segment/noeud/i, nœuds loin du village, passages en fondu), Expedition en mémoire (Cendre, Éclats, saturation à 80), rien de sauvegardé ; Élite avec les aptitudes.
 
 ## Assets
 - Uniquement gratuits et open source. Licences acceptées : CC0, CC-BY, MIT, OFL pour les polices. Pas de « non commercial » ni de licence floue sans accord d'Antho.

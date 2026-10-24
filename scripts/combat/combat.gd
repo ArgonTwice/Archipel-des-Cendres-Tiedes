@@ -7,6 +7,7 @@ extends RefCounted
 const BA = preload("res://balance/balance_a.gd")
 const BC = preload("res://balance/balance_c.gd")
 const VL = preload("res://scripts/village/village_layout.gd")
+const SegmentGenS = preload("res://scripts/segment/segment_gen.gd")
 
 # Arme de départ : Épée & Écu, Commun, ilvl 1, 3 pièces Enclume (Foyer), sans affixe. PROPOSÉ, à valider (jalon 10)
 const START_WEAPON_TYPE: int = BC.WeaponType.SWORD_SHIELD
@@ -98,6 +99,10 @@ static func cell_of(p: Vector2) -> Vector2i:
 # Règle d'or (SOCLE §A1) : le rayon de l'Âtre est le village.
 static func in_village(p: Vector2) -> bool:
 	return VL.in_radius(cell_of(p), VL.atre_radius())
+
+# Zones où l'on soigne et où les monstres ne ciblent pas : le village et le Brasero du Carrefour.
+static func in_safe_zone(p: Vector2) -> bool:
+	return in_village(p) or SegmentGenS.in_brazier_zone(cell_of(p))
 
 # Toutes les cellules du rayon : pleines pour les monstres.
 static func village_cells() -> Dictionary:

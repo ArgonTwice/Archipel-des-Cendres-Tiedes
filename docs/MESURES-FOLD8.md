@@ -208,3 +208,29 @@ Export debug le 24/10 : `aapt2` donne versionCode 6, versionName 0.10.1 ; SHA-25
 | G4 ressenti | noté tel quel | « fondu bien ; combat qui continue en déplié ok » |
 
 0 ERROR et 0 SCRIPT ERROR au logcat (111 lignes : 18 `coup`, 24 `coup_recu`, 2 `mort_monstre`, 2 `mort_joueur`, 2 `retour`, 2 `reapparition`, 12 `reset`).
+
+## Jalon 11 (APK 0.11.0, code 7) : segment de Brume à 3 nœuds, Cendre Vive et saturation
+
+Export debug le 24/10 : `aapt2` donne versionCode 7, versionName 0.11.0 ; SHA-256 b68a5d2a5a77bd526bcf11a42fd5dc0b31d490f033825bc4d216e51e2c666143. Tuile du nœud de Brume : Tiny Dungeon 56 (pierre grise à facettes).
+
+### E1 à E6 (PC, fenêtre 416 × 657, --hour=14, clics injectés, redimensionnement pour le déplié ; journal build/captures/jalon11-E-sonde.txt)
+
+| Test | Résultat | Preuve |
+|---|---|---|
+| E1 passage | OK | passage en (0, 409), arrivée (0, 1632) nœud 0, `debut`, compteur « Cendre 0/80  Éclats 0 », limites caméra [−328, 1592, 328, 3128] ; jalon11-E1-lisiere.png |
+| E2 récolte | OK | barre visible (jalon11-E2-recolte.png), `recolte`, Cendre 8 ; monstre à 30 px : progression 0 pendant 1,2 s |
+| E3 Brasero | OK | 40 → 100 PV dans le rayon ; un monstre attiré à 60 px n'entre jamais dans la zone sûre (3 s) ; jalon11-E3-brasero.png |
+| E4 Antre | OK | 12 monstres vivants, pas d'Élite ; jalon11-E4-antre.png |
+| E5 retour et mort | OK | 3 passages nord → (0, 384), compteur masqué, `fin` « retour » (Cendre 8, XP 63) ; mort en Brume → (0, 32), 100 PV, `fin` « mort » |
+| E6 déplié en Brume | OK | caméra = centre écran = joueur (0, 5440), zoom 0,5, limites du nœud, aucun vide ; jalon11-E6-deplie.png |
+
+### H1 à H4 (Fold 8, 24/10 de 20:39 à 20:43, plié 120 Hz ; logcat build/captures/jalon11-H-logcat.txt)
+
+| Test | Résultat | Preuve |
+|---|---|---|
+| H1 expédition complète | OK | `debut` 20:39:20 ; Carrefour 20:40:27 ; Antre 20:40:56 ; retour Carrefour 20:42:04, Lisière 20:42:38, village 20:42:50 : 3 min 30 s ; bilan `fin` « retour » : Cendre 48, Éclats 0, 4 kills, 5 nœuds, XP 435 |
+| H2 saturation | OK (2e essai) | 1er essai : Cendre max 48 / 80, non atteinte. 2e essai (tampon logcat, build/captures/jalon11-H2-logcat.txt) : dernier kill à 21:08:31,555 → `saturation` Cendre 80, `dissipation` sur les 3 nœuds, `eveil_elite_reporte` ; retour au village 21:09:48, `fin` « retour » : Cendre 80, Éclats 3, 8 kills, 8 nœuds, XP 744. La ligne `vitrification`, antérieure à 21:08:25, est sortie du tampon |
+| H3 lisibilité | non rapporté | Antho : « tout fait », sans détail |
+| H4 ressenti | non rapporté | Antho : « tout fait », sans détail |
+
+Autres faits du log : 27 `coup`, 11 `coup_recu`, 0 `mort_joueur`, 3 `reapparition` ; PV remontés de 28 à 100 entre 20:42:11 et 20:42:28 (passage au Brasero) ; seconde expédition courte (20:43:09 → 20:43:19, dépliage pendant 7,5 s), `fin` « retour ». 0 ERROR, 0 SCRIPT ERROR.

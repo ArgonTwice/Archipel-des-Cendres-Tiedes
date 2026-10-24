@@ -142,7 +142,7 @@ const MOB_BASE_ATTACK_SPEED: float = 1.00 # d'un début de télégraphe au suiva
 const MOB_RESPAWN_DELAY_SEC: float = 20.0
 const MOB_CAN_CRIT: bool = false
 
-# Segment de nœuds (n°25) ; le contenu du segment attend le n°26
+# Segment de nœuds (n°25 à n°27, volet E)
 enum SegmentNodeType {
 	NODE_OUTSKIRTS = 0,          # Lisière (meutes + nœuds de Brume)
 	NODE_BRAZIER_CROSSROADS = 1, # Carrefour avec Brasero
@@ -154,6 +154,26 @@ const ARENA_WAVE_COUNT: int = 3
 const ARENA_WAVE_DURATION_SEC: float = 30.0 # 90 s au total
 const ARENA_WAVE_NORMAL_MOBS: Array[int] = [5, 7, 0] # 12 normaux
 const ARENA_WAVE_ELITE_MOBS: Array[int] = [0, 0, 1] # 1 Élite porteur de braise
+const SEGMENT_NODES_COUNT_VERTICAL_SLICE: int = 3
+const SEGMENT_NODE_NORMAL_MOBS: Array[int] = [6, 6, 12] # 24 sur le segment
+const SEGMENT_NODE_MIST_NODES: Array[int] = [4, 4, 0] # 8 sur le segment
+const SEGMENT_ELITE_NODE_INDEX: int = 2 # 1 Élite au nœud 3
+# Saturation de Brume : une action n'est disponible que si son gain de Cendre tient dans le reste du budget
+const SEGMENT_PRE_ELITE_CENDRE_BUDGET: int = 80
+const SEGMENT_STD_RUN_CENDRE_CAP: int = 100 # = SEGMENT_PRE_ELITE_CENDRE_BUDGET + CENDRE_GAIN_ELITE_MOB
+
+# Profils du simulateur headless (1 expédition standard), pas le contenu du monde
+const SIM_ROUTINE_A_NORMAL_MOBS: Array[int] = [6, 6, 12]
+const SIM_ROUTINE_A_MIST_NODES: Array[int] = [2, 2, 0]
+const SIM_ROUTINE_B_NORMAL_MOBS: Array[int] = [2, 6, 0]
+const SIM_ROUTINE_B_MIST_NODES: Array[int] = [4, 4, 0]
+
+# Arène : apparitions en secondes depuis le début de la vague
+const ARENA_WAVE_1_SPAWN_SEC: Array[float] = [0.0, 5.0, 10.0, 15.0, 20.0]
+const ARENA_WAVE_2_SPAWN_SEC: Array[float] = [0.0, 4.0, 8.0, 12.0, 16.0, 20.0, 24.0]
+const ARENA_WAVE_3_SPAWN_SEC: Array[float] = [0.0]
+const ARENA_INTER_WAVE_REST_SEC: float = 5.0
+const ARENA_INTER_WAVE_HEAL_RATIO: float = 0.50
 
 # Déplié hors du rayon de l'Âtre, avant la Jauge de Sang-Froid ou hors activation (n°25)
 const UNFOLDED_OUTSIDE_ATRE_TIMESCALE_DEFAULT: float = 1.00

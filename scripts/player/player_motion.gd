@@ -10,8 +10,9 @@ const BA = preload("res://balance/balance_a.gd")
 const HALF_PX: Vector2 = Vector2(4, 3) # boîte des pieds 8 x 6 centrée sur l'origine du nœud ; à valider (jalon 9)
 const STEP_PX: float = 1.0 # à valider (jalon 9)
 
-# Boîte [p - HALF_PX, p + HALF_PX[ ; la cellule c couvre [16c - 8, 16c + 8[. Hors de GROUND_RECT = bord du monde.
-static func overlaps(p: Vector2, solid: Dictionary) -> bool:
+# Boîte [p - HALF_PX, p + HALF_PX[ ; la cellule c couvre [16c - 8, 16c + 8[. Hors de bounds = bord du monde
+# (GROUND_RECT au village, rectangle du nœud en Brume).
+static func overlaps(p: Vector2, solid: Dictionary, bounds: Rect2i = VL.GROUND_RECT) -> bool:
 	var half: float = VL.CELL / 2.0
 	var x0: int = floori((p.x - HALF_PX.x + half) / VL.CELL)
 	var x1: int = ceili((p.x + HALF_PX.x + half) / VL.CELL) - 1
@@ -20,19 +21,19 @@ static func overlaps(p: Vector2, solid: Dictionary) -> bool:
 	for y in range(y0, y1 + 1):
 		for x in range(x0, x1 + 1):
 			var c: Vector2i = Vector2i(x, y)
-			if solid.has(c) or not VL.GROUND_RECT.has_point(c):
+			if solid.has(c) or not bounds.has_point(c):
 				return true
 	return false
 
 # Axe x puis axe y, par pas de STEP_PX au plus ; un pas qui chevauche arrête l'axe et le reste est perdu (glissement).
-static func move(p: Vector2, motion: Vector2, solid: Dictionary) -> Vector2:
+static func move(p: Vector2, motion: Vector2, solid: Dictionary, bounds: Rect2i = VL.GROUND_RECT) -> Vector2:
 	for axis: int in [Vector2.AXIS_X, Vector2.AXIS_Y]:
 		var rest: float = motion[axis]
 		while rest != 0.0:
 			var step: float = clampf(rest, -STEP_PX, STEP_PX)
 			var q: Vector2 = p
 			q[axis] += step
-			if overlaps(q, solid):
+			if overlaps(q, solid, bounds):
 				break
 			p = q
 			rest -= step

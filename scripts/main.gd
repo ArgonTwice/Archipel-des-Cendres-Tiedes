@@ -33,9 +33,12 @@ func _ready() -> void:
 	_stick.swiped.connect(player.dodge)
 	_stick.was_reset.connect(player.on_input_reset)
 	player.evacuation_started.connect(_stick.reset) # un doigt resté posé ne fait pas repartir le joueur depuis l'Âtre
+	player.teleported.connect(func() -> void: _set_camera_limits(_world.rect_at(player.position)))
+	for layer in [_ui_folded, _ui_unfolded]: # ui_layer.gd
+		_world.segment().expedition_changed.connect(layer.show_expedition)
 	_black.color = CombatS.EVAC_COLOR
 	_black.color.a = 0.0
-	_set_camera_limits()
+	_set_camera_limits(VL.GROUND_RECT)
 	_folded = FoldModeS.is_folded(get_window().size)
 	var s: int = _apply_scale(_folded)
 	FoldModeS.apply(_folded, _ui_folded, _ui_unfolded)
@@ -65,9 +68,8 @@ static func camera_target(folded: bool, player_pos: Vector2) -> Vector2:
 		return player_pos.round()
 	return Vector2.ZERO
 
-# Bords du sol (GROUND_RECT) : la caméra ne montre jamais de vide.
-func _set_camera_limits() -> void:
-	var r: Rect2i = VL.GROUND_RECT
+# Bords du lieu (sol du village ou nœud de Brume) : la caméra ne montre jamais de vide. Appelé sous le noir des fondus.
+func _set_camera_limits(r: Rect2i) -> void:
 	var half: int = VL.CELL / 2
 	_camera.limit_left = r.position.x * VL.CELL - half
 	_camera.limit_top = r.position.y * VL.CELL - half
