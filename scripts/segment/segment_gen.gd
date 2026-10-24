@@ -16,6 +16,7 @@ const BRAZIER_NODE: int = 1 # PROPOSÉ, à valider (jalon 11)
 const BRAZIER_RADIUS_CELLS: int = 3 # PROPOSÉ, à valider (jalon 11)
 const NODE_TYPES: Array[int] = [BA.SegmentNodeType.NODE_OUTSKIRTS, BA.SegmentNodeType.NODE_BRAZIER_CROSSROADS, BA.SegmentNodeType.NODE_ELITE_LAIR]
 const VILLAGE: int = -1
+const ELITE_ROW: int = 91 # ligne locale de l'Élite, dans l'allée centrale déjà dégagée. PROPOSÉ, à valider (jalon 12)
 
 static func node_rect(i: int) -> Rect2i:
 	return Rect2i(-NODE_SIZE.x / 2, NODE_FIRST_ROW[i], NODE_SIZE.x, NODE_SIZE.y)
@@ -38,6 +39,10 @@ static func slot_count(i: int) -> int:
 static func brazier_cell() -> Vector2i:
 	var s: int = slot_count(BRAZIER_NODE)
 	return Vector2i(0, NODE_FIRST_ROW[BRAZIER_NODE] + slot_row(s / 2, s))
+
+# L'Élite ne consomme aucun tirage ni aucune cellule : les cartes du jalon 11 ne changent pas.
+static func elite_cell() -> Vector2i:
+	return Vector2i(0, NODE_FIRST_ROW[BA.SEGMENT_ELITE_NODE_INDEX] + ELITE_ROW)
 
 static func in_brazier_zone(cell: Vector2i) -> bool:
 	return (cell - brazier_cell()).length_squared() <= BRAZIER_RADIUS_CELLS * BRAZIER_RADIUS_CELLS

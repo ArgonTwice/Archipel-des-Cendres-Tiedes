@@ -33,6 +33,7 @@ func _ready() -> void:
 	_stick.swiped.connect(player.dodge)
 	_stick.was_reset.connect(player.on_input_reset)
 	player.evacuation_started.connect(_stick.reset) # un doigt resté posé ne fait pas repartir le joueur depuis l'Âtre
+	_ui_folded.get_node("Aptitudes").setup(player)
 	player.teleported.connect(func() -> void: _set_camera_limits(_world.rect_at(player.position)))
 	for layer in [_ui_folded, _ui_unfolded]: # ui_layer.gd
 		_world.segment().expedition_changed.connect(layer.show_expedition)

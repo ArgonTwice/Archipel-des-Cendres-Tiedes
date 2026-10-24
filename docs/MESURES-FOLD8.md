@@ -255,3 +255,27 @@ Export debug le 24/10 : `aapt2` donne versionCode 8, versionName 0.11.1 ; SHA-25
 | J2 ressenti | noté tel quel | « On ne sait pas la portée, la portée est immense sur mes tests. Mais c'est mieux. Ce que j'aimerais pour les combats, un rogue-like comme Vampire Survivors ou Cult of the Lamb. On commence avec les armes qu'on aurait craftées au village, puis quand on gagne assez d'XP pendant la run (mission) on débloque des compétences, on peut trouver des armes dans la run pour nous aider, etc. Une fois le boss de la run vaincu (ou si on meurt), on retourne au village avec ce qu'on a ramassé mais pas les armes. Les armes ne sont qu'éphémères dans la run, sauf les armes qu'on a craftées au village. » |
 
 0 ERROR et 0 SCRIPT ERROR au logcat (60 `coup`, 5 `coup_recu`, 12 `mort_monstre`, 7 `recolte`, 8 `reapparition`, 3 `dissipation`). Portée (J2) : l'Épée & Écu frappe à 40 px (BalanceC.WEAPON_SPECS, validé) contre 16 px au contact des monstres, sans repère visuel. Portée et run façon rogue-lite = sujets de design pour Argon, rien n'est modifié.
+
+## Jalon 12 (APK 0.12.0, code 9) : Élite, 2 aptitudes, portées du n°29 et repère de portée
+
+Export debug le 24/10 : `aapt2` donne versionCode 9, versionName 0.12.0 ; SHA-256 9e08efdfbfa6fbccb7e4f456de39fb02ed45f9b1db83abe13ea82fb5d772c805. Sprite de l'Élite : Tiny Dungeon 110 (démon rouge). Boutons d'aptitude : Button (Control), le deuxième doigt atteint un Control en 4.7.2 (viewport.cpp gui.touch_focus par index, base_button.cpp ScreenTouch de tout index).
+
+### L1 à L4 (PC, fenêtre 416 × 657, --hour=14, clics injectés ; journal build/captures/jalon12-L-sonde.txt)
+
+| Test | Résultat | Preuve |
+|---|---|---|
+| L1 portée | OK | anneau absent hors combat (jalon12-L1-sans-anneau.png), présent en combat (jalon12-L1-anneau.png) ; 1er coup à 23,9 px |
+| L2 aptitudes | OK | I : 45 dégâts (monstre à 50), bouton à alpha 0,4 avec « 6 » ; II : 72 dégâts ; recharge de II −2,0 s en 2 s sans frapper, −2,4 s en frappant ; une aptitude armée au village est oubliée par le fondu du passage |
+| L3 Élite | OK | dormant, 712 PV en (0, 6256) (jalon12-L3-elite-dort.png) ; saturation → `eveil_elite`, poursuite ; kill → « Cendre 100/80  Éclats 1 » (jalon12-L3-elite-tue.png) |
+| L4 joystick + bouton | L4a OK sur PC, multi-touch au Fold (M2) | clic sur I : aptitude armée, joystick sans doigt ; clic témoin hors bouton : joystick suit le doigt |
+
+### M1 à M4 (Fold 8, 24/10 de 22:03 à 22:06, plié 120 Hz ; logcat build/captures/jalon12-M-logcat.txt)
+
+| Test | Résultat | Preuve |
+|---|---|---|
+| M1 expédition jusqu'à l'Élite | OK | `debut` 22:03:16 ; Carrefour 22:04:03 ; Antre 22:04:40 ; `vitrification` 22:04:48 (74) ; `saturation` et `eveil_elite` 22:05:08 ; `mort_elite` 22:05:36 (combat de 28 s) ; retour au village 22:06:08 : 2 min 52 s. Bilan `fin` « retour » : 13 kills (12 normaux + l'Élite), 7 nœuds, Cendre 100, 1 Éclat, XP 997, 0 mort, 8 coups reçus ; 16 aptitudes lancées (dont 1 critique, 68), 3 demandes pas prêtes, 55 autos |
+| M2 aptitude en marche | OK | 3 aptitudes sur 16 lancées en état « marche » (22:03:20, 22:05:23, 22:05:29) : pouce sur le joystick et autre doigt sur le bouton |
+| M3 lisibilité | OK | Antho : « bien lisible » |
+| M4 ressenti | noté tel quel | « C'est bien, je pense que la portée augmentera avec les armes. Et l'Élite facile, pas trop de danger, faut juste bien bouger et que l'Élite reste dans le cercle d'attaque. » |
+
+0 ERROR et 0 SCRIPT ERROR au logcat.

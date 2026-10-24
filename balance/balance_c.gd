@@ -78,11 +78,11 @@ const AFFIX_SLOT_TO_PART_MAP: Array[int] = [WeaponPartSlot.PART_BLADE, WeaponPar
 
 # Vitesses lues dans BalanceA, portees du n°16, genre et elision pour les jetons grammaticaux
 const WEAPON_SPECS: Dictionary = {
-	WeaponType.SWORD_SHIELD: {"key": "WEAPON_SWORD_SHIELD", "is_ranged": false, "range_px": 40.0, "gender": "F", "elision": true, "favored_school": SchoolId.FOYER},
-	WeaponType.CLEAVER_AXE: {"key": "WEAPON_CLEAVER_AXE", "is_ranged": false, "range_px": 44.0, "gender": "F", "elision": false, "favored_school": SchoolId.BRASIER},
-	WeaponType.SCOUT_GLAIVE: {"key": "WEAPON_SCOUT_GLAIVE", "is_ranged": false, "range_px": 52.0, "gender": "F", "elision": false, "favored_school": SchoolId.OBSIDIENNE},
-	WeaponType.HUNTING_BOW: {"key": "WEAPON_HUNTING_BOW", "is_ranged": true, "range_px": 160.0, "gender": "M", "elision": true, "favored_school": SchoolId.SPORE},
-	WeaponType.WINCH_CROSSBOW: {"key": "WEAPON_WINCH_CROSSBOW", "is_ranged": true, "range_px": 180.0, "gender": "F", "elision": true, "favored_school": SchoolId.ABYSSE}
+	WeaponType.SWORD_SHIELD: {"key": "WEAPON_SWORD_SHIELD", "is_ranged": false, "range_px": 24.0, "gender": "F", "elision": true, "favored_school": SchoolId.FOYER},
+	WeaponType.CLEAVER_AXE: {"key": "WEAPON_CLEAVER_AXE", "is_ranged": false, "range_px": 28.0, "gender": "F", "elision": false, "favored_school": SchoolId.BRASIER},
+	WeaponType.SCOUT_GLAIVE: {"key": "WEAPON_SCOUT_GLAIVE", "is_ranged": false, "range_px": 36.0, "gender": "F", "elision": false, "favored_school": SchoolId.OBSIDIENNE},
+	WeaponType.HUNTING_BOW: {"key": "WEAPON_HUNTING_BOW", "is_ranged": true, "range_px": 80.0, "gender": "M", "elision": true, "favored_school": SchoolId.SPORE},
+	WeaponType.WINCH_CROSSBOW: {"key": "WEAPON_WINCH_CROSSBOW", "is_ranged": true, "range_px": 92.0, "gender": "F", "elision": true, "favored_school": SchoolId.ABYSSE}
 }
 
 # ==============================================================================

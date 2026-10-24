@@ -18,6 +18,8 @@ const IFRAME_ALPHA: float = 0.5 # repère visuel de DODGE_IFRAME_SEC ; à valide
 # Miroir seulement au-delà de 30° de la verticale : sur un glisser vertical, le pouce oscille de 1 à 2 px et
 # retournait le sprite à chaque glissé (W1 « vibrant » sur le Fold 8). À valider (jalon 9).
 const FLIP_MIN_X: float = 0.5
+const RANGE_RING_COLOR: Color = Color(1, 1, 1, 0.35) # repère de portée en combat. PROPOSÉ, à valider (jalon 12)
+const RANGE_RING_POINTS: int = 32
 
 var state: int = State.IDLE # IDLE = « à l'arrêt » : accroche de la récolte
 var _sprite: Sprite2D
@@ -45,6 +47,9 @@ var _fade_moved: bool = false # déplacement sous le noir déjà fait pendant ce
 var _fade_target: Vector2
 var _fade_solid: Dictionary = {}
 var _fade_bounds: Rect2i
+var _range_shown: bool = false
+var _skill_cd: Array[float] = [0.0, 0.0] # secondes restantes
+var _skill_queued: Array[bool] = [false, false] # armée par le bouton, part au prochain créneau de frappe
 
 # Nœuds lus ici et non en @onready : setup peut précéder _ready (simulateur headless).
 func setup(pos: Vector2, texture: Texture2D, shadow: Texture2D, solid: Dictionary) -> void:
@@ -104,6 +109,7 @@ func take_hit(dmg: int) -> bool:
 	if hp <= 0:
 		if OS.is_debug_build():
 			print("[COMBAT] " + JSON.stringify({"event": "mort_joueur", "pos": _xy(position)}))
+		_skill_queued = [false, false]
 		_start_fade(true, _spawn, _home_solid, _home_bounds)
 		evacuation_started.emit()
 	return true
@@ -136,13 +142,53 @@ func fade_alpha() -> float:
 func bounds() -> Rect2i:
 	return _bounds
 
+# Repère de portée de l'arme (remarque J2 d'Antho), affiché par lisiere.gd pendant le combat.
+func show_range(on: bool) -> void:
+	if on != _range_shown:
+		_range_shown = on
+		queue_redraw()
+
+func range_shown() -> bool:
+	return _range_shown
+
+# Aptitudes (Volet A §4) : armée seulement si la recharge est à 0 et hors fondu.
+func request_skill(i: int) -> void:
+	if _skill_cd[i] > 0.0 or in_fade():
+		_log("aptitude_pas_prete", {"index": i, "recharge": snappedf(_skill_cd[i], 0.01)})
+		return
+	_skill_queued[i] = true
+
+# Indice de l'aptitude armée et prête (1 d'abord), -1 sinon. Ne la désarme pas.
+func take_ready_skill() -> int:
+	for i in 2:
+		if _skill_queued[i] and _skill_cd[i] <= 0.0:
+			return i
+	return -1
+
+func on_skill_fired(i: int) -> void:
+	_skill_cd[i] = [BA.SKILL_1_COOLDOWN_SEC, BA.SKILL_2_COOLDOWN_SEC][i]
+	_skill_queued[i] = false
+
+func on_auto_hit() -> void:
+	for i in 2:
+		_skill_cd[i] = maxf(0.0, _skill_cd[i] - BA.AUTO_HIT_CD_REDUCTION_SEC)
+
+func skill_cd(i: int) -> float:
+	return _skill_cd[i]
+
+func skill_queued(i: int) -> bool:
+	return _skill_queued[i]
+
 func on_input_reset() -> void:
 	_log("reset")
 
 func _process(delta: float) -> void:
 	_clock += delta
+	for i in 2:
+		_skill_cd[i] = maxf(0.0, _skill_cd[i] - delta)
 	var motion: Vector2 = Vector2.ZERO
 	if in_fade():
+		_skill_queued = [false, false]
 		_fade_t += delta
 		if not _fade_moved and _fade_t >= CombatS.EVAC_FADE_OUT_SEC: # écran noir
 			_fade_moved = true
@@ -185,6 +231,8 @@ func _set_hp(value: int) -> void:
 		queue_redraw()
 
 func _draw() -> void:
+	if _range_shown:
+		draw_arc(Vector2.ZERO, CombatS.starting_weapon_range(), 0.0, TAU, RANGE_RING_POINTS, RANGE_RING_COLOR, 1.0, false)
 	if hp >= max_hp:
 		return
 	var bar: Vector2i = CombatS.BAR_SIZE

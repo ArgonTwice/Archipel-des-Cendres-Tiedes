@@ -273,7 +273,7 @@ func _jalon_10(vd: Dictionary, built: Dictionary, p: Dictionary) -> void:
 	var mixed: Array[int] = [BC.SchoolId.FOYER, BC.SchoolId.FOYER, BC.SchoolId.SPORE]
 	_check("combat: starting_weapon_atk == 10,35", _approx(CombatS.starting_weapon_atk(), 10.35, 1e-9), str(CombatS.starting_weapon_atk()))
 	_check("combat: compute_weapon_atk(1, 0, sans 3/3) == 10,0", _approx(BC.compute_weapon_atk(1, 0, mixed), 10.0, 1e-9))
-	_check("combat: starting_weapon_range == 40", CombatS.starting_weapon_range() == 40.0)
+	_check("combat: starting_weapon_range == 24 (n°29, 40 au jalon 10)", CombatS.starting_weapon_range() == 24.0)
 	_check("combat: attack_period == 0,8333...", _approx(CombatS.attack_period(), 1.0 / 1.2, 1e-12), str(CombatS.attack_period()))
 	var w10: float = BC.compute_weapon_atk(10, 0, foyer3)
 	_check("combat: compute_weapon_atk(10, 0, 3/3 Foyer) == 52,2675", _approx(w10, 52.2675, 1e-9), str(w10))
@@ -391,8 +391,8 @@ func _jalon_10(vd: Dictionary, built: Dictionary, p: Dictionary) -> void:
 	pl.free()
 	# Intégration S1 et S3
 	var s1: Dictionary = _s1(vd, solid1, 1.0 / 60.0, 260, -1)
-	_check("S1: coups du joueur aux images 1, 51, 102, 153, 204", s1["strikes"] == [1, 51, 102, 153, 204], str(s1["strikes"]))
-	_check("S1: PV du monstre 0 : 75, 55, 35, 15, -5 ; aucun critique ; mort à l'image 204", s1["mob_hp"] == [75, 55, 35, 15, -5] and s1["crits"] == 0 and s1["mob_death"] == 204, "%s %d %d" % [str(s1["mob_hp"]), s1["crits"], s1["mob_death"]])
+	_check("S1: coups du joueur aux images 14, 64, 115, 166, 217 (portée 24)", s1["strikes"] == [14, 64, 115, 166, 217], str(s1["strikes"]))
+	_check("S1: PV du monstre 0 : 75, 55, 35, 15, -5 ; aucun critique ; mort à l'image 217", s1["mob_hp"] == [75, 55, 35, 15, -5] and s1["crits"] == 0 and s1["mob_death"] == 217, "%s %d %d" % [str(s1["mob_hp"]), s1["crits"], s1["mob_death"]])
 	var wt: Array = s1["windups"]
 	var wt_ok: bool = wt.size() == 4
 	if wt_ok:
@@ -406,11 +406,11 @@ func _jalon_10(vd: Dictionary, built: Dictionary, p: Dictionary) -> void:
 	for c: Array in [[1.0 / 30.0, 130], [1.0 / 120.0, 520]]:
 		var sx: Dictionary = _s1(vd, solid1, c[0], c[1], -1)
 		_check("S1: delta 1/%d sur %d images -> 5 coups, 3 reçus, PV 73" % [roundi(1.0 / c[0]), c[1]], sx["strikes"].size() == 5 and sx["received"].size() == 3 and sx["final_hp"] == 73, str(sx))
-	var s3a: Dictionary = _s1(vd, solid1, 1.0 / 60.0, 1400, 261)
+	var s3a: Dictionary = _s1(vd, solid1, 1.0 / 60.0, 1416, 261)
 	_check("S3: PV 100 à l'image 261", s3a["hp_261"] == 100, str(s3a["hp_261"]))
-	_check("S3: monstre 0 toujours mort après 1 400 images", not s3a["alive"][0])
-	var s3b: Dictionary = _s1(vd, solid1, 1.0 / 60.0, 1410, 261)
-	_check("S3: monstre 0 vivant à 95 PV en (0, 256) après 1 410 images, réapparition à l'image 1 404", s3b["alive"][0] and s3b["hp"][0] == 95 and s3b["pos"][0] == Vector2(0, 256) and s3b["respawn"] == 1404, str(s3b))
+	_check("S3: monstre 0 toujours mort après 1 416 images", not s3a["alive"][0])
+	var s3b: Dictionary = _s1(vd, solid1, 1.0 / 60.0, 1417, 261)
+	_check("S3: monstre 0 vivant à 95 PV en (0, 256) après 1 417 images, réapparition à l'image 1 417", s3b["alive"][0] and s3b["hp"][0] == 95 and s3b["pos"][0] == Vector2(0, 256) and s3b["respawn"] == 1417, str(s3b))
 	var s1l: Dictionary = _s1(vd, solid1, 1.0 / 60.0, 2700, -1)
 	_check("S1 prolongé à 2 700 images : monstre 0 toujours mort", not s1l["alive"][0])
 	_k1(solid1)
@@ -457,7 +457,7 @@ func _k1(solid: Dictionary) -> void:
 		for i in 3:
 			if mobs[i].hp < prev[i]:
 				strikes.append([f, i, maxi(mobs[i].hp, 0)])
-				if f == 51:
+				if f == 55:
 					moving_51 = pl.state == pl.State.MOVE
 			prev[i] = mobs[i].hp
 		if death2 < 0 and not mobs[2].alive:
@@ -465,10 +465,10 @@ func _k1(solid: Dictionary) -> void:
 		if pl.hp < prev_pl:
 			received.append(f)
 		prev_pl = pl.hp
-	_check("K1: coups (1, 0, 75) (51, 2, 75) (102, 2, 55) (153, 2, 35) (204, 2, 15) (255, 2, 0), celui de l'image 51 en marche",
-		strikes == [[1, 0, 75], [51, 2, 75], [102, 2, 55], [153, 2, 35], [204, 2, 15], [255, 2, 0]] and moving_51, "%s %s" % [str(strikes), str(moving_51)])
-	_check("K1: coups reçus 79, 119, 139, 140, 180, 200, 201, 241 ; PV 28 ; monstre 2 mort à l'image 255 ; joueur en (0, 356,0003)",
-		received == [79, 119, 139, 140, 180, 200, 201, 241] and pl.hp == 28 and death2 == 255 and pl.position.distance_to(Vector2(0, 356.0003)) <= 1e-3,
+	_check("K1: coups (5, 0, 75) (55, 2, 75) (106, 2, 55) (157, 2, 35) (208, 2, 15) (259, 2, 0), celui de l'image 55 en marche",
+		strikes == [[5, 0, 75], [55, 2, 75], [106, 2, 55], [157, 2, 35], [208, 2, 15], [259, 2, 0]] and moving_51, "%s %s" % [str(strikes), str(moving_51)])
+	_check("K1: coups reçus 79, 119, 139, 140, 180, 200, 201, 241 ; PV 28 ; monstre 2 mort à l'image 259 ; joueur en (0, 356,0003)",
+		received == [79, 119, 139, 140, 180, 200, 201, 241] and pl.hp == 28 and death2 == 259 and pl.position.distance_to(Vector2(0, 356.0003)) <= 1e-3,
 		"%s %d %d %s" % [str(received), pl.hp, death2, str(pl.position)])
 	lis.free()
 	pl.free()
@@ -480,7 +480,7 @@ func _jalon_11(vd: Dictionary, solid1: Dictionary) -> void:
 		and BA.SEGMENT_NODE_MIST_NODES == [4, 4, 0] and BA.SEGMENT_ELITE_NODE_INDEX == 2 and BA.SEGMENT_PRE_ELITE_CENDRE_BUDGET == 80
 		and BA.SEGMENT_STD_RUN_CENDRE_CAP == 100 and BA.SIM_ROUTINE_A_NORMAL_MOBS == [6, 6, 12] and BA.SIM_ROUTINE_A_MIST_NODES == [2, 2, 0]
 		and BA.SIM_ROUTINE_B_NORMAL_MOBS == [2, 6, 0] and BA.SIM_ROUTINE_B_MIST_NODES == [4, 4, 0]
-		and BA.ARENA_INTER_WAVE_REST_SEC == 5.0 and BA.ARENA_INTER_WAVE_HEAL_RATIO == 0.50)
+		and BA.ARENA_INTER_WAVE_REST_SEC == 5.0 and BA.ARENA_INTER_WAVE_HEAL_RATIO == 0.25) # 0,50 au n°27, 0,25 au n°29
 	_check("balanceA: 24 normaux et 8 nœuds de Brume sur le segment", _sum_ints(BA.SEGMENT_NODE_NORMAL_MOBS) == 24 and _sum_ints(BA.SEGMENT_NODE_MIST_NODES) == 8)
 	_check("balanceA: SEGMENT_STD_RUN_CENDRE_CAP == SEGMENT_PRE_ELITE_CENDRE_BUDGET + CENDRE_GAIN_ELITE_MOB", BA.SEGMENT_STD_RUN_CENDRE_CAP == BA.SEGMENT_PRE_ELITE_CENDRE_BUDGET + BA.CENDRE_GAIN_ELITE_MOB)
 	var waves: Array = [BA.ARENA_WAVE_1_SPAWN_SEC, BA.ARENA_WAVE_2_SPAWN_SEC, BA.ARENA_WAVE_3_SPAWN_SEC]
@@ -495,8 +495,9 @@ func _jalon_11(vd: Dictionary, solid1: Dictionary) -> void:
 			if k > 0:
 				gap = minf(gap, t[k] - t[k - 1])
 		gaps.append(gap)
-	_check("balanceA: arène 5 / 7 / 1 apparitions, écarts min 5,0 et 4,0 s (>= 3,80), toutes < 30 s",
-		wave_ok and waves[0].size() == 5 and waves[1].size() == 7 and waves[2].size() == 1 and gaps[0] == 5.0 and gaps[1] == 4.0 and gaps[1] >= 3.80, str(gaps))
+	_check("balanceA: arène 5 / 7 / 1 apparitions (n°29), écarts min 3,0 et 3,0 s, toutes < 30 s",
+		wave_ok and waves[0].size() == 5 and waves[1].size() == 7 and waves[2].size() == 1 and gaps[0] == 3.0 and gaps[1] == 3.0
+		and BA.ARENA_WAVE_1_SPAWN_SEC == [0.0, 3.0, 8.0, 14.0, 20.0] and BA.ARENA_WAVE_2_SPAWN_SEC == [0.0, 3.0, 7.0, 11.0, 15.0, 19.0, 23.0], str(gaps))
 	# Profils A et B (1 expédition standard)
 	var crafts: Dictionary = {"A": 2, "B": 4}
 	var fiche: Dictionary = {"A": BA.XP_BOARD_FICHE_COMBAT, "B": BA.XP_BOARD_FICHE_ARTISAN}
@@ -696,17 +697,19 @@ func _jalon_11(vd: Dictionary, solid1: Dictionary) -> void:
 	var all_dead: bool = true
 	for n: Node2D in seg.nodes():
 		for m: Node2D in n.mobs():
-			all_dead = all_dead and not m.alive and not m.visible
+			if m.role == "NORMAL":
+				all_dead = all_dead and not m.alive and not m.visible
 	for f in 1300:
 		_seg_frame(pl, seg)
 	var none_back: bool = true
 	var all_vitrified: bool = true
 	for n: Node2D in seg.nodes():
 		for m: Node2D in n.mobs():
-			none_back = none_back and not m.alive
+			if m.role == "NORMAL":
+				none_back = none_back and not m.alive
 		for mn: Node2D in n.mist_nodes():
 			all_vitrified = all_vitrified and mn.state == MistS.State.VITRIFIED
-	_check("saturation: un kill à 78 -> Cendre 80, monstres des 3 nœuds morts et invisibles, aucune réapparition après 1 300 images, nœuds VITRIFIED",
+	_check("saturation: un kill à 78 -> Cendre 80, normaux des 3 nœuds morts et invisibles (l'Élite s'éveille), aucune réapparition après 1 300 images, nœuds VITRIFIED",
 		seg.expedition.cendre == 80 and all_dead and none_back and all_vitrified, "%d %s %s %s" % [seg.expedition.cendre, str(all_dead), str(none_back), str(all_vitrified)])
 	_seg_free(ctx)
 	# Brasero
@@ -717,12 +720,149 @@ func _jalon_11(vd: Dictionary, solid1: Dictionary) -> void:
 	pb._process(1.0 / 60.0)
 	_check("Brasero: 40 PV en (0, 3984) -> 100 après une image", pb.hp == 100, str(pb.hp))
 	pb.free()
+	_jalon_12(vd, solid1)
 	# Scènes et données
 	var vil: Node = load("res://scenes/village/village.tscn").instantiate()
 	var sg: Node2D = vil.get_node_or_null("Entites/Segment")
 	_check("scenes: Entites/Segment (y_sort_enabled), plus d'Entites/Lisiere", sg != null and sg.y_sort_enabled and vil.get_node_or_null("Entites/Lisiere") == null)
 	vil.free()
 	_check("village.json: sans lisiere, avec segment et la tuile noeud_brume", not vd.has("lisiere") and vd.has("segment") and vd["segment"]["mist_sprite"] == "noeud_brume" and vd["tiles"].has("noeud_brume"))
+
+# Jalon 12 : portées du n°29, aptitudes, Élite, repère de portée. Jumeau Python : prep_jalon_12.py.
+func _jalon_12(vd: Dictionary, solid1: Dictionary) -> void:
+	var ranges: Array = []
+	var others_ok: bool = true
+	var keys: Dictionary = {}
+	for t: int in BC.WEAPON_SPECS:
+		ranges.append(BC.WEAPON_SPECS[t]["range_px"])
+		keys[t] = BC.WEAPON_SPECS[t].keys()
+	var ref: Dictionary = {BC.WeaponType.SWORD_SHIELD: [false, BC.SchoolId.FOYER, "M" if false else "F"], BC.WeaponType.HUNTING_BOW: [true, BC.SchoolId.SPORE, "M"]}
+	for t: int in ref:
+		others_ok = others_ok and BC.WEAPON_SPECS[t]["is_ranged"] == ref[t][0] and BC.WEAPON_SPECS[t]["favored_school"] == ref[t][1] and BC.WEAPON_SPECS[t]["gender"] == ref[t][2]
+	_check("balanceC: portées du n°29 = 24 / 28 / 36 / 80 / 92, autres champs inchangés", ranges == [24.0, 28.0, 36.0, 80.0, 92.0] and others_ok
+		and BC.WEAPON_SPECS[BC.WeaponType.CLEAVER_AXE]["favored_school"] == BC.SchoolId.BRASIER and BC.WEAPON_SPECS[BC.WeaponType.WINCH_CROSSBOW]["is_ranged"] == true, str(ranges))
+	for c: Array in [[2.2, false, 45], [2.2, true, 68], [3.5, false, 72], [3.5, true, 108]]:
+		var dm: int = CombatS.damage(22, 4, 1, c[1], c[0])
+		_check("aptitude: damage(22, 4, 1, %s, %.1f) == %d" % [str(c[1]), c[0], c[2]], dm == c[2], str(dm))
+	# Lisière + évacuation (10 bis) : le joueur frappe une fois à l'image 14
+	var a1: Dictionary = _skill_run(solid1, 0, 260, true)
+	_check("A1: aptitude 1 à l'image 14 (45, monstre à 50), autos 64 / 115 / 166 (30 / 10 / 0), reçus 47 / 107, PV 82, mort à 166, recharge 1,3 à l'image 260, 2e demande ignorée",
+		a1["hits"] == [[14, "aptitude", 45, 50], [64, "auto", 20, 30], [115, "auto", 20, 10], [166, "auto", 20, 0]] and a1["received"] == [47, 107] and a1["hp"] == 82
+		and a1["death"] == 166 and _approx(a1["cd"], 1.3, 1e-6) and a1["skills"] == 1, str(a1))
+	var a2: Dictionary = _skill_run(solid1, 1, 260, false)
+	_check("A2: aptitude 2 à l'image 14 (72, monstre à 23), autos 64 / 115, mort à 115, PV du joueur 82",
+		a2["hits"] == [[14, "aptitude", 72, 23], [64, "auto", 20, 3], [115, "auto", 20, 0]] and a2["death"] == 115 and a2["hp"] == 82, str(a2))
+	var pd: Node2D = load("res://scenes/player/player.tscn").instantiate()
+	root.add_child(pd)
+	pd.setup(Vector2(0, 216), null, null, solid1)
+	pd.request_skill(0)
+	var armed: bool = pd.skill_queued(0)
+	pd.hp = 5
+	pd.take_hit(9)
+	_check("aptitude: armée puis oubliée à la mort", armed and not pd.skill_queued(0) and pd.take_ready_skill() == -1)
+	pd.free()
+	var ex: ExpeditionS = ExpeditionS.new(1, 0)
+	for k in 40:
+		ex.on_kill(0)
+	ex.on_elite(0)
+	_check("expédition: 40 kills puis l'Élite -> Cendre 100 == SEGMENT_STD_RUN_CENDRE_CAP, 1 Éclat, XP 1 396",
+		ex.cendre == 100 and ex.cendre == BA.SEGMENT_STD_RUN_CENDRE_CAP and ex.shards == 1 and ex.xp == 1396, "%d %d %d" % [ex.cendre, ex.shards, ex.xp])
+	_check("combat: mob_stats(1, 0, ELITE) == 712 / 16 / 4", CombatS.mob_stats(1, 0, "ELITE") == {"hp": 712, "atk": 16, "def": 4})
+	# Élite dans le Segment
+	var ctx: Array = _seg_ctx(solid1, Vector2(0, 6240))
+	var pl: Node2D = ctx[0]
+	var seg: Node2D = ctx[1]
+	var node2: Node2D = seg.nodes()[2]
+	var el: Node2D = node2.elite()
+	_check("Élite: en (0, 6256), 712 PV, dormant, cellule pleine pour le joueur", el != null and el.position == Vector2(0, 6256) and el.hp == 712 and el.dormant
+		and seg._player_solids[2].has(SegGenS.elite_cell()), "%s %d" % [str(el.position), el.hp])
+	for f in 120:
+		_seg_frame(pl, seg)
+	_check("Élite: dormant à 16 px pendant 120 images -> ni cible ni poursuivant, PV intacts", seg.active == 2 and el.hp == 712 and not el.chasing and pl.hp == 100 and el.dormant,
+		"%d %d %s %d" % [seg.active, el.hp, str(el.chasing), pl.hp])
+	seg.expedition.cendre = 78
+	var victim: Node2D = node2.mobs()[0]
+	while victim.alive:
+		node2._strike(victim)
+	pl.position = el.position + Vector2(0, -64)
+	for f in 5:
+		_seg_frame(pl, seg)
+	_check("Élite: saturation -> éveillé, cellule libérée, poursuit le joueur à 64 px", not el.dormant and el.chasing and not seg._player_solids[2].has(SegGenS.elite_cell()) and seg.expedition.cendre == 80,
+		"%s %s %d" % [str(el.dormant), str(el.chasing), seg.expedition.cendre])
+	while el.alive:
+		node2._strike(el)
+	_check("Élite: son kill -> Cendre 100", seg.expedition.cendre == 100, str(seg.expedition.cendre))
+	for n: Node2D in seg.nodes():
+		n.reset()
+	_check("Élite: après reset, dormant, 712 PV, à son point de départ", el.dormant and el.alive and el.hp == 712 and el.position == Vector2(0, 6256))
+	_seg_free(ctx)
+	# Repère de portée
+	var pr: Node2D = load("res://scenes/player/player.tscn").instantiate()
+	root.add_child(pr)
+	pr.setup(Vector2(0, 216), null, null, solid1)
+	var lr: Node2D = LisiereS.new()
+	root.add_child(lr)
+	lr.setup(1, 0, pr, solid1, LISIERE_SPAWNS_10, null, null)
+	var at0: bool = pr.range_shown()
+	for f in 30:
+		pr._process(1.0 / 60.0)
+		lr._process(1.0 / 60.0)
+	var at30: bool = pr.range_shown()
+	pr.hp = 5
+	pr.take_hit(9)
+	pr._process(1.0 / 60.0)
+	lr._process(1.0 / 60.0)
+	_check("repère: faux au départ, vrai à l'image 30 (poursuite), faux en fondu", not at0 and at30 and not pr.range_shown())
+	lr.free()
+	pr.free()
+	# Boutons d'aptitude : un posé sur un bouton ne démarre pas le joystick
+	# Le routage GUI (posé consommé par le bouton, jamais vu par le joystick) n'existe pas sous _initialize : un témoin
+	# hors bouton n'y démarre pas non plus le joystick. Il est vérifié dans le jeu réel (sonde PC, L4a).
+	var ui: CanvasLayer = load("res://scenes/ui/ui_folded.tscn").instantiate()
+	var b1: Button = ui.get_node_or_null("Aptitudes/Aptitude1")
+	var b2: Button = ui.get_node_or_null("Aptitudes/Aptitude2")
+	_check("scenes: UI_Folded a les 2 boutons d'aptitude (Button, mouse_filter STOP), conteneur Aptitudes en IGNORE",
+		b1 != null and b2 != null and b1.mouse_filter == Control.MOUSE_FILTER_STOP and b2.mouse_filter == Control.MOUSE_FILTER_STOP
+		and ui.get_node("Aptitudes").mouse_filter == Control.MOUSE_FILTER_IGNORE)
+	var sb: GDScript = load("res://scripts/ui/skill_buttons.gd")
+	_check("scenes: SKILL_BUTTON_SIZE_PX 28, marge 8", sb.get_script_constant_map()["SKILL_BUTTON_SIZE_PX"] == 28 and sb.get_script_constant_map()["MARGIN_PX"] == 8)
+	ui.free()
+
+# S1 + request_skill(i) avant l'image 1 (et, si again, une 2e demande à l'image 15).
+func _skill_run(solid: Dictionary, skill: int, frames: int, again: bool) -> Dictionary:
+	var pl: Node2D = load("res://scenes/player/player.tscn").instantiate()
+	root.add_child(pl)
+	pl.setup(Vector2(0, 216), null, null, solid)
+	var lis: Node2D = LisiereS.new()
+	root.add_child(lis)
+	lis.setup(1, 0, pl, solid, LISIERE_SPAWNS_10, null, null)
+	var m0: Node2D = lis.mobs()[0]
+	var out: Dictionary = {"hits": [], "received": [], "death": -1, "skills": 0}
+	var prev: int = m0.hp
+	var prev_pl: int = pl.hp
+	pl.request_skill(skill)
+	for f in range(1, frames + 1):
+		if again and f == 15:
+			pl.request_skill(skill)
+		var cd_before: float = pl.skill_cd(skill)
+		pl._process(1.0 / 60.0)
+		lis._process(1.0 / 60.0)
+		if m0.hp < prev:
+			var fired: bool = pl.skill_cd(skill) > cd_before
+			if fired:
+				out["skills"] += 1
+			out["hits"].append([f, "aptitude" if fired else "auto", prev - m0.hp, maxi(m0.hp, 0)])
+		prev = m0.hp
+		if out["death"] < 0 and not m0.alive:
+			out["death"] = f
+		if pl.hp < prev_pl:
+			out["received"].append(f)
+		prev_pl = pl.hp
+	out["hp"] = pl.hp
+	out["cd"] = pl.skill_cd(skill)
+	lis.free()
+	pl.free()
+	return out
 
 # Contrôleur seul (graine 1, nœud 0, sans monstre), un nœud de Brume en (5, 112), joueur immobile en pos.
 # Rend [image de la récolte (-1 si aucune), nombre de signaux gathered].

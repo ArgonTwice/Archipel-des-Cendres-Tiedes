@@ -169,11 +169,11 @@ const SIM_ROUTINE_B_NORMAL_MOBS: Array[int] = [2, 6, 0]
 const SIM_ROUTINE_B_MIST_NODES: Array[int] = [4, 4, 0]
 
 # Arène : apparitions en secondes depuis le début de la vague
-const ARENA_WAVE_1_SPAWN_SEC: Array[float] = [0.0, 5.0, 10.0, 15.0, 20.0]
-const ARENA_WAVE_2_SPAWN_SEC: Array[float] = [0.0, 4.0, 8.0, 12.0, 16.0, 20.0, 24.0]
+const ARENA_WAVE_1_SPAWN_SEC: Array[float] = [0.0, 3.0, 8.0, 14.0, 20.0]
+const ARENA_WAVE_2_SPAWN_SEC: Array[float] = [0.0, 3.0, 7.0, 11.0, 15.0, 19.0, 23.0]
 const ARENA_WAVE_3_SPAWN_SEC: Array[float] = [0.0]
 const ARENA_INTER_WAVE_REST_SEC: float = 5.0
-const ARENA_INTER_WAVE_HEAL_RATIO: float = 0.50
+const ARENA_INTER_WAVE_HEAL_RATIO: float = 0.25 # n°29, provisoire : à mesurer quand l'arène sera codée
 
 # Déplié hors du rayon de l'Âtre, avant la Jauge de Sang-Froid ou hors activation (n°25)
 const UNFOLDED_OUTSIDE_ATRE_TIMESCALE_DEFAULT: float = 1.00

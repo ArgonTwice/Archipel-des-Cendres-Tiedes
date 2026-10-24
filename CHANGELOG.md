@@ -28,3 +28,5 @@ Format : `AAAA-MM-JJ — type: description`. Une ligne par changement validé.
 - 2026-10-24 — chore: APK debug 0.11.0 (code 7) testé sur Z Fold 8
 - 2026-10-24 — feat: auto-attaque en marche (jalon 11 bis)
 - 2026-10-24 — chore: APK debug 0.11.1 (code 8) testé sur Z Fold 8
+- 2026-10-24 — feat: Élite, 2 aptitudes, portées du n°29 et repère de portée (jalon 12)
+- 2026-10-24 — chore: APK debug 0.12.0 (code 9) testé sur Z Fold 8

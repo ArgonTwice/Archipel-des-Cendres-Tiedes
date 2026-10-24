@@ -16,10 +16,15 @@ Validé le 24/10/2026 après les échanges n°25 à n°27 (Claude ↔ Argon), ca
 - Saturation de Brume : 80 u. de Cendre Vive au plus avant l'Élite. Une action n'est disponible que si son gain tient dans le reste ; au-delà, nœuds vitrifiés et normaux dissipés, l'Élite s'éveille (+20 u.). Éclats toujours 3,0 ; XP 1 656 à 1 704 selon les choix (Volet A : 1 680). Les tables de jours du Volet A tiennent.
 
 ## 4. Arène à vagues (nœud 3)
-- 3 vagues de 30 s : 5 normaux à [0, 5, 10, 15, 20 s], 7 à [0, 4, 8, 12, 16, 20, 24 s], puis 1 Élite.
-- Répit de 5 s entre les vagues, +50 % des PV max.
+- 3 vagues de 30 s : 5 normaux à [0, 3, 8, 14, 20 s], 7 à [0, 3, 7, 11, 15, 19, 23 s], puis 1 Élite (n°29, provisoire).
+- Répit de 5 s entre les vagues, +25 % des PV max (n°29, provisoire ; +50 % au n°27).
 - Joueur attendu : Combattant 2, 154 PV, ATK 30, DEF 13. Survie : 24 PV restants en esquivant 1 coup sur 2 (auto seule), 12 PV en esquive modérée avec aptitudes. Sans esquive : mort en vague 2.
 
 ## 5. Intégration (Claude Code)
 - Les aptitudes doivent exister avant l'arène et l'Élite (sinon seul le régime d'esquive maximal passe).
 - SEGMENT_STD_RUN_CENDRE_CAP = SEGMENT_PRE_ELITE_CENDRE_BUDGET + CENDRE_GAIN_ELITE_MOB : vérifié par un test.
+
+## 6. Combat en marche (n°29, après le jalon 11 bis)
+- SOCLE §A3 modifié par Antho : auto-attaque à l'arrêt et en marche, jamais en esquive ; récolte à l'arrêt. Aucun malus en marche.
+- Portées (balance_c.gd) : Épée & Écu 24 px, Hache-Couperet 28, Glaive 36, Arc 80, Arbalète 92 (sous le repérage de 96 px).
+- Arène recalée sur le combat en marche : valeurs provisoires, à mesurer quand l'arène sera codée.

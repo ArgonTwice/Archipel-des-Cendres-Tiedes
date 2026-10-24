@@ -9,6 +9,8 @@ const PlayerS = preload("res://scripts/player/player.gd")
 const VL = preload("res://scripts/village/village_layout.gd")
 
 var index: int = 0
+var role: String = "NORMAL" # NORMAL ou ELITE : stats, XP et récompense
+var dormant: bool = false # Élite endormi jusqu'à la saturation : ni repérage, ni poursuite, ni cible
 var home: Vector2
 var alive: bool = true
 var chasing: bool = false
@@ -25,6 +27,8 @@ var _windup_t: float = -1.0 # -1 = pas de télégraphe
 var _last_attack: float = -1.0 # début du télégraphe précédent, -1 = aucun
 var _flash_t: float = 0.0
 
+const DORMANT_MODULATE: Color = Color(0.4, 0.4, 0.45) # PROPOSÉ, à valider (jalon 12)
+
 # Nœuds lus ici : setup peut précéder _ready (simulateur headless).
 func setup(home_pos: Vector2, texture: Texture2D, shadow: Texture2D, solid: Dictionary, stats: Dictionary, bounds: Rect2i = VL.GROUND_RECT) -> void:
 	_sprite = $Sprite
@@ -40,6 +44,8 @@ func setup(home_pos: Vector2, texture: Texture2D, shadow: Texture2D, solid: Dict
 
 # Rend vrai quand un coup touche le joueur (fin de télégraphe, cible à portée).
 func step(delta: float, target: Vector2, target_ok: bool) -> bool:
+	if dormant:
+		return false
 	_t += delta
 	if _flash_t > 0.0:
 		_flash_t -= delta
@@ -87,6 +93,16 @@ func take_hit(dmg: int) -> bool:
 	_windup_t = -1.0
 	_sprite.modulate = Color.WHITE
 	return true
+
+# Élite (volet E §3) : endormi au point de départ, éveillé à la saturation.
+func sleep() -> void:
+	respawn()
+	dormant = true
+	_sprite.modulate = DORMANT_MODULATE
+
+func wake() -> void:
+	dormant = false
+	_sprite.modulate = Color.WHITE
 
 func respawn() -> void:
 	position = home

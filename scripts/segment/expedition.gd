@@ -42,6 +42,14 @@ func on_gather(isolat: int) -> bool:
 	cendre += BA.CENDRE_GAIN_MIST_NODE
 	return _shard(BA.SHARD_DROP_CHANCE_MIST_NODE)
 
+# Élite porteur de braise : la Cendre ne dépasse jamais SEGMENT_STD_RUN_CENDRE_CAP ; Éclat garanti (chance 1,0).
+func on_elite(isolat: int) -> bool:
+	assert(cendre + BA.CENDRE_GAIN_ELITE_MOB <= BA.SEGMENT_STD_RUN_CENDRE_CAP)
+	kills += 1
+	xp += CombatS.kill_xp("ELITE", isolat)
+	cendre += BA.CENDRE_GAIN_ELITE_MOB
+	return _shard(BA.SHARD_DROP_CHANCE_ELITE)
+
 # Le tirage a lieu même Sacoche pleine : le flux ne dépend pas du plafond.
 func _shard(chance: float) -> bool:
 	var drop: bool = _rng.next_float() < chance

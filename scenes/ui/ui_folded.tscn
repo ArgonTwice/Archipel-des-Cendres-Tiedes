@@ -2,6 +2,7 @@
 
 [ext_resource type="Script" path="res://scripts/ui/ui_layer.gd" id="1"]
 [ext_resource type="Script" path="res://scripts/ui/touch_stick.gd" id="2"]
+[ext_resource type="Script" path="res://scripts/ui/skill_buttons.gd" id="3"]
 
 [node name="UI_Folded" type="CanvasLayer"]
 script = ExtResource("1")
@@ -42,3 +43,33 @@ autowrap_mode = 3
 
 [node name="Stick" type="Node2D" parent="."]
 script = ExtResource("2")
+
+[node name="Aptitudes" type="Control" parent="."]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+script = ExtResource("3")
+
+[node name="Aptitude1" type="Button" parent="Aptitudes"]
+layout_mode = 1
+anchors_preset = 3
+anchor_left = 1.0
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+focus_mode = 0
+text = "I"
+
+[node name="Aptitude2" type="Button" parent="Aptitudes"]
+layout_mode = 1
+anchors_preset = 3
+anchor_left = 1.0
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+focus_mode = 0
+text = "II"

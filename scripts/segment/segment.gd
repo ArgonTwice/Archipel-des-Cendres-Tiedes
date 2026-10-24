@@ -10,6 +10,7 @@ const VL = preload("res://scripts/village/village_layout.gd")
 const CombatS = preload("res://scripts/combat/combat.gd")
 const ExpeditionS = preload("res://scripts/segment/expedition.gd")
 const LisiereS = preload("res://scripts/combat/lisiere.gd")
+const BA = preload("res://balance/balance_a.gd")
 
 var expedition: ExpeditionS = null
 var active: int = SG.VILLAGE
@@ -17,6 +18,7 @@ var last_end: String = "" # raison de la dernière fin d'expédition ("retour" |
 var _player: Node2D # player.gd
 var _nodes: Array[Node2D] = []
 var _maps: Array[Dictionary] = []
+var _player_solids: Array[Dictionary] = [] # partagés avec le joueur : la cellule de l'Élite s'y ajoute tant qu'il dort
 var _village_solid: Dictionary = {}
 var _passages: Dictionary = SG.passages()
 var _world_seed: int = 0
@@ -26,7 +28,7 @@ var _vitrified: bool = false
 var _saturated: bool = false
 
 func setup(world_seed: int, isolat: int, player: Node2D, village_solid: Dictionary, mob_texture: Texture2D,
-		mist_texture: Texture2D, shadow: Texture2D, brazier: Node2D = null) -> void:
+		mist_texture: Texture2D, shadow: Texture2D, brazier: Node2D = null, elite_texture: Texture2D = null) -> void:
 	_world_seed = world_seed
 	_isolat = isolat
 	_player = player
@@ -41,10 +43,16 @@ func setup(world_seed: int, isolat: int, player: Node2D, village_solid: Dictiona
 		var spawns: Array = []
 		for c: Vector2i in map["mobs"]:
 			spawns.append([c.x, c.y])
-		node.setup(world_seed, isolat, player, SG.solid_cells(map), spawns, mob_texture, shadow, map["rect"], map["safe"])
+		var base: Dictionary = SG.solid_cells(map)
+		node.setup(world_seed, isolat, player, base, spawns, mob_texture, shadow, map["rect"], map["safe"])
 		var mist: Array[Vector2i] = []
 		mist.assign(map["mist"])
 		node.add_mist_nodes(mist, mist_texture, shadow)
+		var player_solid: Dictionary = base.duplicate()
+		if i == BA.SEGMENT_ELITE_NODE_INDEX:
+			node.add_elite(SG.elite_cell(), elite_texture, shadow)
+			player_solid[SG.elite_cell()] = true
+		_player_solids.append(player_solid)
 		node.killed.connect(_on_killed)
 		node.gathered.connect(_on_gathered)
 		node.process_mode = Node.PROCESS_MODE_DISABLED
@@ -71,7 +79,7 @@ func _process(_delta: float) -> void:
 			if to == SG.VILLAGE:
 				_player.travel(at, _village_solid, VL.GROUND_RECT)
 			else:
-				_player.travel(at, SG.solid_cells(_maps[to]), _maps[to]["rect"])
+				_player.travel(at, _player_solids[to], _maps[to]["rect"])
 	var now: int = SG.node_index(CombatS.cell_of(_player.position))
 	if now == active:
 		return
@@ -90,6 +98,7 @@ func _begin() -> void:
 	_saturated = false
 	for node: Node2D in _nodes:
 		node.reset()
+	_player_solids[BA.SEGMENT_ELITE_NODE_INDEX][SG.elite_cell()] = true # l'Élite se rendort : sa cellule redevient pleine
 	_log("debut", {"index": _count - 1})
 	expedition_changed.emit(true, 0, 0)
 
@@ -100,8 +109,15 @@ func _end(reason: String) -> void:
 	expedition = null
 	expedition_changed.emit(false, 0, 0)
 
-func _on_killed(_index: int) -> void:
-	if expedition == null or not expedition.normals_open():
+func _on_killed(_index: int, role: String) -> void:
+	if expedition == null:
+		return
+	if role == "ELITE":
+		expedition.on_elite(_isolat)
+		_log("mort_elite", {"cendre": expedition.cendre, "eclats": expedition.shards})
+		expedition_changed.emit(true, expedition.cendre, expedition.shards)
+		return
+	if not expedition.normals_open():
 		return # déjà dissipé
 	expedition.on_kill(_isolat)
 	_after_gain()
@@ -113,7 +129,7 @@ func _on_gathered(_index: int) -> void:
 	_after_gain()
 
 # Saturation de Brume (volet E §3) : nœuds vitrifiés dès qu'un nœud ne tient plus dans le reste, normaux dissipés
-# dès qu'un kill ne tient plus. L'éveil de l'Élite viendra avec les aptitudes (jalon 12).
+# dès qu'un kill ne tient plus ; l'Élite s'éveille alors et sa cellule est libérée.
 func _after_gain() -> void:
 	expedition_changed.emit(true, expedition.cendre, expedition.shards)
 	if not _vitrified and not expedition.mist_open():
@@ -126,7 +142,9 @@ func _after_gain() -> void:
 		for node: Node2D in _nodes:
 			node.dissipate()
 		_log("saturation", {"cendre": expedition.cendre})
-		_log("eveil_elite_reporte", {})
+		_nodes[BA.SEGMENT_ELITE_NODE_INDEX].wake_elite()
+		_player_solids[BA.SEGMENT_ELITE_NODE_INDEX].erase(SG.elite_cell())
+		_log("eveil_elite", {})
 
 # Événements seulement ; build debug seulement.
 func _log(event: String, extra: Dictionary) -> void:

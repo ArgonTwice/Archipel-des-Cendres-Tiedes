@@ -52,6 +52,12 @@ func apply_safe_area(window_size: Vector2i, scale: int) -> void:
 	_margin.add_theme_constant_override("margin_top", m[1])
 	_margin.add_theme_constant_override("margin_right", m[2])
 	_margin.add_theme_constant_override("margin_bottom", m[3])
+	var skills: Control = get_node_or_null("Aptitudes") # plié seulement : boutons d'aptitude dans la zone sûre
+	if skills != null:
+		skills.offset_left = m[0]
+		skills.offset_top = m[1]
+		skills.offset_right = -m[2]
+		skills.offset_bottom = -m[3]
 
 func _on_report_input(event: InputEvent) -> void:
 	if (event is InputEventMouseButton or event is InputEventScreenTouch) and event.pressed:
