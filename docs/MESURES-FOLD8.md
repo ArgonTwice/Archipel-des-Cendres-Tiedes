@@ -234,3 +234,24 @@ Export debug le 24/10 : `aapt2` donne versionCode 7, versionName 0.11.0 ; SHA-25
 | H4 ressenti | non rapporté | Antho : « tout fait », sans détail |
 
 Autres faits du log : 27 `coup`, 11 `coup_recu`, 0 `mort_joueur`, 3 `reapparition` ; PV remontés de 28 à 100 entre 20:42:11 et 20:42:28 (passage au Brasero) ; seconde expédition courte (20:43:09 → 20:43:19, dépliage pendant 7,5 s), `fin` « retour ». 0 ERROR, 0 SCRIPT ERROR.
+
+## Jalon 11 bis (APK 0.11.1, code 8) : auto-attaque en marche
+
+Export debug le 24/10 : `aapt2` donne versionCode 8, versionName 0.11.1 ; SHA-256 fc96a5fcb4a4c312f5f7a848e1f6ff15007701da4d59a5005f6609136711d406. SOCLE §A3 modifié par Antho le 24/10 : l'auto-attaque tourne à l'arrêt et en marche, jamais en esquive ni en fondu ; la récolte reste à l'arrêt.
+
+### K2 à K4 (PC, fenêtre 416 × 657, --hour=14, clics injectés ; journal build/captures/jalon11b-K-sonde.txt)
+
+| Test | Résultat | Preuve |
+|---|---|---|
+| K2 coups en marche | OK | 4 s en tournant autour d'un monstre : 4 coups, tous en état MOVE, monstre tué |
+| K3 esquive | OK | 3 esquives au contact, 176 images en DODGE (relevé image par image) : 0 coup en DODGE, 2 coups avant ou après |
+| K4 récolte | OK | en marche contre un nœud 1,5 s : progression max 0,004 s (une image d'arrêt au posé) ; à l'arrêt : `recolte`, GATHERED |
+
+### J1 et J2 (Fold 8, 24/10 de 21:24 à 21:28, plié 120 Hz ; logcat build/captures/jalon11b-J-logcat.txt)
+
+| Test | Résultat | Preuve |
+|---|---|---|
+| J1 expédition en frappant en marche | OK | `debut` 21:24:50 ; Carrefour 21:26:19 ; `vitrification` 21:27:00 (Cendre 76) ; Antre 21:27:11 ; `saturation` 21:27:17 (Cendre 80) ; retour au village 21:27:56 : 3 min 06 s. Bilan `fin` « retour » : 12 kills, 7 nœuds, Cendre 80, 0 Éclat, XP 801, 0 mort, 5 coups reçus. Jalon 11 (à l'arrêt) pour comparaison : 3 min 30 s, 4 kills, 5 nœuds, Cendre 48, 11 coups reçus |
+| J2 ressenti | noté tel quel | « On ne sait pas la portée, la portée est immense sur mes tests. Mais c'est mieux. Ce que j'aimerais pour les combats, un rogue-like comme Vampire Survivors ou Cult of the Lamb. On commence avec les armes qu'on aurait craftées au village, puis quand on gagne assez d'XP pendant la run (mission) on débloque des compétences, on peut trouver des armes dans la run pour nous aider, etc. Une fois le boss de la run vaincu (ou si on meurt), on retourne au village avec ce qu'on a ramassé mais pas les armes. Les armes ne sont qu'éphémères dans la run, sauf les armes qu'on a craftées au village. » |
+
+0 ERROR et 0 SCRIPT ERROR au logcat (60 `coup`, 5 `coup_recu`, 12 `mort_monstre`, 7 `recolte`, 8 `reapparition`, 3 `dissipation`). Portée (J2) : l'Épée & Écu frappe à 40 px (BalanceC.WEAPON_SPECS, validé) contre 16 px au contact des monstres, sans repère visuel. Portée et run façon rogue-lite = sujets de design pour Argon, rien n'est modifié.

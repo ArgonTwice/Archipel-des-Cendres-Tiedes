@@ -19,7 +19,7 @@ const IFRAME_ALPHA: float = 0.5 # repère visuel de DODGE_IFRAME_SEC ; à valide
 # retournait le sprite à chaque glissé (W1 « vibrant » sur le Fold 8). À valider (jalon 9).
 const FLIP_MIN_X: float = 0.5
 
-var state: int = State.IDLE # IDLE = « à l'arrêt » : accroche de l'auto-attaque du jalon combat
+var state: int = State.IDLE # IDLE = « à l'arrêt » : accroche de la récolte
 var _sprite: Sprite2D
 var _solid: Dictionary = {}
 var _dir: Vector2 = Vector2.ZERO
@@ -81,13 +81,13 @@ func dodge(dir: Vector2) -> bool:
 	_dodge_from = position
 	return true
 
-# Auto-attaque à l'arrêt seulement (IDLE), cadence continue.
+# Auto-attaque à l'arrêt et en marche (SOCLE §A3 modifié par Antho le 24/10), jamais en esquive ni en fondu.
 func can_strike() -> bool:
-	return not in_fade() and state == State.IDLE and (_last_strike < 0.0 or _clock - _last_strike >= CombatS.attack_period())
+	return not in_fade() and state != State.DODGE and (_last_strike < 0.0 or _clock - _last_strike >= CombatS.attack_period())
 
 func strike(target_pos: Vector2) -> void:
 	_last_strike = _clock
-	if target_pos.x != position.x and _sprite != null:
+	if state == State.IDLE and target_pos.x != position.x and _sprite != null: # en marche, le sprite garde le sens de la marche
 		_sprite.flip_h = target_pos.x < position.x
 
 func is_invulnerable() -> bool:

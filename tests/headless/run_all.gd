@@ -384,7 +384,10 @@ func _jalon_10(vd: Dictionary, built: Dictionary, p: Dictionary) -> void:
 	var cs1: bool = pl.can_strike()
 	pl.set_move_dir(Vector2.ZERO)
 	pl._process(1.0 / 60.0)
-	_check("joueur: can_strike faux en marche, vrai à l'arrêt", not cs1 and pl.can_strike())
+	var cs2: bool = pl.can_strike()
+	pl.dodge(Vector2(1, 0))
+	pl._process(1.0 / 60.0)
+	_check("joueur: can_strike vrai en marche et à l'arrêt, faux en esquive", cs1 and cs2 and not pl.can_strike())
 	pl.free()
 	# Intégration S1 et S3
 	var s1: Dictionary = _s1(vd, solid1, 1.0 / 60.0, 260, -1)
@@ -410,6 +413,7 @@ func _jalon_10(vd: Dictionary, built: Dictionary, p: Dictionary) -> void:
 	_check("S3: monstre 0 vivant à 95 PV en (0, 256) après 1 410 images, réapparition à l'image 1 404", s3b["alive"][0] and s3b["hp"][0] == 95 and s3b["pos"][0] == Vector2(0, 256) and s3b["respawn"] == 1404, str(s3b))
 	var s1l: Dictionary = _s1(vd, solid1, 1.0 / 60.0, 2700, -1)
 	_check("S1 prolongé à 2 700 images : monstre 0 toujours mort", not s1l["alive"][0])
+	_k1(solid1)
 	# Scènes
 	var mob_state: SceneState = (load("res://scenes/combat/mob.tscn") as PackedScene).get_state()
 	var mob_nodes: Array[String] = []
@@ -428,6 +432,46 @@ func _jalon_10(vd: Dictionary, built: Dictionary, p: Dictionary) -> void:
 		clash = clash or vd["tiles"][n] == mi
 	_check("village.json: monstre ni joueur ni PNJ, segment mob_sprite monstre", not clash and vd["segment"]["mob_sprite"] == "monstre")
 	_jalon_11(vd, solid1)
+
+# Jalon 11 bis : K1 = S1, mais le joueur marche vers le sud des images 1 à 60 (auto-attaque en marche).
+func _k1(solid: Dictionary) -> void:
+	var pl: Node2D = load("res://scenes/player/player.tscn").instantiate()
+	root.add_child(pl)
+	pl.setup(Vector2(0, 216), null, null, solid)
+	var lis: Node2D = LisiereS.new()
+	root.add_child(lis)
+	lis.setup(1, 0, pl, solid, LISIERE_SPAWNS_10, null, null)
+	var mobs: Array[Node2D] = lis.mobs()
+	var prev: Array[int] = [95, 95, 95]
+	var prev_pl: int = pl.hp
+	var strikes: Array = []
+	var received: Array[int] = []
+	var moving_51: bool = false
+	var death2: int = -1
+	pl.set_move_dir(Vector2(0, 1))
+	for f in range(1, 261):
+		if f == 61:
+			pl.set_move_dir(Vector2.ZERO)
+		pl._process(1.0 / 60.0)
+		lis._process(1.0 / 60.0)
+		for i in 3:
+			if mobs[i].hp < prev[i]:
+				strikes.append([f, i, maxi(mobs[i].hp, 0)])
+				if f == 51:
+					moving_51 = pl.state == pl.State.MOVE
+			prev[i] = mobs[i].hp
+		if death2 < 0 and not mobs[2].alive:
+			death2 = f
+		if pl.hp < prev_pl:
+			received.append(f)
+		prev_pl = pl.hp
+	_check("K1: coups (1, 0, 75) (51, 2, 75) (102, 2, 55) (153, 2, 35) (204, 2, 15) (255, 2, 0), celui de l'image 51 en marche",
+		strikes == [[1, 0, 75], [51, 2, 75], [102, 2, 55], [153, 2, 35], [204, 2, 15], [255, 2, 0]] and moving_51, "%s %s" % [str(strikes), str(moving_51)])
+	_check("K1: coups reçus 79, 119, 139, 140, 180, 200, 201, 241 ; PV 28 ; monstre 2 mort à l'image 255 ; joueur en (0, 356,0003)",
+		received == [79, 119, 139, 140, 180, 200, 201, 241] and pl.hp == 28 and death2 == 255 and pl.position.distance_to(Vector2(0, 356.0003)) <= 1e-3,
+		"%s %d %d %s" % [str(received), pl.hp, death2, str(pl.position)])
+	lis.free()
+	pl.free()
 
 # Jalon 11 : segment de Brume, expédition, saturation. Jumeau Python : prep_jalon_11.py.
 func _jalon_11(vd: Dictionary, solid1: Dictionary) -> void:
