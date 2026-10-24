@@ -16,6 +16,8 @@ const VL = preload("res://scripts/village/village_layout.gd")
 const NpcS = preload("res://scripts/village/npc.gd")
 const PlayerMotionS = preload("res://scripts/player/player_motion.gd")
 const StickS = preload("res://scripts/ui/touch_stick.gd")
+const CombatS = preload("res://scripts/combat/combat.gd")
+const LisiereS = preload("res://scripts/combat/lisiere.gd")
 const FONT_PATH: String = "res://assets/fonts/silkscreen/Silkscreen-Regular.ttf"
 const OFL_PATH: String = "res://assets/fonts/silkscreen/OFL.txt"
 const THEME_PATH: String = "res://assets/ui/theme.tres"
@@ -256,6 +258,225 @@ func _jalon_9(vd: Dictionary, built: Dictionary, p: Dictionary) -> void:
 	uiu.free()
 	_check("village.json: joueur hors des 5 sprites de PNJ", vd["tiles"].has("joueur") and vd["player_sprite"] == "joueur" and not vd["npc_sprites"].any(func(n: String) -> bool: return vd["tiles"][n] == vd["tiles"]["joueur"]))
 	_check("projet: emulate_touch_from_mouse true", ProjectSettings.get_setting("input_devices/pointing/emulate_touch_from_mouse") == true)
+
+# Jalon 10 : combat de la lisière. Jumeau Python : prep_jalon_10.py.
+func _approx(a: float, b: float, eps: float) -> bool:
+	return absf(a - b) <= eps
+
+func _jalon_10(vd: Dictionary, built: Dictionary, p: Dictionary) -> void:
+	var foyer3: Array[int] = [BC.SchoolId.FOYER, BC.SchoolId.FOYER, BC.SchoolId.FOYER]
+	var mixed: Array[int] = [BC.SchoolId.FOYER, BC.SchoolId.FOYER, BC.SchoolId.SPORE]
+	_check("combat: starting_weapon_atk == 10,35", _approx(CombatS.starting_weapon_atk(), 10.35, 1e-9), str(CombatS.starting_weapon_atk()))
+	_check("combat: compute_weapon_atk(1, 0, sans 3/3) == 10,0", _approx(BC.compute_weapon_atk(1, 0, mixed), 10.0, 1e-9))
+	_check("combat: starting_weapon_range == 40", CombatS.starting_weapon_range() == 40.0)
+	_check("combat: attack_period == 0,8333...", _approx(CombatS.attack_period(), 1.0 / 1.2, 1e-12), str(CombatS.attack_period()))
+	var w10: float = BC.compute_weapon_atk(10, 0, foyer3)
+	_check("combat: compute_weapon_atk(10, 0, 3/3 Foyer) == 52,2675", _approx(w10, 52.2675, 1e-9), str(w10))
+	for c: Array in [[1, 10.35, {"hp": 100, "atk": 22, "def": 5}], [10, w10, {"hp": 262, "atk": 86, "def": 18}]]:
+		_check("combat: player_stats(%d, %s) == %s" % [c[0], str(c[1]), str(c[2])], CombatS.player_stats(c[0], c[1]) == c[2], str(CombatS.player_stats(c[0], c[1])))
+	_check("combat: mob_level(0) == 1, mob_level(4) == 41", CombatS.mob_level(0) == 1 and CombatS.mob_level(4) == 41)
+	for c: Array in [[1, 0, "NORMAL", {"hp": 95, "atk": 10, "def": 4}], [10, 0, "NORMAL", {"hp": 356, "atk": 29, "def": 14}],
+			[10, 0, "ELITE", {"hp": 2670, "atk": 47, "def": 14}], [1, 0, "BOSS", {"hp": 3610, "atk": 24, "def": 4}], [50, 4, "BOSS", {"hp": 92172, "atk": 452, "def": 100}]]:
+		_check("combat: mob_stats(%d, %d, %s) == %s" % c, CombatS.mob_stats(c[0], c[1], c[2]) == c[3], str(CombatS.mob_stats(c[0], c[1], c[2])))
+	_check("combat: mitigation(4, 1) == 0,0625", _approx(CombatS.mitigation(4, 1), 0.0625, 1e-12))
+	_check("combat: mitigation(5, 1) == 0,076923", _approx(CombatS.mitigation(5, 1), 0.076923, 1e-6))
+	for c: Array in [[22, 4, 1, false, 1.0, 20], [22, 4, 1, true, 1.0, 30], [10, 5, 1, false, 1.0, 9], [86, 14, 10, false, 1.0, 78],
+			[86, 14, 10, true, 1.0, 117], [22, 4, 1, false, 2.2, 45], [22, 4, 1, false, 3.5, 72]]:
+		var dm: int = CombatS.damage(c[0], c[1], c[2], c[3], c[4])
+		_check("combat: damage(%d, %d, %d, %s, %s) == %d" % [c[0], c[1], c[2], str(c[3]), str(c[4]), c[5]], dm == c[5], str(dm))
+	for c: Array in [["NORMAL", 0, 30], ["ELITE", 1, 220], ["BOSS", 4, 666]]:
+		_check("combat: kill_xp(%s, %d) == %d" % c, CombatS.kill_xp(c[0], c[1]) == c[2], str(CombatS.kill_xp(c[0], c[1])))
+	for c: Array in [[95, 95, 12], [75, 95, 10], [1, 95, 1], [0, 95, 0], [91, 100, 11], [-5, 95, 0]]:
+		_check("combat: bar_fill_px(%d, %d) == %d" % c, CombatS.bar_fill_px(c[0], c[1]) == c[2], str(CombatS.bar_fill_px(c[0], c[1])))
+	for c: Array in [[Vector2(0, 192), true], [Vector2(0, 199.9), true], [Vector2(0, 200), false], [Vector2(0, 32), true],
+			[Vector2(120, 120), true], [Vector2(136, 136), false], [Vector2(0, 216), false]]:
+		_check("combat: in_village(%s) == %s" % [str(c[0]), str(c[1])], CombatS.in_village(c[0]) == c[1])
+	var pts: Array[Vector2] = [Vector2(0, 40), Vector2(30, 0), Vector2(-30, 0), Vector2(100, 0)]
+	var none: Array[Vector2] = []
+	_check("combat: nearest_in_range portée 40 == 1, portée 29 == -1, vide == -1",
+		CombatS.nearest_in_range(Vector2.ZERO, pts, 40) == 1 and CombatS.nearest_in_range(Vector2.ZERO, pts, 29) == -1 and CombatS.nearest_in_range(Vector2.ZERO, none, 40) == -1)
+	for c: Array in [[false, 96.0, true, true], [false, 97.0, true, false], [true, 144.0, true, true], [true, 145.0, true, false], [true, 10.0, false, false]]:
+		_check("combat: mob_chasing(%s, %.0f, %s) == %s" % [str(c[0]), c[1], str(c[2]), str(c[3])], CombatS.mob_chasing(c[0], c[1], c[2]) == c[3])
+	# Cellules
+	var vc: Dictionary = CombatS.village_cells()
+	_check("combat: village_cells == 441", vc.size() == 441, str(vc.size()))
+	var solid1: Dictionary = _solid9(vd, built, p, 1)
+	var mob1: Dictionary = solid1.duplicate()
+	mob1.merge(vc)
+	var mob42: Dictionary = _solid9(vd, built, p, 42).duplicate()
+	mob42.merge(vc)
+	_check("combat: solid monstres graine 1 == 767 (joueur 393), graine 42 == 753", mob1.size() == 767 and solid1.size() == 393 and mob42.size() == 753, "%d %d %d" % [mob1.size(), solid1.size(), mob42.size()])
+	var bad_spawn: String = ""
+	for sp: Array in vd["lisiere"]["spawns"]:
+		var sc: Vector2 = VL.cell_center(VL.v2i(sp))
+		if PlayerMotionS.overlaps(sc, mob1) or CombatS.in_village(sc):
+			bad_spawn += str(sc) + " "
+	_check("combat: 3 spawns libres pour les monstres, hors du village", vd["lisiere"]["spawns"].size() == 3 and bad_spawn == "", bad_spawn)
+	var at_edge: Vector2 = PlayerMotionS.move(Vector2(0, 256), Vector2(0, -100), mob1)
+	_check("combat: move((0, 256), (0, -100), solid monstres) == (0, 203)", at_edge == Vector2(0, 203), str(at_edge))
+	# RNG
+	var rng: RngS.Pcg32 = RngS.make_rng(1, "combat/joueur")
+	var crits: Array[int] = []
+	var first: float = -1.0
+	for i in 40:
+		var f: float = rng.next_float()
+		if i == 0:
+			first = f
+		if f < BA.PLAYER_BASE_CRIT_RATE:
+			crits.append(i)
+	_check("combat: rng combat/joueur graine 1, critiques [11, 19, 26, 28, 39], premier 0,977992", crits == [11, 19, 26, 28, 39] and _approx(first, 0.977992, 1e-6), "%s %f" % [str(crits), first])
+	# Monstre seul
+	var stats1: Dictionary = CombatS.mob_stats(1, 0, "NORMAL")
+	var mob: Node2D = load("res://scenes/combat/mob.tscn").instantiate()
+	root.add_child(mob)
+	mob.setup(Vector2(0, 256), null, null, mob1, stats1)
+	var hits: Array[int] = []
+	for i in 26:
+		if mob.step(1.0 / 60.0, Vector2(0, 240), true):
+			hits.append(i + 1)
+	_check("monstre: télégraphe au 1er appel, coup au 26e", hits == [26], str(hits))
+	mob.respawn()
+	hits.clear()
+	var moved: bool = false
+	for i in 26:
+		if mob.step(1.0 / 60.0, Vector2(0, 240) if i < 9 else Vector2(0, 200), true):
+			hits.append(i + 1)
+		moved = moved or mob.position != Vector2(0, 256)
+	_check("monstre: cible partie au 10e appel -> rate, immobile pendant le télégraphe", hits.is_empty() and not moved, "%s %s" % [str(hits), str(mob.position)])
+	mob.respawn()
+	var deaths: Array = []
+	for i in 5:
+		deaths.append(mob.take_hit(20))
+	_check("monstre: 4 coups de 20 -> vivant, 5e -> mort, invisible", deaths == [false, false, false, false, true] and not mob.visible and not mob.alive, str(deaths))
+	mob.respawn()
+	_check("monstre: respawn -> 95 PV, visible, (0, 256)", mob.hp == 95 and mob.visible and mob.alive and mob.position == Vector2(0, 256))
+	mob.free()
+	# Joueur seul
+	var pl: Node2D = load("res://scenes/player/player.tscn").instantiate()
+	root.add_child(pl)
+	pl.setup(Vector2(0, 216), null, null, solid1)
+	var r1: bool = pl.take_hit(9)
+	_check("joueur: take_hit(9) -> vrai, PV 91", r1 and pl.hp == 91, str(pl.hp))
+	pl.dodge(Vector2(1, 0))
+	pl._process(1.0 / 60.0)
+	var r2: bool = pl.take_hit(9)
+	_check("joueur: esquive + 1 image -> take_hit faux, PV 91", not r2 and pl.hp == 91, str(pl.hp))
+	for i in 12:
+		pl._process(1.0 / 60.0)
+	var r3: bool = pl.take_hit(9)
+	_check("joueur: 13 images -> take_hit vrai, PV 82", r3 and pl.hp == 82, str(pl.hp))
+	pl.hp = 5
+	pl.take_hit(9)
+	_check("joueur: mort -> (0, 32), PV 100", pl.position == Vector2(0, 32) and pl.hp == 100, "%s %d" % [str(pl.position), pl.hp])
+	pl.free()
+	pl = load("res://scenes/player/player.tscn").instantiate()
+	root.add_child(pl)
+	pl.setup(Vector2(0, 216), null, null, solid1)
+	pl.hp = 50
+	pl.position = Vector2(0, 32)
+	pl._process(1.0 / 60.0)
+	_check("joueur: dans le village -> PV 100", pl.hp == 100, str(pl.hp))
+	pl.set_move_dir(Vector2(1, 0))
+	pl._process(1.0 / 60.0)
+	var cs1: bool = pl.can_strike()
+	pl.set_move_dir(Vector2.ZERO)
+	pl._process(1.0 / 60.0)
+	_check("joueur: can_strike faux en marche, vrai à l'arrêt", not cs1 and pl.can_strike())
+	pl.free()
+	# Intégration S1 et S3
+	var s1: Dictionary = _s1(vd, solid1, 1.0 / 60.0, 260, -1)
+	_check("S1: coups du joueur aux images 1, 51, 102, 153, 204", s1["strikes"] == [1, 51, 102, 153, 204], str(s1["strikes"]))
+	_check("S1: PV du monstre 0 : 75, 55, 35, 15, -5 ; aucun critique ; mort à l'image 204", s1["mob_hp"] == [75, 55, 35, 15, -5] and s1["crits"] == 0 and s1["mob_death"] == 204, "%s %d %d" % [str(s1["mob_hp"]), s1["crits"], s1["mob_death"]])
+	var wt: Array = s1["windups"]
+	var wt_ok: bool = wt.size() == 4
+	if wt_ok:
+		for k in 4:
+			wt_ok = wt_ok and _approx(wt[k], [0.3667, 1.3667, 2.3833, 3.4][k], 1e-3)
+	_check("S1: télégraphes à 0,3667 / 1,3667 / 2,3833 / 3,4 s", wt_ok, str(wt))
+	_check("S1: coups reçus aux images 47, 107, 168 -> PV 91, 82, 73", s1["received"] == [47, 107, 168] and s1["player_hp"] == [91, 82, 73], "%s %s" % [str(s1["received"]), str(s1["player_hp"])])
+	_check("S1: après 260 images, PV 73, monstre 0 mort en (0 ; 231,5), 1 et 2 à 95 PV en (0, 320) et (0, 384), jamais en poursuite",
+		s1["final_hp"] == 73 and not s1["alive"][0] and s1["pos"][0].distance_to(Vector2(0, 231.5)) <= 0.01 and s1["alive"][1] and s1["alive"][2]
+		and s1["hp"][1] == 95 and s1["hp"][2] == 95 and s1["pos"][1] == Vector2(0, 320) and s1["pos"][2] == Vector2(0, 384) and not s1["chased12"], str(s1))
+	for c: Array in [[1.0 / 30.0, 130], [1.0 / 120.0, 520]]:
+		var sx: Dictionary = _s1(vd, solid1, c[0], c[1], -1)
+		_check("S1: delta 1/%d sur %d images -> 5 coups, 3 reçus, PV 73" % [roundi(1.0 / c[0]), c[1]], sx["strikes"].size() == 5 and sx["received"].size() == 3 and sx["final_hp"] == 73, str(sx))
+	var s3a: Dictionary = _s1(vd, solid1, 1.0 / 60.0, 1400, 261)
+	_check("S3: PV 100 à l'image 261", s3a["hp_261"] == 100, str(s3a["hp_261"]))
+	_check("S3: monstre 0 toujours mort après 1 400 images", not s3a["alive"][0])
+	var s3b: Dictionary = _s1(vd, solid1, 1.0 / 60.0, 1410, 261)
+	_check("S3: monstre 0 vivant à 95 PV en (0, 256) après 1 410 images, réapparition à l'image 1 404", s3b["alive"][0] and s3b["hp"][0] == 95 and s3b["pos"][0] == Vector2(0, 256) and s3b["respawn"] == 1404, str(s3b))
+	var s1l: Dictionary = _s1(vd, solid1, 1.0 / 60.0, 2700, -1)
+	_check("S1 prolongé à 2 700 images : monstre 0 toujours mort", not s1l["alive"][0])
+	# Scènes
+	var mob_state: SceneState = (load("res://scenes/combat/mob.tscn") as PackedScene).get_state()
+	var mob_nodes: Array[String] = []
+	for i in mob_state.get_node_count():
+		mob_nodes.append(mob_state.get_node_name(i))
+	_check("scenes: mob.tscn = Monstre, Ombre, Sprite", mob_nodes == ["Monstre", "Ombre", "Sprite"], str(mob_nodes))
+	var vil: Node = load("res://scenes/village/village.tscn").instantiate()
+	var lis: Node2D = vil.get_node_or_null("Entites/Lisiere")
+	_check("scenes: village.tscn contient Entites/Lisiere, y_sort_enabled", lis != null and lis.y_sort_enabled)
+	vil._lisiere = lis # @onready non résolu hors de l'arbre
+	vil.set_combat_active(false)
+	var off: int = lis.process_mode
+	vil.set_combat_active(true)
+	_check("scenes: set_combat_active false -> DISABLED, true -> INHERIT", off == Node.PROCESS_MODE_DISABLED and lis.process_mode == Node.PROCESS_MODE_INHERIT)
+	vil.free()
+	var mi: Array = vd["tiles"]["monstre"]
+	var clash: bool = mi == vd["tiles"]["joueur"]
+	for n: String in vd["npc_sprites"]:
+		clash = clash or vd["tiles"][n] == mi
+	_check("village.json: monstre ni joueur ni PNJ, lisiere 3 spawns, mob_sprite monstre", not clash and vd["lisiere"]["spawns"].size() == 3 and vd["lisiere"]["mob_sprite"] == "monstre")
+
+# Joueur immobile en (0, 216), graine 1, isolat 0 ; à chaque image joueur._process puis lisiere._process.
+# teleport > 0 : joueur.position = (0, 32) avant l'image teleport.
+func _s1(vd: Dictionary, solid: Dictionary, dt: float, frames: int, teleport: int) -> Dictionary:
+	var pl: Node2D = load("res://scenes/player/player.tscn").instantiate()
+	root.add_child(pl)
+	pl.setup(Vector2(0, 216), null, null, solid)
+	var lis: Node2D = LisiereS.new()
+	root.add_child(lis)
+	lis.setup(1, 0, pl, solid, vd["lisiere"]["spawns"], null, null)
+	var mobs: Array[Node2D] = lis.mobs()
+	var out: Dictionary = {"strikes": [], "mob_hp": [], "crits": 0, "mob_death": -1, "windups": [], "received": [], "player_hp": [], "chased12": false, "hp_261": -1, "respawn": -1}
+	var prev_mob: int = mobs[0].hp
+	var prev_pl: int = pl.hp
+	var was_alive: bool = true
+	var prev_attack: float = -1.0
+	for f in range(1, frames + 1):
+		if f == teleport:
+			pl.position = Vector2(0, 32)
+		pl._process(dt)
+		lis._process(dt)
+		var m0: Node2D = mobs[0]
+		if m0.hp < prev_mob:
+			out["strikes"].append(f)
+			out["mob_hp"].append(m0.hp)
+			if prev_mob - m0.hp != 20:
+				out["crits"] += 1
+		prev_mob = m0.hp
+		if was_alive and not m0.alive:
+			out["mob_death"] = f
+		if not was_alive and m0.alive:
+			out["respawn"] = f
+		was_alive = m0.alive
+		if m0._last_attack != prev_attack: # début de télégraphe (relevé aussi quand le monstre meurt dans la même image)
+			out["windups"].append(snappedf(m0._last_attack, 0.0001))
+		prev_attack = m0._last_attack
+		if pl.hp < prev_pl:
+			out["received"].append(f)
+			out["player_hp"].append(pl.hp)
+		prev_pl = pl.hp
+		out["chased12"] = out["chased12"] or mobs[1].chasing or mobs[2].chasing
+		if f == teleport:
+			out["hp_261"] = pl.hp
+	out["final_hp"] = pl.hp
+	out["alive"] = mobs.map(func(m: Node2D) -> bool: return m.alive)
+	out["hp"] = mobs.map(func(m: Node2D) -> int: return m.hp)
+	out["pos"] = mobs.map(func(m: Node2D) -> Vector2: return m.position)
+	lis.free()
+	pl.free()
+	return out
 
 func _touch(index: int, pos: Vector2, pressed: bool) -> InputEventScreenTouch:
 	var e: InputEventScreenTouch = InputEventScreenTouch.new()
@@ -1213,6 +1434,7 @@ func _initialize() -> void:
 	for c: Array in [[0.0, -1], [0.15, 0], [0.30, -1]]:
 		_check("npc: bob_offset(%.2f, marche) == %d" % [c[0], c[1]], NpcS.bob_offset(c[0], true) == c[1], str(NpcS.bob_offset(c[0], true)))
 	_jalon_9(vd8, built8, p8)
+	_jalon_10(vd8, built8, p8)
 	# Garde-fou
 	var ba_script: Script = load("res://balance/balance_a.gd") # BA.get_script_constant_map() est refusé par le parseur (appel non statique sur une classe)
 	_check("garde-fou: BalanceA sans WEAPON_SAME_SCHOOL_3PIECE_AFFINITY_BONUS", not ba_script.get_script_constant_map().has("WEAPON_SAME_SCHOOL_3PIECE_AFFINITY_BONUS"))

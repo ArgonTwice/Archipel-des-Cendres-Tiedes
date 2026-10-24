@@ -31,6 +31,7 @@ func _ready() -> void:
 	_stick.was_reset.connect(player.on_input_reset)
 	_set_camera_limits()
 	_folded = FoldModeS.is_folded(get_window().size)
+	_world.set_combat_active(_folded)
 	var s: int = _apply_scale(_folded)
 	FoldModeS.apply(_folded, _ui_folded, _ui_unfolded)
 	_camera.zoom = FoldModeS.zoom_for(_folded)
@@ -125,6 +126,7 @@ func _on_size_changed() -> void:
 		return
 	_folded = folded
 	FoldModeS.apply(_folded, _ui_folded, _ui_unfolded)
+	_world.set_combat_active(_folded)
 	_stick.reset()
 	if _tween != null:
 		_tween.kill()

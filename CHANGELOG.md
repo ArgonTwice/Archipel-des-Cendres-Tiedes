@@ -20,3 +20,5 @@ Format : `AAAA-MM-JJ — type: description`. Une ligne par changement validé.
 - 2026-10-23 — chore: APK debug 0.8.0 (code 3) testé sur Z Fold 8
 - 2026-10-24 — feat: contrôles du mode plié, joystick flottant et esquive (jalon 9)
 - 2026-10-24 — chore: APK debug 0.9.0 (code 4) testé sur Z Fold 8
+- 2026-10-24 — feat: premier monstre et auto-attaque à l'arrêt (jalon 10)
+- 2026-10-24 — chore: APK debug 0.10.0 (code 5) testé sur Z Fold 8

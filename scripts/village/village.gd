@@ -27,6 +27,7 @@ const SHADOW_ALPHA: float = 0.35
 @onready var _torch: Sprite2D = $Entites/Atre/Torche
 @onready var _light: PointLight2D = $Entites/Atre/Lumiere
 @onready var _player: Node2D = $Entites/Joueur # player.gd
+@onready var _lisiere: Node2D = $Entites/Lisiere # lisiere.gd
 
 var hour_override: int = -1 # debug (--hour=H) : rendu et ancres seulement
 var _data: Dictionary = {}
@@ -69,6 +70,8 @@ func setup(world_seed: int, village: Dictionary, now_utc: int) -> void:
 	_torch.texture = _tile_texture("torche")
 	var solid: Dictionary = VL.solid_cells(sites, patterns, _data["props"], deco)
 	_player.setup(VL.cell_center(VL.PLAYER_SPAWN_CELL), _tile_texture(_data["player_sprite"]), shadow, solid)
+	var lis: Dictionary = _data["lisiere"]
+	_lisiere.setup(world_seed, village.get("isolat", 0), _player, solid, lis["spawns"], _tile_texture(lis["mob_sprite"]), shadow)
 	_village = village
 	var npcs: Array = village.get("npcs", [])
 	var hour: int = _hour(now_utc)
@@ -89,6 +92,10 @@ func setup(world_seed: int, village: Dictionary, now_utc: int) -> void:
 
 func player() -> Node2D:
 	return _player
+
+# Combat gelé en déplié (SOCLE §A3 : déplié = gérer).
+func set_combat_active(on: bool) -> void:
+	_lisiere.set_active(on)
 
 func refresh(village: Dictionary, now_utc: int) -> void:
 	if _data.is_empty():

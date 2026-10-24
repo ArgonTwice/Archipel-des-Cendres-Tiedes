@@ -40,6 +40,7 @@ build/             APK (ignoré par git)
 - Pixel art : tuiles 16×16, personnages 16×16 Kenney jusqu'à la tranche verticale (16×24 ensuite), fiches d'armes en haute résolution côté déplié.
 - Accents et genre grammatical : jetons grammaticaux FR dès le premier jalon.
 - Contrôles plié : joystick flottant (UI_Folded/Stick, inactif en déplié), balayage = esquive, collisions par cellules (PlayerMotion.move, pas de moteur physique), valeurs de jeu lues dans BalanceA ; constantes du joystick = techniques, réglées par Antho.
+- Combat (jalon 10) : Combat = statiques pures, Lisiere sous Entites ; monstres jamais dans le rayon de l'Âtre (ses cellules sont pleines pour eux), combat gelé en déplié, rien de sauvegardé ; valeurs lues dans BalanceA / BalanceC ; constantes de monstre et arme de départ = propositions d'Antho dans combat.gd, à passer dans balance_a.gd après validation par Argon.
 
 ## Assets
 - Uniquement gratuits et open source. Licences acceptées : CC0, CC-BY, MIT, OFL pour les polices. Pas de « non commercial » ni de licence floue sans accord d'Antho.

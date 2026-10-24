@@ -153,3 +153,33 @@ W1, cause probable (le personnage vibre, pas le décor) : `flip_h` suivait le si
 | 48 px en déplié | OK | dallage de l'Âtre (3 tuiles) de x 852 à 995 sur la ligne y 1260 : 144 px, soit 48 px par tuile ; build/captures/jalon9-W-deplie.png |
 
 Totaux du logcat : 24 `esquive` (dist 48,0 sauf une à 41,32, arrêtée par un obstacle), 62 `esquive_refusee`, 9 `reset`, 0 SCRIPT ERROR. Une ERROR moteur `VK_ERROR_SURFACE_LOST_KHR` à 16:43:39,5, juste après un `reset` (perte de focus, appli mise en arrière-plan 20 s) : surface Vulkan perdue pendant la pause Android, sans effet à la reprise (marche et esquive normales à 16:43:59). Un `size_changed` déplié transitoire mesure 60 Hz, puis 120 Hz.
+
+## Jalon 10 (APK 0.10.0, code 5) : premier monstre et auto-attaque à l'arrêt
+
+Export debug le 24/10 : `aapt2` donne versionCode 5, versionName 0.10.0 ; SHA-256 1456db8a8d21db4aaea3f58161480ba39d56eda6ea152581042005a44d7b3bea. Sprite du monstre : Tiny Dungeon 121 (spectre), lisible sur l'herbe teintée et dans la Brume.
+
+### C1 à C8 (PC, fenêtre 416 × 657, --hour=14, clics injectés par sonde ; journal build/captures/jalon10-C-sonde.txt)
+
+| Test | Résultat | Preuve |
+|---|---|---|
+| C1 sortie par les Portes | OK | 3 monstres en (0, 256 / 320 / 384), triés avec les arbres ; jalon10-C1.png |
+| C2 approche | OK | poursuite à 54 px ; rouge 0,4 s puis `coup_recu` 9 ; jalon10-C2-telegraphe.png |
+| C3 auto-attaque | OK | coups à 1,817 / 2,650 / 3,483 / 4,321 / 5,154 s (0,833 s) ; PV 75, 55, 35, 15, −5 ; `mort_monstre` xp 30 |
+| C4 esquive / recul | OK | balayage pendant le rouge : `rate` (sorti de portée) ; recul pendant le rouge : `rate` |
+| C5 retour au village | OK | `abandon`, retour au point, PV pleins ; joueur 100 PV ; y min des monstres 242 (jamais < 203) |
+| C6 mort du joueur | OK | 3 monstres, joueur immobile : `mort_joueur` après 4,1 s, retour en (0, 32), 100 PV |
+| C7 dépliage en combat | OK (redimensionnement, pas l'éditeur) | télégraphe gelé à 0,103 s pendant 1 s, Lisière DISABLED ; reprise au repliage |
+| C8 réapparition | OK | `reapparition` après 20,01 s, joueur à 141,7 px du point |
+
+### F1 à F6 (Fold 8, 24/10 de 18:45 à 18:49, plié 120 Hz ; logcat build/captures/jalon10-F-logcat.txt)
+
+| Test | Résultat | Preuve |
+|---|---|---|
+| F1 combat au pouce | OK | « impeccable » ; 7 `mort_monstre`, 37 `coup` dont 1 critique |
+| F2 esquive | OK | « impeccable » ; 16 esquives joueur, 9 refusées (recharge) ; côté monstres 1 `esquive` (i-frames) et 4 `rate` |
+| F3 mort et soins | OK, remarque | « impeccable mais c'est trop rapide » ; `mort_joueur` à 18:47:50 en (1, 289) |
+| F4 pliage en combat | OK, remarque | dépliage 18:48:17, repliage 18:48:24, combat repris (`mort_monstre` à 18:48:25) ; 0 ERROR ; Antho : « quand je déplie, le combat se fige, c'est pas bien » |
+| F5 lisibilité | OK | « impeccable », heure réelle 18 h (phase jour) |
+| F6 ressenti | noté tel quel | « j'aimerais plus d'animation, et je ne voyais pas les combats comme ça. Je verrais plus en "instance". Quand on quitte le village, on quitte vraiment le village. On part dans un autre village, un donjon, une forêt, et je verrais bien comme un Brotato par exemple. Mais sur plusieurs plateaux différents qui restent dans le thème : on part en mission. Ça différencie vraiment le côté village et le côté "mission". » |
+
+0 ERROR et 0 SCRIPT ERROR au logcat. Remarques F3, F4 et F6 : décisions de design (SOCLE §A1, §A3), à trancher en co-conception, rien n'est modifié.
