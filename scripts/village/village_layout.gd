@@ -17,6 +17,7 @@ const ROAD_Y: Vector2i = Vector2i(11, 26) # route vers l'isolat, bornes incluses
 const VEILLEE_RADIUS_PX: float = 28.0
 const SHARED_SPACING_PX: float = 12.0
 const WORK_SITE: Dictionary = {"EXTRACTION": "GISEMENT", "TAVERN": "TAVERN", "FORGE": "FORGE", "GUARD": "GATE"}
+const PLAYER_SPAWN_CELL: Vector2i = Vector2i(0, 2) # devant l'Âtre, au sud du dallage ; à valider (jalon 9)
 const NEIGHBORS: Array[Vector2i] = [Vector2i(0, -1), Vector2i(0, 1), Vector2i(-1, 0), Vector2i(1, 0)] # haut, bas, gauche, droite
 
 static func load_data() -> Dictionary:
@@ -51,6 +52,21 @@ static func built_cells(sites: Dictionary, patterns: Dictionary) -> Dictionary:
 	var out: Dictionary = {}
 	for key: String in sites:
 		out.merge(site_tiles(sites[key], patterns))
+	return out
+
+# Cellules qui bloquent le joueur : bâti hors dallage de l'Âtre (un sol), props, arbres, torche (0, 0).
+# Chemins, accès et touffes restent libres ; les PNJ ne bloquent pas.
+static func solid_cells(sites: Dictionary, patterns: Dictionary, props: Array, deco_cells: Dictionary) -> Dictionary:
+	var out: Dictionary = {}
+	for key: String in sites:
+		if key != "ATRE":
+			out.merge(site_tiles(sites[key], patterns))
+	for prop: Dictionary in props:
+		out[v2i(prop["cell"])] = true
+	for c: Vector2i in deco_cells:
+		if deco_cells[c][0] == "tree":
+			out[c] = true
+	out[Vector2i.ZERO] = true
 	return out
 
 # {"cells": cellule -> true, "lengths": site -> longueur}. BFS 4-voisins par site avec accès, dans l'ordre des sites ;

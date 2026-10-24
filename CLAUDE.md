@@ -39,6 +39,7 @@ build/             APK (ignoré par git)
 - UI : `UI_Folded` et `UI_Unfolded` (CanvasLayer) instanciés au lancement. Le changement d'état ne fait que basculer `visible` et `process_mode`, plus un Tween de zoom Camera2D ≤ 0,2 s. Ne jamais reconstruire une UI lourde sur `size_changed`.
 - Pixel art : tuiles 16×16, personnages 16×16 Kenney jusqu'à la tranche verticale (16×24 ensuite), fiches d'armes en haute résolution côté déplié.
 - Accents et genre grammatical : jetons grammaticaux FR dès le premier jalon.
+- Contrôles plié : joystick flottant (UI_Folded/Stick, inactif en déplié), balayage = esquive, collisions par cellules (PlayerMotion.move, pas de moteur physique), valeurs de jeu lues dans BalanceA ; constantes du joystick = techniques, réglées par Antho.
 
 ## Assets
 - Uniquement gratuits et open source. Licences acceptées : CC0, CC-BY, MIT, OFL pour les polices. Pas de « non commercial » ni de licence floue sans accord d'Antho.
@@ -64,6 +65,7 @@ build/             APK (ignoré par git)
 - L'activité Godot déclare configChanges avec screenSize|smallestScreenSize|screenLayout|density : pas de recréation d'activité au pliage.
 - content_scale_size s'affecte en set_deferred dans size_changed (affectation directe = échelle fausse au premier dépliage), directement dans _ready.
 - Android (multi fold policy) applique un portrait qui suit le capteur : retournement de 180° possible, jamais de paysage.
+- Émulation tactile à la souris activée dans project.godot (tests PC) ; emulate_mouse_from_touch reste à true.
 
 ## Tests
 - Le simulateur headless doit passer avant toute demande de commit : `godot --headless --script res://tests/headless/run_all.gd`.

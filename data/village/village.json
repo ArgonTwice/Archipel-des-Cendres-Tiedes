@@ -22,7 +22,8 @@
 		"torche": ["dungeon", 29],
 		"tonneau": ["dungeon", 82], "enclume": ["dungeon", 74], "caisse": ["dungeon", 63],
 		"pnj_mineur": ["dungeon", 86], "pnj_aubergiste": ["dungeon", 99], "pnj_forgeron": ["dungeon", 87],
-		"pnj_garde_visiere": ["dungeon", 97], "pnj_garde": ["dungeon", 96]
+		"pnj_garde_visiere": ["dungeon", 97], "pnj_garde": ["dungeon", 96],
+		"joueur": ["dungeon", 112]
 	},
 	"trees": ["arbre_rond", "arbre_pin", "buisson"],
 	"tufts": ["pousse"],
@@ -53,5 +54,6 @@
 		{"cell": [-7, -1], "tile": "enclume"},
 		{"cell": [7, -1], "tile": "caisse"}
 	],
-	"npc_sprites": ["pnj_mineur", "pnj_aubergiste", "pnj_forgeron", "pnj_garde_visiere", "pnj_garde"]
+	"npc_sprites": ["pnj_mineur", "pnj_aubergiste", "pnj_forgeron", "pnj_garde_visiere", "pnj_garde"],
+	"player_sprite": "joueur"
 }

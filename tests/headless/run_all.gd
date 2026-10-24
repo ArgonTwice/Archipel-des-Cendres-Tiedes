@@ -14,6 +14,8 @@ const FoldModeS = preload("res://scripts/ui/fold_mode.gd")
 const VeilleeReportS = preload("res://scripts/ui/veillee_report.gd")
 const VL = preload("res://scripts/village/village_layout.gd")
 const NpcS = preload("res://scripts/village/npc.gd")
+const PlayerMotionS = preload("res://scripts/player/player_motion.gd")
+const StickS = preload("res://scripts/ui/touch_stick.gd")
 const FONT_PATH: String = "res://assets/fonts/silkscreen/Silkscreen-Regular.ttf"
 const OFL_PATH: String = "res://assets/fonts/silkscreen/OFL.txt"
 const THEME_PATH: String = "res://assets/ui/theme.tres"
@@ -110,6 +112,164 @@ func _draws(world_seed: int) -> Array:
 	return out
 
 # Fichiers .gd sous dir, parcours récursif, triés.
+# Jalon 9 : cellules pleines, déplacement, esquive, joystick, scènes. Jumeau Python : prep_jalon_9.py.
+func _solid9(vd: Dictionary, built: Dictionary, p: Dictionary, world_seed: int) -> Dictionary:
+	var blocked: Dictionary = built.duplicate()
+	blocked.merge(p["cells"])
+	for prop: Dictionary in vd["props"]:
+		blocked[VL.v2i(prop["cell"])] = true
+	return VL.solid_cells(vd["sites"], vd["patterns"], vd["props"], VL.deco(world_seed, blocked))
+
+func _jalon_9(vd: Dictionary, built: Dictionary, p: Dictionary) -> void:
+	var atre: Dictionary = VL.site_tiles(vd["sites"]["ATRE"], vd["patterns"])
+	var solid1: Dictionary = {}
+	for c: Array in [[1, 393], [42, 379]]:
+		var solid: Dictionary = _solid9(vd, built, p, c[0])
+		if c[0] == 1:
+			solid1 = solid
+		var bad: String = ""
+		for cell: Vector2i in p["cells"]:
+			if solid.has(cell):
+				bad += "chemin %s " % str(cell)
+		for key: String in vd["sites"]:
+			if vd["sites"][key].has("access") and solid.has(VL.v2i(vd["sites"][key]["access"])):
+				bad += "acces %s " % key
+		for cell: Vector2i in atre:
+			if cell != Vector2i.ZERO and solid.has(cell):
+				bad += "dallage %s " % str(cell)
+		_check("solid: graine %d -> %d cellules, ni chemin, ni accès, ni dallage hors (0, 0), torche pleine" % c,
+			solid.size() == c[1] and bad == "" and solid.has(Vector2i.ZERO), "%d %s" % [solid.size(), bad])
+	var spawn: Vector2 = VL.cell_center(VL.PLAYER_SPAWN_CELL)
+	_check("spawn: (0, 32), libre", spawn == Vector2(0, 32) and not PlayerMotionS.overlaps(spawn, solid1), str(spawn))
+	for c: Array in [[Vector2(0, 32), Vector2(0, -48), Vector2(0, 11)], [Vector2(-24, -24), Vector2(-48, 0), Vector2(-52, -24)],
+			[Vector2(-24, -24), Vector2(-48, 16), Vector2(-52, -8)], [Vector2(0, 400), Vector2(0, 48), Vector2(0, 421)],
+			[Vector2(0, 32), Vector2(10, 5), Vector2(10, 37)], [Vector2(0, 160), Vector2(0, 48), Vector2(0, 208)],
+			[Vector2(0, 176), Vector2(16, 0), Vector2(4, 176)], [Vector2(0, 32), Vector2.ZERO, Vector2(0, 32)]]:
+		var got: Vector2 = PlayerMotionS.move(c[0], c[1], solid1)
+		_check("move: %s + %s -> %s" % c, got == c[2], str(got))
+	var walk: Vector2 = spawn
+	for i in 60:
+		walk = PlayerMotionS.move(walk, Vector2(BA.PLAYER_BASE_MSPD / 60.0, 0), solid1)
+	_check("marche: 60 x 1/60 s depuis (0, 32) -> (140, 32)", walk.distance_to(Vector2(140, 32)) <= 0.01, str(walk))
+	for c: Array in [[0.0, 0.0], [0.125, 24.0], [0.25, 48.0], [0.4, 48.0]]:
+		_check("esquive: dodge_progress(%.3f) == %.0f" % c, is_equal_approx(PlayerMotionS.dodge_progress(c[0]), c[1]), str(PlayerMotionS.dodge_progress(c[0])))
+	var dist: float = 0.0
+	var t9: float = 0.0
+	for i in 20:
+		dist += PlayerMotionS.dodge_progress(t9 + 1.0 / 60.0) - PlayerMotionS.dodge_progress(t9)
+		t9 += 1.0 / 60.0
+	_check("esquive: somme sur 20 pas de 1/60 s == 48", absf(dist - 48.0) <= 1e-4, str(dist))
+	for c: Array in [[0.0, true], [0.19, true], [0.20, false], [0.25, false]]:
+		_check("esquive: in_iframes(%.2f) == %s" % [c[0], str(c[1])], PlayerMotionS.in_iframes(c[0]) == c[1])
+	for c: Array in [[0.0, -1.0, true], [1.79, 0.0, false], [1.80, 0.0, true], [5.0, 3.0, true]]:
+		_check("esquive: can_dodge(%.2f, %.0f) == %s" % [c[0], c[1], str(c[2])], PlayerMotionS.can_dodge(c[0], c[1]) == c[2])
+	# Joystick
+	_check("stick: dir (0,0)->(3,0) == ZERO", StickS.stick_dir(Vector2.ZERO, Vector2(3, 0)) == Vector2.ZERO)
+	_check("stick: dir (0,0)->(4,0) == (1, 0)", StickS.stick_dir(Vector2.ZERO, Vector2(4, 0)) == Vector2(1, 0))
+	_check("stick: dir (0,0)->(3,4) == (0,6 ; 0,8)", StickS.stick_dir(Vector2.ZERO, Vector2(3, 4)).distance_to(Vector2(0.6, 0.8)) <= 1e-6)
+	_check("stick: dir (10,10)->(10,-10) == (0, -1)", StickS.stick_dir(Vector2(10, 10), Vector2(10, -10)) == Vector2(0, -1))
+	_check("stick: follow (0,0),(12,16) -> (0, 0)", StickS.follow_origin(Vector2.ZERO, Vector2(12, 16)) == Vector2.ZERO)
+	_check("stick: follow (0,0),(30,40) -> (18, 24)", StickS.follow_origin(Vector2.ZERO, Vector2(30, 40)).distance_to(Vector2(18, 24)) <= 1e-5, str(StickS.follow_origin(Vector2.ZERO, Vector2(30, 40))))
+	_check("stick: follow (100,100),(100,60) -> (100, 80)", StickS.follow_origin(Vector2(100, 100), Vector2(100, 60)) == Vector2(100, 80))
+	for c: Array in [[0.20, Vector2.ZERO, Vector2(16, 0), true], [0.21, Vector2.ZERO, Vector2(16, 0), false], [0.10, Vector2.ZERO, Vector2(15, 0), false],
+			[0.10, Vector2.ZERO, Vector2(0, -16), true], [0.05, Vector2(5, 5), Vector2(5, 5), false]]:
+		_check("stick: is_swipe(%.2f, %s, %s) == %s" % [c[0], str(c[1]), str(c[2]), str(c[3])], StickS.is_swipe(c[0], c[1], c[2]) == c[3])
+	# Intégration joueur
+	var pl: Node2D = load("res://scenes/player/player.tscn").instantiate()
+	root.add_child(pl)
+	pl.setup(spawn, null, null, solid1)
+	pl.set_move_dir(Vector2(1, 0))
+	for i in 60:
+		pl._process(1.0 / 60.0)
+	_check("joueur: 60 images vers la droite -> x 140, y 32", absf(pl.position.x - 140.0) <= 0.01 and pl.position.y == 32.0, str(pl.position))
+	pl.free()
+	pl = load("res://scenes/player/player.tscn").instantiate()
+	root.add_child(pl)
+	pl.setup(spawn, null, null, solid1)
+	var ok1: bool = pl.dodge(Vector2(0, -1))
+	for i in 20:
+		pl._process(1.0 / 60.0)
+	_check("joueur: esquive vers le haut -> x 0, 11 <= y < 12 (torche)", ok1 and pl.position.x == 0.0 and pl.position.y >= 11.0 and pl.position.y < 12.0, str(pl.position))
+	_check("joueur: esquive immédiate refusée", not pl.dodge(Vector2(0, -1)))
+	for i in 87:
+		pl._process(1.0 / 60.0)
+	_check("joueur: 107 images (1,783 s) -> esquive refusée", not pl.dodge(Vector2(0, 1)))
+	for i in 4:
+		pl._process(1.0 / 60.0)
+	_check("joueur: 111 images (1,85 s) -> esquive acceptée", pl.dodge(Vector2(0, 1)))
+	pl.free()
+	pl = load("res://scenes/player/player.tscn").instantiate()
+	root.add_child(pl)
+	pl.setup(spawn, null, null, solid1)
+	var flips: Array = []
+	for d: Vector2 in [Vector2(1, 0), Vector2(-0.1, -0.99), Vector2(0.1, -0.99), Vector2(-0.6, 0.8), Vector2(0.2, 0.98), Vector2(0.5, 0.866)]:
+		pl.set_move_dir(d)
+		flips.append(pl.get_node("Sprite").flip_h)
+	_check("joueur: miroir seulement si |dir.x| >= 0,5", flips == [false, false, false, true, true, false], str(flips))
+	pl.free()
+	# Intégration joystick
+	var st: Node2D = StickS.new()
+	root.add_child(st)
+	var got: Array = []
+	st.direction_changed.connect(func(d: Vector2) -> void: got.append(["dir", d]))
+	st.swiped.connect(func(d: Vector2) -> void: got.append(["swipe", d]))
+	st._unhandled_input(_touch(0, Vector2(100, 100), true))
+	st._unhandled_input(_drag(0, Vector2(100, 80)))
+	_check("stick: posé (100,100), glissé (100,80) -> dir (0, -1)", got == [["dir", Vector2(0, -1)]], str(got))
+	got.clear()
+	st._unhandled_input(_touch(0, Vector2(100, 80), false))
+	_check("stick: relâché -> swiped (0, -1) puis dir ZERO", got == [["swipe", Vector2(0, -1)], ["dir", Vector2.ZERO]], str(got))
+	got.clear()
+	st._unhandled_input(_touch(0, Vector2(100, 100), true))
+	st._unhandled_input(_drag(0, Vector2(102, 100)))
+	var nonzero: bool = false
+	for g: Array in got:
+		nonzero = nonzero or (g[0] == "dir" and g[1] != Vector2.ZERO)
+	_check("stick: glissé de 2 px -> aucune direction", not nonzero, str(got))
+	st._unhandled_input(_drag(0, Vector2(120, 100)))
+	got.clear()
+	var cancel: InputEventScreenTouch = _touch(0, Vector2(120, 100), false)
+	cancel.canceled = true
+	st._unhandled_input(cancel)
+	_check("stick: relâché annulé après 20 px -> aucun swiped", got == [["dir", Vector2.ZERO]], str(got))
+	got.clear()
+	st._unhandled_input(_touch(0, Vector2(100, 100), true))
+	st._unhandled_input(_touch(1, Vector2(50, 50), true))
+	st._unhandled_input(_drag(1, Vector2(50, 10)))
+	st._unhandled_input(_touch(1, Vector2(50, 10), false))
+	st._unhandled_input(_drag(0, Vector2(100, 120)))
+	_check("stick: second doigt ignoré", got == [["dir", Vector2(0, 1)]], str(got))
+	st.free()
+	# Scènes et réglages
+	var pl_state: SceneState = (load("res://scenes/player/player.tscn") as PackedScene).get_state()
+	var pl_nodes: Array[String] = []
+	for i in pl_state.get_node_count():
+		pl_nodes.append(pl_state.get_node_name(i))
+	_check("scenes: player.tscn = Joueur, Ombre, Sprite", pl_nodes == ["Joueur", "Ombre", "Sprite"], str(pl_nodes))
+	var vil: Node = load("res://scenes/village/village.tscn").instantiate()
+	_check("scenes: village.tscn contient Entites/Joueur", vil.get_node_or_null("Entites/Joueur") != null)
+	vil.free()
+	var uif: Node = load("res://scenes/ui/ui_folded.tscn").instantiate()
+	var uiu: Node = load("res://scenes/ui/ui_unfolded.tscn").instantiate()
+	_check("scenes: Stick dans ui_folded, pas dans ui_unfolded", uif.get_node_or_null("Stick") != null and uiu.find_child("Stick", true, false) == null)
+	uif.free()
+	uiu.free()
+	_check("village.json: joueur hors des 5 sprites de PNJ", vd["tiles"].has("joueur") and vd["player_sprite"] == "joueur" and not vd["npc_sprites"].any(func(n: String) -> bool: return vd["tiles"][n] == vd["tiles"]["joueur"]))
+	_check("projet: emulate_touch_from_mouse true", ProjectSettings.get_setting("input_devices/pointing/emulate_touch_from_mouse") == true)
+
+func _touch(index: int, pos: Vector2, pressed: bool) -> InputEventScreenTouch:
+	var e: InputEventScreenTouch = InputEventScreenTouch.new()
+	e.index = index
+	e.position = pos
+	e.pressed = pressed
+	return e
+
+func _drag(index: int, pos: Vector2) -> InputEventScreenDrag:
+	var e: InputEventScreenDrag = InputEventScreenDrag.new()
+	e.index = index
+	e.position = pos
+	return e
+
 func _gd_files(dir: String) -> Array[String]:
 	var out: Array[String] = []
 	for f: String in DirAccess.get_files_at(dir):
@@ -1052,6 +1212,7 @@ func _initialize() -> void:
 		_check("npc: bob_offset(%.2f, repos) == 0" % tb, NpcS.bob_offset(tb, false) == 0)
 	for c: Array in [[0.0, -1], [0.15, 0], [0.30, -1]]:
 		_check("npc: bob_offset(%.2f, marche) == %d" % [c[0], c[1]], NpcS.bob_offset(c[0], true) == c[1], str(NpcS.bob_offset(c[0], true)))
+	_jalon_9(vd8, built8, p8)
 	# Garde-fou
 	var ba_script: Script = load("res://balance/balance_a.gd") # BA.get_script_constant_map() est refusé par le parseur (appel non statique sur une classe)
 	_check("garde-fou: BalanceA sans WEAPON_SAME_SCHOOL_3PIECE_AFFINITY_BONUS", not ba_script.get_script_constant_map().has("WEAPON_SAME_SCHOOL_3PIECE_AFFINITY_BONUS"))

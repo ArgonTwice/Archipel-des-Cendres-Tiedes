@@ -2,6 +2,7 @@
 
 [ext_resource type="Script" path="res://scripts/village/village.gd" id="1"]
 [ext_resource type="Shader" path="res://scripts/village/cendre_grise.gdshader" id="2"]
+[ext_resource type="PackedScene" path="res://scenes/player/player.tscn" id="3"]
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_cendre"]
 shader = ExtResource("2")
@@ -71,3 +72,5 @@ color_ramp = SubResource("Gradient_flamme")
 color = Color(1, 0.6, 0.3, 1)
 texture = SubResource("GradientTexture2D_lumiere")
 texture_scale = 2.5
+
+[node name="Joueur" parent="Entites" instance=ExtResource("3")]

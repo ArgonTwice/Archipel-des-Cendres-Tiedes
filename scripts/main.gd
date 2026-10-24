@@ -3,11 +3,13 @@ extends Node
 
 const FoldModeS = preload("res://scripts/ui/fold_mode.gd")
 const ClockS = preload("res://autoload/Clock.gd")
+const VL = preload("res://scripts/village/village_layout.gd")
 
 @onready var _world: Node2D = $World # village.gd
 @onready var _camera: Camera2D = $Camera2D
 @onready var _ui_folded: CanvasLayer = $UI_Folded
 @onready var _ui_unfolded: CanvasLayer = $UI_Unfolded
+@onready var _stick: Node2D = $UI_Folded/Stick # touch_stick.gd
 
 var _folded: bool = true
 var _tween: Tween
@@ -23,10 +25,16 @@ func _ready() -> void:
 	else:
 		_world.setup(r["state"]["world_seed"], r["state"]["village"], now)
 		_show(r)
+	var player: Node2D = _world.player() # player.gd
+	_stick.direction_changed.connect(player.set_move_dir)
+	_stick.swiped.connect(player.dodge)
+	_stick.was_reset.connect(player.on_input_reset)
+	_set_camera_limits()
 	_folded = FoldModeS.is_folded(get_window().size)
 	var s: int = _apply_scale(_folded)
 	FoldModeS.apply(_folded, _ui_folded, _ui_unfolded)
 	_camera.zoom = FoldModeS.zoom_for(_folded)
+	_camera.position = _camera_target(_folded)
 	_apply_safe_area(s)
 	get_viewport().size_changed.connect(_on_size_changed)
 	SaveManager.synced.connect(_show)
@@ -35,6 +43,24 @@ func _ready() -> void:
 		await get_tree().create_timer(1.0).timeout
 		get_viewport().get_texture().get_image().save_png(capture)
 		get_tree().quit()
+
+# Plié : la caméra suit le joueur au pixel près (arrondi : pas de scintillement), sauf pendant le Tween de bascule.
+func _process(_delta: float) -> void:
+	if _folded and (_tween == null or not _tween.is_running()):
+		_camera.position = _camera_target(true)
+
+# Plié : sur le joueur ; déplié : Vision d'architecte centrée sur l'Âtre, tout le rayon visible.
+func _camera_target(folded: bool) -> Vector2:
+	return _world.player().position.round() if folded else Vector2.ZERO
+
+# Bords du sol (GROUND_RECT) : la caméra ne montre jamais de vide.
+func _set_camera_limits() -> void:
+	var r: Rect2i = VL.GROUND_RECT
+	var half: int = VL.CELL / 2
+	_camera.limit_left = r.position.x * VL.CELL - half
+	_camera.limit_top = r.position.y * VL.CELL - half
+	_camera.limit_right = r.end.x * VL.CELL - half
+	_camera.limit_bottom = r.end.y * VL.CELL - half
 
 # Vérification sur PC (build debug seulement), après « -- » : --hour=H force l'heure locale (rendu et ancres),
 # --capture=chemin.png enregistre le viewport au bout d'une seconde puis quitte. Rend le chemin de capture.
@@ -99,10 +125,12 @@ func _on_size_changed() -> void:
 		return
 	_folded = folded
 	FoldModeS.apply(_folded, _ui_folded, _ui_unfolded)
+	_stick.reset()
 	if _tween != null:
 		_tween.kill()
-	_tween = create_tween()
+	_tween = create_tween().set_parallel()
 	_tween.tween_property(_camera, "zoom", FoldModeS.zoom_for(_folded), FoldModeS.TWEEN_SEC)
+	_tween.tween_property(_camera, "position", _camera_target(_folded), FoldModeS.TWEEN_SEC)
 	var r: Dictionary = SaveManager.sync(ClockS.now_utc())
 	if not r.is_empty():
 		_show(r)

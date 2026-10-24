@@ -26,6 +26,7 @@ const SHADOW_ALPHA: float = 0.35
 @onready var _deco: TileMapLayer = $Entites/Deco
 @onready var _torch: Sprite2D = $Entites/Atre/Torche
 @onready var _light: PointLight2D = $Entites/Atre/Lumiere
+@onready var _player: Node2D = $Entites/Joueur # player.gd
 
 var hour_override: int = -1 # debug (--hour=H) : rendu et ancres seulement
 var _data: Dictionary = {}
@@ -66,6 +67,8 @@ func setup(world_seed: int, village: Dictionary, now_utc: int) -> void:
 	var shadow: ImageTexture = _shadow_texture()
 	$Entites/Atre/Ombre.texture = shadow
 	_torch.texture = _tile_texture("torche")
+	var solid: Dictionary = VL.solid_cells(sites, patterns, _data["props"], deco)
+	_player.setup(VL.cell_center(VL.PLAYER_SPAWN_CELL), _tile_texture(_data["player_sprite"]), shadow, solid)
 	_village = village
 	var npcs: Array = village.get("npcs", [])
 	var hour: int = _hour(now_utc)
@@ -83,6 +86,9 @@ func setup(world_seed: int, village: Dictionary, now_utc: int) -> void:
 	timer.timeout.connect(func() -> void: refresh(_village, ClockS.now_utc()))
 	add_child(timer)
 	timer.start()
+
+func player() -> Node2D:
+	return _player
 
 func refresh(village: Dictionary, now_utc: int) -> void:
 	if _data.is_empty():

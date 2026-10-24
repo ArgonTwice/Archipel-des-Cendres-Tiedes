@@ -123,3 +123,33 @@ V1 à V5 validés visuellement par Antho le 23/10 ; logcat, screencap et mesure 
 | V5 arrêt forcé puis relance | OK à l'œil |
 
 À faire au prochain branchement : APK 0.8.0 ré-exporté avec le sautillement, V3 bis, logcat de V3 à V5, screencap de V1 et V2, mesure des 48 px par tuile en déplié.
+
+## Jalon 9 (APK 0.9.0, code 4) : contrôles du mode plié
+
+Export debug le 24/10 : `aapt2` donne versionCode 4, versionName 0.9.0 ; SHA-256 3CA252FAC80CF2E17BCE07D3A2FCCB30AD6839A242B1F727AA756D272E6F726B. Installé sur SM-F971B, lancé plié à 14 h : `[MESURE] ready` contenu 208 × 328, échelle 6, 120 Hz, 0 ERROR.
+
+Résultats rapportés par Antho le 24/10 ; téléphone débranché avant la lecture du logcat, aucune ligne `[JOUEUR]` relevée.
+
+| Test | Résultat | Retour d'Antho |
+|---|---|---|
+| W1 pouce droit | KO (rendu) | déplacement correct, mais l'animation « fait vibrant, pas net » |
+| W2 pouce gauche | OK | « impec » |
+| W3 collisions | OK | bloqué partout ; traverse les PNJ (conforme : collisions PNJ ↔ joueur hors périmètre) |
+| W4 esquive | à confirmer | 5 sur 5 en balayages espacés ; série suivante : 2 sur 5 sans esquive (refus de recharge ou balayage non reconnu : logcat nécessaire) |
+| W5 pliage | OK | « impeccable » |
+| W6 ressenti | noté | « pas mal pour l'instant, à voir en gameplay réel et en combat » |
+| V3 bis | non rapporté | |
+| 48 px en déplié | non fait | téléphone débranché |
+
+W1, cause probable (le personnage vibre, pas le décor) : `flip_h` suivait le signe de `dir.x` ; sur un glisser presque vertical, le pouce oscille de 1 à 2 px et retournait le sprite à chaque glissé. Correctif : miroir seulement si |dir.x| ≥ FLIP_MIN_X = 0,5 (30° de la verticale), à valider. APK 0.9.0 ré-exporté (SHA-256 03770C0583AAE9ABC07620C66DE4499FEBCF3077B2F95FECEFC5F8CB2373484A), à retester (W1 bis) au prochain branchement, avec W4 (logcat), V3 bis et la mesure des 48 px.
+
+### Retest du 24/10 (APK 0.9.0 ré-exporté, logcat enregistré en continu : build/captures/jalon9-W-logcat.txt)
+
+| Test | Résultat | Preuve |
+|---|---|---|
+| W1 bis | OK | Antho : personnage net (correctif FLIP_MIN_X) |
+| W4 bis | OK | balayages espacés de 2 s : 5 sur 5 (`esquive` à 16:43:16,7 / 18,7 / 20,9 / 22,8 / 24,8, dist 48,0) ; série la plus rapide (environ 1 balayage / 0,35 s, ≈ 30 balayages) : 6 esquives, tous les autres en `esquive_refusee` ; aucun balayage non reconnu, les manqués sont des refus de recharge (une esquive toutes les 2,0 à 2,1 s, recharge 1,80 s) |
+| V3 bis | OK | Antho : « c'est bon » |
+| 48 px en déplié | OK | dallage de l'Âtre (3 tuiles) de x 852 à 995 sur la ligne y 1260 : 144 px, soit 48 px par tuile ; build/captures/jalon9-W-deplie.png |
+
+Totaux du logcat : 24 `esquive` (dist 48,0 sauf une à 41,32, arrêtée par un obstacle), 62 `esquive_refusee`, 9 `reset`, 0 SCRIPT ERROR. Une ERROR moteur `VK_ERROR_SURFACE_LOST_KHR` à 16:43:39,5, juste après un `reset` (perte de focus, appli mise en arrière-plan 20 s) : surface Vulkan perdue pendant la pause Android, sans effet à la reprise (marche et esquive normales à 16:43:59). Un `size_changed` déplié transitoire mesure 60 Hz, puis 120 Hz.
