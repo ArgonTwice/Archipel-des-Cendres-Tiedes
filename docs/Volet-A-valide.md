@@ -46,6 +46,7 @@ Temps jusqu'au Nv50 (simulation, jour par jour) :
 - Auto-attaque 1,2 coup/s (mêlée) ou 1,0 (distance), crit 5 % ×1,5. Aptitudes ×2,20 (CD 6 s) et ×3,50 (CD 14 s), −0,2 s de CD par coup d'auto. Facteur de cycle exact 1,689.
 - Monstres : PV = (95 + 29 (L − 1)) × M_densité × rôle (1 / 7,5 / 38). TTK en 4 pièces Rares : normal ≈ 2,3 s, Élite ≈ 12 s, Boss ≈ 60 s.
 - Oubli en densité I : 0,12 pt/s, Oubli 1 à 6 min 57 s, Oubli 2 à 11 min 07 s.
+- Ajout du 24/10 (n°25) : monstres à 70 px/s, repérage 96 px, abandon 144 px, contact 16 px, télégraphe 0,40 s, 1 attaque/s, réapparition 20 s, jamais de critique ; déplié hors du rayon de l'Âtre en temps réel, caméra sur le joueur, joystick inactif. Nœuds : Lisière, Carrefour, Antre de l'Élite, Arène à 3 vagues (5 / 7 normaux puis 1 Élite), Donjon = nœud.
 
 ## 5. Loot
 

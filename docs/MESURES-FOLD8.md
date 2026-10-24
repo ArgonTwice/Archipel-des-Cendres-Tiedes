@@ -183,3 +183,28 @@ Export debug le 24/10 : `aapt2` donne versionCode 5, versionName 0.10.0 ; SHA-25
 | F6 ressenti | noté tel quel | « j'aimerais plus d'animation, et je ne voyais pas les combats comme ça. Je verrais plus en "instance". Quand on quitte le village, on quitte vraiment le village. On part dans un autre village, un donjon, une forêt, et je verrais bien comme un Brotato par exemple. Mais sur plusieurs plateaux différents qui restent dans le thème : on part en mission. Ça différencie vraiment le côté village et le côté "mission". » |
 
 0 ERROR et 0 SCRIPT ERROR au logcat. Remarques F3, F4 et F6 : décisions de design (SOCLE §A1, §A3), à trancher en co-conception, rien n'est modifié.
+
+## Jalon 10 bis (APK 0.10.1, code 6) : rythme des monstres dans BalanceA, déplié en temps réel, fondu d'évacuation
+
+Export debug le 24/10 : `aapt2` donne versionCode 6, versionName 0.10.1 ; SHA-256 1720962d38e7808f9132e2be9ffb0498618dce69e882a2879f4dae4cdc262441.
+
+### D1 à D5 (PC, fenêtre 416 × 657, --hour=14, clics injectés, redimensionnement pour le déplié ; journal build/captures/jalon10b-D-sonde.txt)
+
+| Test | Résultat | Preuve |
+|---|---|---|
+| D1 mort | OK | `mort_joueur`, `retour` à +0,40 s sous un noir à 0,99, capture 100 % noire (jalon10b-D1-noir.png), fin à +1,1 s, 100 PV (jalon10b-D1-apres.png) |
+| D2 déplié en combat | OK, réserve | combat continu : PV joueur 100 → 73, monstre 0 75 → 55, Lisière INHERIT, zoom 0,5 ; caméra visée sur le joueur, mais la vue dépliée (616 × 816 px de monde) couvre presque tout le sol (656 × 848) : la caméra ne bouge que de ±20 / ±16 px (jalon10b-D2-deplie-combat.png) |
+| D3 déplié au village | OK | caméra (0, 0), zoom 0,5 (jalon10b-D3-deplie-village.png) |
+| D4 mort en déplié | OK | fondu, puis caméra (0, 0) une fois le joueur rentré (jalon10b-D4-deplie-apres.png) |
+| D5 doigt tenu à la mort | OK | `reset` à la mort ; après le retour, doigt tenu et bougé : joueur immobile (IDLE) ; nouveau glisser : il repart |
+
+### G1 à G4 (Fold 8, 24/10 de 19:58 à 19:59, plié 120 Hz ; logcat build/captures/jalon10b-G-logcat.txt)
+
+| Test | Résultat | Preuve |
+|---|---|---|
+| G1 fondu à la mort | OK | `mort_joueur` 19:58:57,384 en (−4, 300), `retour` 19:58:57,784 (+0,40 s) en (0, 32) ; seconde mort 19:59:20,119, dépliage pendant le fondu à 19:59:20,478, `retour` 19:59:20,530 : l'évacuation traverse la bascule |
+| G2 déplié en combat | OK | déplié de 19:59:08,68 à 19:59:18,75 en (3, 266) : 9 `coup`, 7 `coup_recu`, 2 `mort_monstre` (19:59:11,2 et 19:59:15,4), joueur à 1 PV : le combat continue en temps réel |
+| G3 déplié au village | OK | déplié de 19:59:00,58 à 19:59:05,62 en (7, 124), dans le rayon : aucun évènement de combat (Vision d'architecte) |
+| G4 ressenti | noté tel quel | « fondu bien ; combat qui continue en déplié ok » |
+
+0 ERROR et 0 SCRIPT ERROR au logcat (111 lignes : 18 `coup`, 24 `coup_recu`, 2 `mort_monstre`, 2 `mort_joueur`, 2 `retour`, 2 `reapparition`, 12 `reset`).

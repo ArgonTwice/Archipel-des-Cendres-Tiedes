@@ -93,10 +93,6 @@ func setup(world_seed: int, village: Dictionary, now_utc: int) -> void:
 func player() -> Node2D:
 	return _player
 
-# Combat gelé en déplié (SOCLE §A3 : déplié = gérer).
-func set_combat_active(on: bool) -> void:
-	_lisiere.set_active(on)
-
 func refresh(village: Dictionary, now_utc: int) -> void:
 	if _data.is_empty():
 		return

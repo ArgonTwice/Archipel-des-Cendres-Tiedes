@@ -1,8 +1,8 @@
 class_name Combat
 extends RefCounted
 # Combat de la lisière (SOCLE §A1, §A3, §A9) : fonctions statiques pures, testables sous --script.
-# Formules et valeurs de jeu lues dans BalanceA / BalanceC. Les constantes ci-dessous sont des propositions d'Antho,
-# hors volets : elles passeront dans balance_a.gd après validation par Argon.
+# Formules et valeurs de jeu lues dans BalanceA / BalanceC, rythme des monstres compris (n°25).
+# Restent ici l'arme de départ (proposition d'Antho, non traitée par Argon) et les constantes techniques de rendu.
 
 const BA = preload("res://balance/balance_a.gd")
 const BC = preload("res://balance/balance_c.gd")
@@ -13,14 +13,6 @@ const START_WEAPON_TYPE: int = BC.WeaponType.SWORD_SHIELD
 const START_WEAPON_RARITY: int = 0
 const START_WEAPON_ILVL: int = 1
 const START_WEAPON_SCHOOLS: Array[int] = [BC.SchoolId.FOYER, BC.SchoolId.FOYER, BC.SchoolId.FOYER]
-
-const MOB_MSPD: float = 70.0 # moitié de PLAYER_BASE_MSPD : on peut toujours fuir. PROPOSÉ, à valider (jalon 10)
-const MOB_AGGRO_PX: float = 96.0 # 6 tuiles. PROPOSÉ, à valider (jalon 10)
-const MOB_LEASH_PX: float = 144.0 # 9 tuiles, hystérésis. PROPOSÉ, à valider (jalon 10)
-const MOB_ATTACK_RANGE_PX: float = 16.0 # contact, centre à centre. PROPOSÉ, à valider (jalon 10)
-const MOB_WINDUP_SEC: float = 0.40 # télégraphe. PROPOSÉ, à valider (jalon 10)
-const MOB_ATTACK_PERIOD_SEC: float = 1.00 # d'un début de télégraphe au suivant. PROPOSÉ, à valider (jalon 10)
-const MOB_RESPAWN_SEC: float = 20.0 # PROPOSÉ, à valider (jalon 10)
 
 # Rendu, techniques. PROPOSÉ, à valider (jalon 10)
 const BAR_SIZE: Vector2i = Vector2i(12, 2)
@@ -34,6 +26,12 @@ const MOB_HIT_SEC: float = 0.10
 const PLAYER_HIT_MODULATE: Color = Color(1, 0.4, 0.4)
 const PLAYER_HIT_SEC: float = 0.15
 
+# Fondu d'évacuation à la mort du joueur : noir, retour devant l'Âtre sous le noir, retour. validé par Antho (G4, jalon 10 bis)
+const EVAC_FADE_OUT_SEC: float = 0.40
+const EVAC_HOLD_SEC: float = 0.30
+const EVAC_FADE_IN_SEC: float = 0.40
+const EVAC_COLOR: Color = Color(0, 0, 0)
+
 static func starting_weapon_atk() -> float:
 	return BC.compute_weapon_atk(START_WEAPON_ILVL, START_WEAPON_RARITY, START_WEAPON_SCHOOLS)
 
@@ -43,6 +41,24 @@ static func starting_weapon_range() -> float:
 static func attack_period() -> float:
 	var ranged: bool = BC.WEAPON_SPECS[START_WEAPON_TYPE]["is_ranged"]
 	return 1.0 / (BA.WEAPON_BASE_ATTACK_SPEED_RANGED if ranged else BA.WEAPON_BASE_ATTACK_SPEED_MELEE)
+
+static func mob_attack_period() -> float:
+	return 1.0 / BA.MOB_BASE_ATTACK_SPEED
+
+# Opacité du noir t secondes après la mort ; 0 hors évacuation.
+static func evac_alpha(t: float) -> float:
+	if t < 0.0:
+		return 0.0
+	if t < EVAC_FADE_OUT_SEC:
+		return t / EVAC_FADE_OUT_SEC
+	if t < EVAC_FADE_OUT_SEC + EVAC_HOLD_SEC:
+		return 1.0
+	if t < evac_duration():
+		return 1.0 - (t - EVAC_FADE_OUT_SEC - EVAC_HOLD_SEC) / EVAC_FADE_IN_SEC
+	return 0.0
+
+static func evac_duration() -> float:
+	return EVAC_FADE_OUT_SEC + EVAC_HOLD_SEC + EVAC_FADE_IN_SEC
 
 static func player_stats(level: int, weapon_atk: float) -> Dictionary:
 	return {"hp": floori(BA.PLAYER_BASE_HP + BA.PLAYER_HP_PER_LVL * (level - 1)),
@@ -104,8 +120,8 @@ static func nearest_in_range(from: Vector2, points: Array[Vector2], range_px: fl
 			best_d = d
 	return best
 
-# Poursuite avec hystérésis : repère à MOB_AGGRO_PX, abandonne au-delà de MOB_LEASH_PX.
+# Poursuite avec hystérésis : repère à MOB_AGGRO_RANGE_PX, abandonne au-delà de MOB_LEASH_RANGE_PX.
 static func mob_chasing(chasing: bool, dist: float, target_ok: bool) -> bool:
 	if not target_ok:
 		return false
-	return dist <= (MOB_LEASH_PX if chasing else MOB_AGGRO_PX)
+	return dist <= (BA.MOB_LEASH_RANGE_PX if chasing else BA.MOB_AGGRO_RANGE_PX)

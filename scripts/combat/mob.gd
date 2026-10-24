@@ -2,6 +2,7 @@ extends Node2D
 # Monstre de la lisière (SOCLE §A3) : repère, approche en ligne droite, télégraphe puis frappe. Aucune IA de chemin.
 # Piloté par lisiere.gd (step), jamais par son propre _process : l'ordre des opérations est celui du jumeau Python.
 
+const BA = preload("res://balance/balance_a.gd")
 const CombatS = preload("res://scripts/combat/combat.gd")
 const PM = preload("res://scripts/player/player_motion.gd")
 const PlayerS = preload("res://scripts/player/player.gd")
@@ -44,10 +45,10 @@ func step(delta: float, target: Vector2, target_ok: bool) -> bool:
 	var dist: float = position.distance_to(target)
 	if _windup_t >= 0.0:
 		_windup_t += delta
-		if _windup_t >= CombatS.MOB_WINDUP_SEC:
+		if _windup_t >= BA.MOB_TELEGRAPH_DURATION_SEC:
 			_windup_t = -1.0
 			_sprite.modulate = Color.WHITE
-			if target_ok and dist <= CombatS.MOB_ATTACK_RANGE_PX:
+			if target_ok and dist <= BA.MOB_MELEE_RANGE_PX:
 				return true
 			_log("rate", {"source": index})
 		return false
@@ -56,8 +57,8 @@ func step(delta: float, target: Vector2, target_ok: bool) -> bool:
 	if chasing != was:
 		_log("poursuite" if chasing else "abandon", {"index": index})
 	if chasing:
-		if dist <= CombatS.MOB_ATTACK_RANGE_PX:
-			if _last_attack < 0.0 or _t - _last_attack >= CombatS.MOB_ATTACK_PERIOD_SEC:
+		if dist <= BA.MOB_MELEE_RANGE_PX:
+			if _last_attack < 0.0 or _t - _last_attack >= CombatS.mob_attack_period():
 				_windup_t = 0.0
 				_last_attack = _t
 				_sprite.modulate = CombatS.WINDUP_MODULATE
@@ -102,7 +103,7 @@ func _advance(target: Vector2, delta: float) -> void:
 	var dir: Vector2 = (target - position).normalized()
 	if absf(dir.x) >= PlayerS.FLIP_MIN_X:
 		_sprite.flip_h = dir.x < 0.0
-	position = PM.move(position, dir * CombatS.MOB_MSPD * delta, _solid)
+	position = PM.move(position, dir * BA.MOB_BASE_MSPD * delta, _solid)
 
 func _set_hp(value: int) -> void:
 	if value != hp:

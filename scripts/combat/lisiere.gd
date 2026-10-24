@@ -2,6 +2,7 @@ extends Node2D
 # Lisière de Clair-Foyer (SOCLE §A1, §A3) : monstres de la route sud et auto-attaque du joueur à l'arrêt.
 # Tout vit en mémoire : rien n'est écrit dans l'état de la partie. Ordre des opérations = jumeau Python (jalon 10).
 
+const BA = preload("res://balance/balance_a.gd")
 const CombatS = preload("res://scripts/combat/combat.gd")
 const VL = preload("res://scripts/village/village_layout.gd")
 const RngS = preload("res://autoload/Rng.gd")
@@ -32,28 +33,29 @@ func setup(world_seed: int, isolat: int, player: Node2D, solid: Dictionary, spaw
 		mob.setup(VL.cell_center(VL.v2i(spawns[i])), texture, shadow, mob_solid, stats)
 		_mobs.append(mob)
 
-func set_active(on: bool) -> void:
-	process_mode = Node.PROCESS_MODE_INHERIT if on else Node.PROCESS_MODE_DISABLED
+# Règle d'or (SOCLE §A1) : jamais de cible dans le village ; ni pendant l'évacuation.
+func _target_ok() -> bool:
+	return not CombatS.in_village(_player.position) and not _player.is_evacuating()
 
 func mobs() -> Array[Node2D]:
 	return _mobs
 
 func _process(delta: float) -> void:
-	var target_ok: bool = not CombatS.in_village(_player.position)
+	var target_ok: bool = _target_ok()
 	for mob: Node2D in _mobs:
 		if not mob.alive:
 			mob.dead_t += delta
-			if mob.dead_t >= CombatS.MOB_RESPAWN_SEC and _player.position.distance_to(mob.home) > CombatS.MOB_AGGRO_PX:
+			if mob.dead_t >= BA.MOB_RESPAWN_DELAY_SEC and _player.position.distance_to(mob.home) > BA.MOB_AGGRO_RANGE_PX:
 				mob.respawn()
 				_log("reapparition", {"index": mob.index})
 			continue
 		if mob.step(delta, _player.position, target_ok):
-			var dmg: int = CombatS.damage(mob.atk, _player.def, _mob_level, false)
+			var dmg: int = CombatS.damage(mob.atk, _player.def, _mob_level, BA.MOB_CAN_CRIT) # aucun tirage : les monstres ne font jamais de critique
 			if _player.take_hit(dmg):
 				_log("coup_recu", {"source": mob.index, "degats": dmg, "pv": _player.hp})
 			else:
 				_log("esquive", {"source": mob.index})
-			target_ok = not CombatS.in_village(_player.position) # une mort téléporte le joueur
+			target_ok = _target_ok() # une mort lance l'évacuation
 	if not _player.can_strike():
 		return
 	var alive: Array[Node2D] = []

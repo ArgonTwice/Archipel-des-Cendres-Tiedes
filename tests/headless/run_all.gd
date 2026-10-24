@@ -365,10 +365,8 @@ func _jalon_10(vd: Dictionary, built: Dictionary, p: Dictionary) -> void:
 		pl._process(1.0 / 60.0)
 	var r3: bool = pl.take_hit(9)
 	_check("joueur: 13 images -> take_hit vrai, PV 82", r3 and pl.hp == 82, str(pl.hp))
-	pl.hp = 5
-	pl.take_hit(9)
-	_check("joueur: mort -> (0, 32), PV 100", pl.position == Vector2(0, 32) and pl.hp == 100, "%s %d" % [str(pl.position), pl.hp])
 	pl.free()
+	_evacuation_10b(solid1)
 	pl = load("res://scenes/player/player.tscn").instantiate()
 	root.add_child(pl)
 	pl.setup(Vector2(0, 216), null, null, solid1)
@@ -416,17 +414,102 @@ func _jalon_10(vd: Dictionary, built: Dictionary, p: Dictionary) -> void:
 	var vil: Node = load("res://scenes/village/village.tscn").instantiate()
 	var lis: Node2D = vil.get_node_or_null("Entites/Lisiere")
 	_check("scenes: village.tscn contient Entites/Lisiere, y_sort_enabled", lis != null and lis.y_sort_enabled)
-	vil._lisiere = lis # @onready non résolu hors de l'arbre
-	vil.set_combat_active(false)
-	var off: int = lis.process_mode
-	vil.set_combat_active(true)
-	_check("scenes: set_combat_active false -> DISABLED, true -> INHERIT", off == Node.PROCESS_MODE_DISABLED and lis.process_mode == Node.PROCESS_MODE_INHERIT)
+	_check("scenes: village.gd sans set_combat_active, Lisiere en PROCESS_MODE_INHERIT", not vil.has_method("set_combat_active") and lis.process_mode == Node.PROCESS_MODE_INHERIT)
 	vil.free()
+	_jalon_10b(vd, solid1)
 	var mi: Array = vd["tiles"]["monstre"]
 	var clash: bool = mi == vd["tiles"]["joueur"]
 	for n: String in vd["npc_sprites"]:
 		clash = clash or vd["tiles"][n] == mi
 	_check("village.json: monstre ni joueur ni PNJ, lisiere 3 spawns, mob_sprite monstre", not clash and vd["lisiere"]["spawns"].size() == 3 and vd["lisiere"]["mob_sprite"] == "monstre")
+
+# Jalon 10 bis : mort = évacuation (fondu), sans téléportation immédiate.
+func _evacuation_10b(solid: Dictionary) -> void:
+	var pl: Node2D = load("res://scenes/player/player.tscn").instantiate()
+	root.add_child(pl)
+	pl.setup(Vector2(0, 216), null, null, solid)
+	var started: Array[int] = [0]
+	pl.evacuation_started.connect(func() -> void: started[0] += 1)
+	pl.hp = 5
+	var killed: bool = pl.take_hit(9)
+	_check("évacuation: take_hit(9) à 5 PV -> vrai, signal 1 fois, is_evacuating, toujours en (0, 216)",
+		killed and started[0] == 1 and pl.is_evacuating() and pl.position == Vector2(0, 216), "%s %d %s" % [str(killed), started[0], str(pl.position)])
+	_check("évacuation: take_hit faux, can_strike faux, dodge faux", not pl.take_hit(9) and not pl.can_strike() and not pl.dodge(Vector2(1, 0)))
+	pl.set_move_dir(Vector2(1, 0))
+	for i in 24:
+		pl._process(1.0 / 60.0)
+	_check("évacuation: 24 images -> toujours (0, 216)", pl.position == Vector2(0, 216), str(pl.position))
+	for i in 2:
+		pl._process(1.0 / 60.0)
+	_check("évacuation: 26 images -> (0, 32), PV 100", pl.position == Vector2(0, 32) and pl.hp == 100, "%s %d" % [str(pl.position), pl.hp])
+	for i in 34:
+		pl._process(1.0 / 60.0)
+	var mid: bool = pl.is_evacuating() and pl.fade_alpha() > 0.0
+	for i in 10:
+		pl._process(1.0 / 60.0)
+	_check("évacuation: 60 images en cours (noir > 0), 70 images finie (noir 0), signal toujours 1 fois",
+		mid and not pl.is_evacuating() and pl.fade_alpha() == 0.0 and started[0] == 1, "%s %s %f %d" % [str(mid), str(pl.is_evacuating()), pl.fade_alpha(), started[0]])
+	pl.free()
+
+func _jalon_10b(vd: Dictionary, solid1: Dictionary) -> void:
+	# BalanceA (n°25)
+	_check("balanceA: rythme des monstres (n°25)", BA.MOB_BASE_MSPD == 70.0 and BA.MOB_AGGRO_RANGE_PX == 96.0 and BA.MOB_LEASH_RANGE_PX == 144.0
+		and BA.MOB_MELEE_RANGE_PX == 16.0 and BA.MOB_TELEGRAPH_DURATION_SEC == 0.40 and BA.MOB_BASE_ATTACK_SPEED == 1.00
+		and BA.MOB_RESPAWN_DELAY_SEC == 20.0 and BA.MOB_CAN_CRIT == false)
+	_check("balanceA: UNFOLDED_* (n°25)", BA.UNFOLDED_OUTSIDE_ATRE_TIMESCALE_DEFAULT == 1.00 and BA.UNFOLDED_COMBAT_LOCK_CAMERA_ON_PLAYER == true and BA.UNFOLDED_COMBAT_DISABLE_JOYSTICK == true)
+	var ba_map: Dictionary = (load("res://balance/balance_a.gd") as Script).get_script_constant_map()
+	_check("balanceA: SegmentNodeType 0 à 4", ba_map["SegmentNodeType"].values() == [0, 1, 2, 3, 4], str(ba_map["SegmentNodeType"]))
+	_check("balanceA: arène 3 vagues, 12 normaux, 1 Élite", BA.ARENA_WAVE_COUNT == 3 and BA.ARENA_WAVE_DURATION_SEC == 30.0
+		and _sum_ints(BA.ARENA_WAVE_NORMAL_MOBS) == 12 and _sum_ints(BA.ARENA_WAVE_ELITE_MOBS) == 1)
+	_check("balanceA: STD_RUN_ROUTINE_A_NORMAL_MOBS absent", not ba_map.has("STD_RUN_ROUTINE_A_NORMAL_MOBS") and not ba_map.has("SEGMENT_NODES_COUNT_VERTICAL_SLICE"))
+	var cb_map: Dictionary = (load("res://scripts/combat/combat.gd") as Script).get_script_constant_map()
+	_check("combat: plus de MOB_MSPD ni MOB_WINDUP_SEC, mob_attack_period == 1,0", not cb_map.has("MOB_MSPD") and not cb_map.has("MOB_WINDUP_SEC") and CombatS.mob_attack_period() == 1.0)
+	# Fondu
+	for c: Array in [[0.0, 0.0], [0.2, 0.5], [0.4, 1.0], [0.55, 1.0], [0.9, 0.5], [1.1, 0.0], [2.0, 0.0]]:
+		_check("fondu: evac_alpha(%.2f) == %.1f" % c, _approx(CombatS.evac_alpha(c[0]), c[1], 1e-6), str(CombatS.evac_alpha(c[0])))
+	_check("fondu: evac_duration == 1,1", _approx(CombatS.evac_duration(), 1.1, 1e-9))
+	# Caméra
+	var MainS: Script = load("res://scripts/main.gd")
+	for c: Array in [[true, Vector2(3.4, 5.6), Vector2(3, 6)], [false, Vector2(0, 32), Vector2.ZERO], [false, Vector2(0, 216), Vector2(0, 216)], [false, Vector2(0, 199.9), Vector2.ZERO]]:
+		var got: Vector2 = MainS.camera_target(c[0], c[1])
+		_check("camera_target(%s, %s) == %s" % [str(c[0]), str(c[1]), str(c[2])], got == c[2], str(got))
+	# Lisière + évacuation : le coup de l'image 47 tue, les monstres rentrent
+	var pl: Node2D = load("res://scenes/player/player.tscn").instantiate()
+	root.add_child(pl)
+	pl.setup(Vector2(0, 216), null, null, solid1)
+	var lis: Node2D = LisiereS.new()
+	root.add_child(lis)
+	lis.setup(1, 0, pl, solid1, vd["lisiere"]["spawns"], null, null)
+	var m0: Node2D = lis.mobs()[0]
+	var death_frame: int = -1
+	for f in range(1, 168):
+		if f == 23:
+			pl.hp = 5
+		pl._process(1.0 / 60.0)
+		lis._process(1.0 / 60.0)
+		if death_frame < 0 and pl.is_evacuating():
+			death_frame = f
+	_check("lisière + évacuation: mort à l'image 47 ; à 167, monstre 0 rentré en (0, 256), 95 PV, sans poursuite ; joueur (0, 32), 100 PV, évacuation finie",
+		death_frame == 47 and not m0.chasing and m0.position == Vector2(0, 256) and m0.hp == 95 and pl.position == Vector2(0, 32) and pl.hp == 100 and not pl.is_evacuating(),
+		"%d %s %s %d %s %d %s" % [death_frame, str(m0.chasing), str(m0.position), m0.hp, str(pl.position), pl.hp, str(pl.is_evacuating())])
+	lis.free()
+	pl.free()
+	# Scène
+	var main_state: SceneState = (load("res://scenes/main.tscn") as PackedScene).get_state()
+	var black_ok: bool = false
+	for i in main_state.get_node_count():
+		if main_state.get_node_name(i) == "Noir" and str(main_state.get_node_path(i)) == "./Fondu/Noir":
+			var props: Dictionary = {}
+			for k in main_state.get_node_property_count(i):
+				props[main_state.get_node_property_name(i, k)] = main_state.get_node_property_value(i, k)
+			black_ok = props.get("mouse_filter") == Control.MOUSE_FILTER_IGNORE and props.get("color", Color.WHITE).a == 0.0
+	_check("scenes: main.tscn contient Fondu/Noir, mouse_filter IGNORE, alpha 0", black_ok)
+
+func _sum_ints(a: Array[int]) -> int:
+	var t: int = 0
+	for v: int in a:
+		t += v
+	return t
 
 # Joueur immobile en (0, 216), graine 1, isolat 0 ; à chaque image joueur._process puis lisiere._process.
 # teleport > 0 : joueur.position = (0, 32) avant l'image teleport.

@@ -9,6 +9,8 @@ const NpcS = preload("res://scripts/village/npc.gd")
 const CombatS = preload("res://scripts/combat/combat.gd")
 const VL = preload("res://scripts/village/village_layout.gd")
 
+signal evacuation_started
+
 enum State { IDLE, MOVE, DODGE }
 
 const IFRAME_ALPHA: float = 0.5 # repère visuel de DODGE_IFRAME_SEC ; à valider (jalon 9)
@@ -33,6 +35,8 @@ var def: int = 0
 var _spawn: Vector2
 var _last_strike: float = -1.0 # -1 = aucun coup encore
 var _hit_t: float = 0.0
+var _evac_t: float = -1.0 # -1 = pas d'évacuation
+var _evac_home: bool = false # retour devant l'Âtre déjà fait pendant cette évacuation
 
 # Nœuds lus ici et non en @onready : setup peut précéder _ready (simulateur headless).
 func setup(pos: Vector2, texture: Texture2D, shadow: Texture2D, solid: Dictionary) -> void:
@@ -57,7 +61,7 @@ func set_move_dir(dir: Vector2) -> void:
 		_log("marche" if dir != Vector2.ZERO else "arret")
 
 func dodge(dir: Vector2) -> bool:
-	if _dodge_t >= 0.0 or not PM.can_dodge(_clock, _dodge_start):
+	if is_evacuating() or _dodge_t >= 0.0 or not PM.can_dodge(_clock, _dodge_start):
 		_log("esquive_refusee")
 		return false
 	_dodge_dir = dir
@@ -68,7 +72,7 @@ func dodge(dir: Vector2) -> bool:
 
 # Auto-attaque à l'arrêt seulement (IDLE), cadence continue.
 func can_strike() -> bool:
-	return state == State.IDLE and (_last_strike < 0.0 or _clock - _last_strike >= CombatS.attack_period())
+	return not is_evacuating() and state == State.IDLE and (_last_strike < 0.0 or _clock - _last_strike >= CombatS.attack_period())
 
 func strike(target_pos: Vector2) -> void:
 	_last_strike = _clock
@@ -78,9 +82,9 @@ func strike(target_pos: Vector2) -> void:
 func is_invulnerable() -> bool:
 	return _dodge_t >= 0.0 and PM.in_iframes(_dodge_t)
 
-# Faux si les i-frames annulent le coup. À 0 PV : retour devant l'Âtre, PV pleins (Engourdi reporté).
+# Faux si les i-frames ou l'évacuation annulent le coup. À 0 PV : évacuation (Engourdi reporté).
 func take_hit(dmg: int) -> bool:
-	if is_invulnerable():
+	if is_evacuating() or is_invulnerable():
 		return false
 	_set_hp(hp - dmg)
 	_hit_t = CombatS.PLAYER_HIT_SEC
@@ -89,19 +93,36 @@ func take_hit(dmg: int) -> bool:
 	if hp <= 0:
 		if OS.is_debug_build():
 			print("[COMBAT] " + JSON.stringify({"event": "mort_joueur", "pos": _xy(position)}))
-		position = _spawn
-		_set_hp(max_hp)
+		_evac_t = 0.0
+		_evac_home = false
 		_dodge_t = -1.0
-		_last_strike = -1.0
+		evacuation_started.emit()
 	return true
+
+# Évacuation : fondu au noir, retour devant l'Âtre sous le noir, fondu de retour. Ni marche, ni esquive, ni coup.
+func is_evacuating() -> bool:
+	return _evac_t >= 0.0
+
+func fade_alpha() -> float:
+	return CombatS.evac_alpha(_evac_t) if is_evacuating() else 0.0
 
 func on_input_reset() -> void:
 	_log("reset")
 
 func _process(delta: float) -> void:
 	_clock += delta
-	var motion: Vector2
-	if _dodge_t >= 0.0:
+	var motion: Vector2 = Vector2.ZERO
+	if is_evacuating():
+		_evac_t += delta
+		if not _evac_home and _evac_t >= CombatS.EVAC_FADE_OUT_SEC: # écran noir
+			_evac_home = true
+			position = _spawn
+			_set_hp(max_hp)
+			_last_strike = -1.0
+			_log("retour")
+		if _evac_t >= CombatS.evac_duration():
+			_evac_t = -1.0
+	elif _dodge_t >= 0.0:
 		motion = _dodge_dir * (PM.dodge_progress(_dodge_t + delta) - PM.dodge_progress(_dodge_t))
 		_dodge_t += delta
 	else:
@@ -110,7 +131,10 @@ func _process(delta: float) -> void:
 	if _dodge_t >= BA.DODGE_DURATION_SEC:
 		_dodge_t = -1.0
 		_log("esquive", {"de": _xy(_dodge_from), "a": _xy(position), "dist": snappedf(_dodge_from.distance_to(position), 0.01)})
-	state = State.DODGE if _dodge_t >= 0.0 else (State.MOVE if _dir != Vector2.ZERO else State.IDLE)
+	if is_evacuating():
+		state = State.IDLE
+	else:
+		state = State.DODGE if _dodge_t >= 0.0 else (State.MOVE if _dir != Vector2.ZERO else State.IDLE)
 	if _sprite != null:
 		_sprite.position.y = NpcS.bob_offset(_clock, state == State.MOVE)
 		modulate.a = IFRAME_ALPHA if _dodge_t >= 0.0 and PM.in_iframes(_dodge_t) else 1.0

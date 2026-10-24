@@ -4,12 +4,15 @@ extends Node
 const FoldModeS = preload("res://scripts/ui/fold_mode.gd")
 const ClockS = preload("res://autoload/Clock.gd")
 const VL = preload("res://scripts/village/village_layout.gd")
+const BA = preload("res://balance/balance_a.gd")
+const CombatS = preload("res://scripts/combat/combat.gd")
 
 @onready var _world: Node2D = $World # village.gd
 @onready var _camera: Camera2D = $Camera2D
 @onready var _ui_folded: CanvasLayer = $UI_Folded
 @onready var _ui_unfolded: CanvasLayer = $UI_Unfolded
 @onready var _stick: Node2D = $UI_Folded/Stick # touch_stick.gd
+@onready var _black: ColorRect = $Fondu/Noir
 
 var _folded: bool = true
 var _tween: Tween
@@ -29,13 +32,15 @@ func _ready() -> void:
 	_stick.direction_changed.connect(player.set_move_dir)
 	_stick.swiped.connect(player.dodge)
 	_stick.was_reset.connect(player.on_input_reset)
+	player.evacuation_started.connect(_stick.reset) # un doigt resté posé ne fait pas repartir le joueur depuis l'Âtre
+	_black.color = CombatS.EVAC_COLOR
+	_black.color.a = 0.0
 	_set_camera_limits()
 	_folded = FoldModeS.is_folded(get_window().size)
-	_world.set_combat_active(_folded)
 	var s: int = _apply_scale(_folded)
 	FoldModeS.apply(_folded, _ui_folded, _ui_unfolded)
 	_camera.zoom = FoldModeS.zoom_for(_folded)
-	_camera.position = _camera_target(_folded)
+	_camera.position = camera_target(_folded, player.position)
 	_apply_safe_area(s)
 	get_viewport().size_changed.connect(_on_size_changed)
 	SaveManager.synced.connect(_show)
@@ -45,14 +50,20 @@ func _ready() -> void:
 		get_viewport().get_texture().get_image().save_png(capture)
 		get_tree().quit()
 
-# Plié : la caméra suit le joueur au pixel près (arrondi : pas de scintillement), sauf pendant le Tween de bascule.
+# La caméra suit sa cible au pixel près (arrondi : pas de scintillement), sauf pendant le Tween de bascule.
+# Le noir du fondu d'évacuation est appliqué plié et déplié.
 func _process(_delta: float) -> void:
-	if _folded and (_tween == null or not _tween.is_running()):
-		_camera.position = _camera_target(true)
+	var player: Node2D = _world.player() # player.gd
+	if _tween == null or not _tween.is_running():
+		_camera.position = camera_target(_folded, player.position)
+	_black.color.a = player.fade_alpha()
 
-# Plié : sur le joueur ; déplié : Vision d'architecte centrée sur l'Âtre, tout le rayon visible.
-func _camera_target(folded: bool) -> Vector2:
-	return _world.player().position.round() if folded else Vector2.ZERO
+# Plié : sur le joueur. Déplié hors du rayon de l'Âtre : le combat continue, caméra sur le joueur (n°25).
+# Déplié dans le rayon : Vision d'architecte centrée sur l'Âtre, tout le rayon visible.
+static func camera_target(folded: bool, player_pos: Vector2) -> Vector2:
+	if folded or (BA.UNFOLDED_COMBAT_LOCK_CAMERA_ON_PLAYER and not CombatS.in_village(player_pos)):
+		return player_pos.round()
+	return Vector2.ZERO
 
 # Bords du sol (GROUND_RECT) : la caméra ne montre jamais de vide.
 func _set_camera_limits() -> void:
@@ -126,13 +137,12 @@ func _on_size_changed() -> void:
 		return
 	_folded = folded
 	FoldModeS.apply(_folded, _ui_folded, _ui_unfolded)
-	_world.set_combat_active(_folded)
 	_stick.reset()
 	if _tween != null:
 		_tween.kill()
 	_tween = create_tween().set_parallel()
 	_tween.tween_property(_camera, "zoom", FoldModeS.zoom_for(_folded), FoldModeS.TWEEN_SEC)
-	_tween.tween_property(_camera, "position", _camera_target(_folded), FoldModeS.TWEEN_SEC)
+	_tween.tween_property(_camera, "position", camera_target(_folded, _world.player().position), FoldModeS.TWEEN_SEC)
 	var r: Dictionary = SaveManager.sync(ClockS.now_utc())
 	if not r.is_empty():
 		_show(r)

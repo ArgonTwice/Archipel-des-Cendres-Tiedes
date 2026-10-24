@@ -132,6 +132,34 @@ const FLAME_RESTORE_ELITE_KILL: float = 35.0
 const FLAME_RESTORE_TAVERN_BROTH: float = 50.0
 const FLAME_RESTORE_COOK_MEAL: float = 100.0
 
+# Rythme et IA des monstres en session (n°25, entériné après le jalon 10 sur Fold 8)
+const MOB_BASE_MSPD: float = 70.0 # 0,5 x PLAYER_BASE_MSPD
+const MOB_AGGRO_RANGE_PX: float = 96.0
+const MOB_LEASH_RANGE_PX: float = 144.0
+const MOB_MELEE_RANGE_PX: float = 16.0
+const MOB_TELEGRAPH_DURATION_SEC: float = 0.40
+const MOB_BASE_ATTACK_SPEED: float = 1.00 # d'un début de télégraphe au suivant
+const MOB_RESPAWN_DELAY_SEC: float = 20.0
+const MOB_CAN_CRIT: bool = false
+
+# Segment de nœuds (n°25) ; le contenu du segment attend le n°26
+enum SegmentNodeType {
+	NODE_OUTSKIRTS = 0,          # Lisière (meutes + nœuds de Brume)
+	NODE_BRAZIER_CROSSROADS = 1, # Carrefour avec Brasero
+	NODE_ELITE_LAIR = 2,         # Clairière de l'Élite porteur de braise
+	NODE_WAVE_ARENA = 3,         # Arène à vagues (variante du nœud 3)
+	NODE_DUNGEON_BREACH = 4      # Antre clos (fiche Donjon du tableau)
+}
+const ARENA_WAVE_COUNT: int = 3
+const ARENA_WAVE_DURATION_SEC: float = 30.0 # 90 s au total
+const ARENA_WAVE_NORMAL_MOBS: Array[int] = [5, 7, 0] # 12 normaux
+const ARENA_WAVE_ELITE_MOBS: Array[int] = [0, 0, 1] # 1 Élite porteur de braise
+
+# Déplié hors du rayon de l'Âtre, avant la Jauge de Sang-Froid ou hors activation (n°25)
+const UNFOLDED_OUTSIDE_ATRE_TIMESCALE_DEFAULT: float = 1.00
+const UNFOLDED_COMBAT_LOCK_CAMERA_ON_PLAYER: bool = true
+const UNFOLDED_COMBAT_DISABLE_JOYSTICK: bool = true
+
 # Cargaison (kg, granularité 0,5 kg)
 const PLAYER_BASE_CARGO_KG: float = 25.0
 const PLAYER_CARGO_KG_PER_MINER_LVL: float = 0.20
