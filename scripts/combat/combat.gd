@@ -46,6 +46,13 @@ static func attack_period() -> float:
 static func mob_attack_period() -> float:
 	return 1.0 / BA.MOB_BASE_ATTACK_SPEED
 
+# Fauchage de Braise (n°31, n°32) : l'Élite déclenche plus loin et frappe dans un disque plus large que sa portée.
+static func mob_trigger_range(role: String) -> float:
+	return BA.ELITE_ATTACK_TRIGGER_RANGE_PX if role == "ELITE" else BA.MOB_MELEE_RANGE_PX
+
+static func mob_hit_range(role: String) -> float:
+	return BA.ELITE_MELEE_AOE_RADIUS_PX if role == "ELITE" else BA.MOB_MELEE_RANGE_PX
+
 # Opacité du noir t secondes après la mort ; 0 hors évacuation.
 static func evac_alpha(t: float) -> float:
 	if t < 0.0:

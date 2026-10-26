@@ -279,3 +279,22 @@ Export debug le 24/10 : `aapt2` donne versionCode 9, versionName 0.12.0 ; SHA-25
 | M4 ressenti | noté tel quel | « C'est bien, je pense que la portée augmentera avec les armes. Et l'Élite facile, pas trop de danger, faut juste bien bouger et que l'Élite reste dans le cercle d'attaque. » |
 
 0 ERROR et 0 SCRIPT ERROR au logcat.
+
+## Jalon 12 bis (APK 0.12.1, code 10) : Fauchage de Braise de l'Élite (n°31, n°32)
+
+Export debug le 26/10 : `aapt2` donne versionCode 10, versionName 0.12.1 ; SHA-256 7477ca5046b40eba8988e6c8ad44eb54c095a3b48ad8165c4513f781c0063ae8.
+
+### P1 et P2 (PC, fenêtre 416 × 657, 240 Hz, --hour=14 ; journal build/captures/jalon12b-P-sonde.txt)
+
+| Test | Résultat | Preuve |
+|---|---|---|
+| P1 disque rouge | OK | absent sur un normal en télégraphe (jalon12b-P1-normal-telegraphe.png), absent sur l'Élite avant (jalon12b-P1-elite-avant.png), présent pendant (jalon12b-P1-elite-disque.png), absent après l'impact (jalon12b-P1-elite-apres.png) |
+| P2 esquiver le Fauchage | OK | immobile : télégraphe à 35,906 px, hors de l'anneau de 24 px, `coup_recu` 14 ; entré à 24 px : 2 `coup` (712 → 672) puis `coup_recu` 14 ; sorti à pied pendant le télégraphe : impact à 80,173 px, `rate` (jalon12b-P2-sortie.png) ; esquive au début du télégraphe : impact à 71,988 px, `rate` |
+
+### N1 à N3 (Fold 8)
+
+| Test | Résultat | Preuve |
+|---|---|---|
+| N1 expédition jusqu'à l'Élite | OK | 26/10, plié, logcat build/captures/jalon12b-N-logcat.txt. `debut` 18:59:11 ; Carrefour 19:00:05 ; `vitrification` 19:00:38 (78) ; `saturation` et `eveil_elite` 19:00:43 ; Antre 19:00:53 ; poursuite de l'Élite 19:01:15 ; `mort_joueur` 19:01:34 : expédition de 2 min 23 s, combat de 18,2 s. Bilan `fin` « mort » : 8 kills, 8 nœuds, Cendre 80, 0 Éclat, XP 744. Élite : 8 coups reçus (14 chacun, 100 → mort), 11 impacts ratés, tous à pied (aucun pendant l'esquive : 1 esquive dans le combat, 1 refusée), Élite à 465 / 712 PV ; 2 aptitudes (72 et 45), 6 autos dont 1 critique ; 1 mort. 0 ERROR et 0 SCRIPT ERROR. Jalon 12 (M1) pour comparaison : Élite tué en 28 s, 0 mort |
+| N2 lisibilité du disque en plié | OK | Antho : « oui bien lisible » |
+| N3 ressenti | noté tel quel | « Oh oui, comme un dark soul lol » |

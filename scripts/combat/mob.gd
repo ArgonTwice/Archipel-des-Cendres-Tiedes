@@ -28,6 +28,9 @@ var _last_attack: float = -1.0 # début du télégraphe précédent, -1 = aucun
 var _flash_t: float = 0.0
 
 const DORMANT_MODULATE: Color = Color(0.4, 0.4, 0.45) # PROPOSÉ, à valider (jalon 12)
+const ELITE_AOE_FILL_COLOR: Color = Color(1.0, 0.25, 0.15, 0.15) # PROPOSÉ, à valider (jalon 12 bis)
+const ELITE_AOE_RING_COLOR: Color = Color(1.0, 0.25, 0.15, 0.6) # PROPOSÉ, à valider (jalon 12 bis)
+const ELITE_AOE_RING_SEGMENTS: int = 32
 
 # Nœuds lus ici : setup peut précéder _ready (simulateur headless).
 func setup(home_pos: Vector2, texture: Texture2D, shadow: Texture2D, solid: Dictionary, stats: Dictionary, bounds: Rect2i = VL.GROUND_RECT) -> void:
@@ -57,7 +60,8 @@ func step(delta: float, target: Vector2, target_ok: bool) -> bool:
 		if _windup_t >= BA.MOB_TELEGRAPH_DURATION_SEC:
 			_windup_t = -1.0
 			_sprite.modulate = Color.WHITE
-			if target_ok and dist <= BA.MOB_MELEE_RANGE_PX:
+			_redraw_aoe()
+			if target_ok and dist <= CombatS.mob_hit_range(role):
 				return true
 			_log("rate", {"source": index})
 		return false
@@ -66,11 +70,12 @@ func step(delta: float, target: Vector2, target_ok: bool) -> bool:
 	if chasing != was:
 		_log("poursuite" if chasing else "abandon", {"index": index})
 	if chasing:
-		if dist <= BA.MOB_MELEE_RANGE_PX:
+		if dist <= CombatS.mob_trigger_range(role):
 			if _last_attack < 0.0 or _t - _last_attack >= CombatS.mob_attack_period():
 				_windup_t = 0.0
 				_last_attack = _t
 				_sprite.modulate = CombatS.WINDUP_MODULATE
+				_redraw_aoe()
 		else:
 			_advance(target, delta)
 	elif position != home:
@@ -92,6 +97,7 @@ func take_hit(dmg: int) -> bool:
 	chasing = false
 	_windup_t = -1.0
 	_sprite.modulate = Color.WHITE
+	queue_redraw()
 	return true
 
 # Élite (volet E §3) : endormi au point de départ, éveillé à la saturation.
@@ -129,7 +135,18 @@ func _set_hp(value: int) -> void:
 		hp = value
 		queue_redraw()
 
+# Repère au sol du Fauchage : redessiné au début et à la fin du télégraphe seulement.
+func _redraw_aoe() -> void:
+	if role == "ELITE":
+		queue_redraw()
+
+func aoe_shown() -> bool:
+	return role == "ELITE" and alive and _windup_t >= 0.0
+
 func _draw() -> void:
+	if aoe_shown():
+		draw_circle(Vector2.ZERO, BA.ELITE_MELEE_AOE_RADIUS_PX, ELITE_AOE_FILL_COLOR, true, -1.0, false)
+		draw_arc(Vector2.ZERO, BA.ELITE_MELEE_AOE_RADIUS_PX, 0.0, TAU, ELITE_AOE_RING_SEGMENTS, ELITE_AOE_RING_COLOR, 1.0, false)
 	if not alive or hp >= max_hp:
 		return
 	var bar: Vector2i = CombatS.BAR_SIZE

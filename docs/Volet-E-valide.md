@@ -28,3 +28,8 @@ Validé le 24/10/2026 après les échanges n°25 à n°27 (Claude ↔ Argon), ca
 - SOCLE §A3 modifié par Antho : auto-attaque à l'arrêt et en marche, jamais en esquive ; récolte à l'arrêt. Aucun malus en marche.
 - Portées (balance_c.gd) : Épée & Écu 24 px, Hache-Couperet 28, Glaive 36, Arc 80, Arbalète 92 (sous le repérage de 96 px).
 - Arène recalée sur le combat en marche : valeurs provisoires, à mesurer quand l'arène sera codée.
+
+## 7. Fauchage de Braise (n°31, après le jalon 12)
+- L'Élite s'arrête et déclenche son télégraphe dès 36 px (ELITE_ATTACK_TRIGGER_RANGE_PX, n°32 : la plus longue mêlée, fixe côté monstre) et frappe tout dans un rayon de 40 px (ELITE_MELEE_AOE_RADIUS_PX) au bout des 0,40 s. Stats, cadence et télégraphe inchangés.
+- Pour l'éviter : sortir à plus de 40 px (Épée & Écu 16 px, Hache d'Entaille 12 px, Vouge d'Éclaireur 4 px) ou esquiver (48 px, 0,20 s d'invulnérabilité).
+- Arc (80 px) et Arbalète (92 px) hors de la zone : voulu, contrepartie de leur cadence de 1,00 coup/s (−16,7 %).

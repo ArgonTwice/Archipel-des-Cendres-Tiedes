@@ -721,6 +721,7 @@ func _jalon_11(vd: Dictionary, solid1: Dictionary) -> void:
 	_check("Brasero: 40 PV en (0, 3984) -> 100 après une image", pb.hp == 100, str(pb.hp))
 	pb.free()
 	_jalon_12(vd, solid1)
+	_jalon_12b(solid1)
 	# Scènes et données
 	var vil: Node = load("res://scenes/village/village.tscn").instantiate()
 	var sg: Node2D = vil.get_node_or_null("Entites/Segment")
@@ -827,6 +828,117 @@ func _jalon_12(vd: Dictionary, solid1: Dictionary) -> void:
 	var sb: GDScript = load("res://scripts/ui/skill_buttons.gd")
 	_check("scenes: SKILL_BUTTON_SIZE_PX 28, marge 8", sb.get_script_constant_map()["SKILL_BUTTON_SIZE_PX"] == 28 and sb.get_script_constant_map()["MARGIN_PX"] == 8)
 	ui.free()
+
+# Jalon 12 bis : Fauchage de Braise de l'Élite (n°31, n°32). Jumeau Python : prep_jalon_12bis.py.
+func _jalon_12b(solid1: Dictionary) -> void:
+	var melee: float = 0.0
+	for t: int in BC.WEAPON_SPECS:
+		if not BC.WEAPON_SPECS[t]["is_ranged"]:
+			melee = maxf(melee, BC.WEAPON_SPECS[t]["range_px"])
+	_check("balanceA: ELITE_ATTACK_TRIGGER_RANGE_PX 36 == plus longue mêlée de BalanceC, ELITE_MELEE_AOE_RADIUS_PX 40 au-delà",
+		BA.ELITE_ATTACK_TRIGGER_RANGE_PX == 36.0 and BA.ELITE_MELEE_AOE_RADIUS_PX == 40.0 and BA.ELITE_ATTACK_TRIGGER_RANGE_PX == melee
+		and BA.ELITE_MELEE_AOE_RADIUS_PX > BA.ELITE_ATTACK_TRIGGER_RANGE_PX, str(melee))
+	_check("combat: mob_trigger_range NORMAL 16 / ELITE 36, mob_hit_range NORMAL 16 / ELITE 40",
+		CombatS.mob_trigger_range("NORMAL") == 16.0 and CombatS.mob_trigger_range("ELITE") == 36.0
+		and CombatS.mob_hit_range("NORMAL") == 16.0 and CombatS.mob_hit_range("ELITE") == 40.0)
+	var e1: Dictionary = _elite_run(solid1, Vector2(0, 216), 600, 0, 0)
+	_check("E1: Élite arrêté en (0, 251,3333) à 35,333 px, télégraphes 0,0833 / 1,0833 / 2,1, aucun coup du joueur, reçus 30 / 90 / 151 / 212 / 273 / 334 / 395 / 456 (14 chacun), mort à 456",
+		_approx(e1["stop"].x, 0.0, 1e-3) and _approx(e1["stop"].y, 251.3333, 1e-3) and _approx(e1["stop_dist"], 35.333, 1e-3) and e1["moved_after_stop"] == false
+		and _near(e1["windups"].slice(0, 3), [0.0833, 1.0833, 2.1]) and e1["strikes"] == []
+		and e1["received"] == [30, 90, 151, 212, 273, 334, 395, 456] and e1["player_hp"].slice(0, 7) == [86, 72, 58, 44, 30, 16, 2] and e1["death"] == 456, str(e1))
+	var e2: Dictionary = _elite_run(solid1, Vector2(0, 216), 80, 11, 24)
+	_check("E2: 1er impact raté (joueur à 53,163 px), 0 coup reçu, PV 100, joueur en (23,0988, 203,4506), 2e télégraphe à 1,0833 (Élite à 35,663 px)",
+		e2["misses"].size() >= 1 and _approx(e2["misses"][0], 53.163, 1e-3) and e2["received"] == [] and e2["final_hp"] == 100
+		and _approx(e2["player"].x, 23.0988, 1e-3) and _approx(e2["player"].y, 203.4506, 1e-3)
+		and e2["windups"].size() >= 2 and _approx(e2["windups"][1], 1.0833, 1e-4) and _approx(e2["windup_dists"][1], 35.663, 1e-3), str(e2))
+	var e3: Dictionary = _elite_run(solid1, Vector2(0, 232), 130, 0, 0)
+	_check("E3: à 24 px, télégraphes 0,0167 / 1,0167 / 2,0333, frappes 1 / 51 / 102 (692 / 672 / 652), reçus 26 / 86, PV 72",
+		_near(e3["windups"], [0.0167, 1.0167, 2.0333]) and e3["strikes"] == [[1, 692], [51, 672], [102, 652]] and e3["received"] == [26, 86] and e3["final_hp"] == 72, str(e3))
+	# Repère au sol : disque de l'Élite pendant son télégraphe seulement, jamais sur un normal
+	var pr: Node2D = load("res://scenes/player/player.tscn").instantiate()
+	root.add_child(pr)
+	pr.setup(Vector2(0, 216), null, null, solid1)
+	var lr: Node2D = LisiereS.new()
+	root.add_child(lr)
+	lr.setup(1, 0, pr, solid1, [[0, 20]], null, null)
+	var el: Node2D = lr.add_elite(Vector2i(0, 16), null, null)
+	lr.wake_elite()
+	var normal: Node2D = lr.mobs()[0]
+	var during: bool = true
+	var outside: bool = true
+	var seen: bool = false
+	var normal_never: bool = true
+	for f in range(1, 61):
+		pr._process(1.0 / 60.0)
+		lr._process(1.0 / 60.0)
+		var windup: bool = el._windup_t >= 0.0
+		seen = seen or el.aoe_shown()
+		during = during and (el.aoe_shown() if windup else true)
+		outside = outside and (true if windup else not el.aoe_shown())
+		normal_never = normal_never and not normal.aoe_shown()
+	_check("repère: disque de l'Élite tant que dure son télégraphe, absent sinon, jamais sur un normal", seen and during and outside and normal_never)
+	lr.free()
+	pr.free()
+
+func _near(a: Array, b: Array) -> bool:
+	if a.size() != b.size():
+		return false
+	for i in a.size():
+		if not _approx(a[i], b[i], 1e-4):
+			return false
+	return true
+
+# Lisière (graine 1, isolat 0, sans spawn) + Élite éveillé en (0, 256), joueur en pos, marche (1, -1) des images walk_from à walk_to.
+func _elite_run(solid: Dictionary, pos: Vector2, frames: int, walk_from: int, walk_to: int) -> Dictionary:
+	var pl: Node2D = load("res://scenes/player/player.tscn").instantiate()
+	root.add_child(pl)
+	pl.setup(pos, null, null, solid)
+	var lis: Node2D = LisiereS.new()
+	root.add_child(lis)
+	lis.setup(1, 0, pl, solid, [], null, null)
+	var el: Node2D = lis.add_elite(Vector2i(0, 16), null, null)
+	lis.wake_elite()
+	var out: Dictionary = {"windups": [], "windup_dists": [], "strikes": [], "received": [], "player_hp": [], "misses": [], "death": -1,
+		"stop": Vector2.ZERO, "stop_dist": -1.0, "moved_after_stop": false}
+	var prev_el: int = el.hp
+	var prev_pl: int = pl.hp
+	var prev_attack: float = -1.0
+	var prev_windup: bool = false
+	for f in range(1, frames + 1):
+		if walk_to > 0 and f == walk_from:
+			pl.set_move_dir(Vector2(1, -1).normalized())
+		if walk_to > 0 and f == walk_to + 1:
+			pl.set_move_dir(Vector2.ZERO)
+		pl._process(1.0 / 60.0)
+		lis._process(1.0 / 60.0)
+		var d: float = el.position.distance_to(pl.position)
+		if el._last_attack != prev_attack:
+			out["windups"].append(snappedf(el._last_attack, 0.0001))
+			out["windup_dists"].append(d)
+			if out["stop_dist"] < 0.0:
+				out["stop"] = el.position
+				out["stop_dist"] = d
+		elif out["stop_dist"] >= 0.0 and out["death"] < 0 and el.position != out["stop"]: # avant l'évacuation seulement
+			out["moved_after_stop"] = true
+		prev_attack = el._last_attack
+		var windup: bool = el._windup_t >= 0.0
+		if prev_windup and not windup and pl.hp == prev_pl:
+			out["misses"].append(d)
+		prev_windup = windup
+		if el.hp < prev_el:
+			out["strikes"].append([f, el.hp])
+		prev_el = el.hp
+		if pl.hp < prev_pl:
+			out["received"].append(f)
+			out["player_hp"].append(pl.hp)
+			if pl.hp <= 0 and out["death"] < 0:
+				out["death"] = f
+		prev_pl = pl.hp
+	out["final_hp"] = pl.hp
+	out["player"] = pl.position
+	lis.free()
+	pl.free()
+	return out
 
 # S1 + request_skill(i) avant l'image 1 (et, si again, une 2e demande à l'image 15).
 func _skill_run(solid: Dictionary, skill: int, frames: int, again: bool) -> Dictionary:

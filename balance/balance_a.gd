@@ -142,6 +142,10 @@ const MOB_BASE_ATTACK_SPEED: float = 1.00 # d'un début de télégraphe au suiva
 const MOB_RESPAWN_DELAY_SEC: float = 20.0
 const MOB_CAN_CRIT: bool = false
 
+# Frappe de zone propre au rôle ELITE (Fauchage de Braise, n°31)
+const ELITE_ATTACK_TRIGGER_RANGE_PX: float = 36.0 # n°32 : plus longue mêlée de BalanceC (SCOUT_GLAIVE)
+const ELITE_MELEE_AOE_RADIUS_PX: float = 40.0 # impact après MOB_TELEGRAPH_DURATION_SEC, au-delà des 3 armes de mêlée (24 / 28 / 36 px)
+
 # Segment de nœuds (n°25 à n°27, volet E)
 enum SegmentNodeType {
 	NODE_OUTSKIRTS = 0,          # Lisière (meutes + nœuds de Brume)
