@@ -401,6 +401,93 @@ func _jalon_13(solid1: Dictionary) -> void:
 		after_kill == 30 and elite_gain == 196 and ps["voc_xp"]["COMBATTANT"] == 256 and ends == ["mort"], "%d %d %d %s" % [after_kill, elite_gain, ps["voc_xp"]["COMBATTANT"], str(ends)])
 	_seg_free(ctx)
 
+# Jalon 14 : Lanterne niveau 1, Cendre Vive et Éclats sauvegardés, gardés à la mort.
+func _jalon_14(solid1: Dictionary) -> void:
+	_check("lanterne: new_player() == voc_xp à 0, cendre 0, shards 0",
+		ProgressionS.new_player() == {"voc_xp": {"COMBATTANT": 0, "MINEUR": 0, "FORGERON": 0}, "cendre": 0, "shards": 0})
+	# 40 kills puis l'Élite, joueur neuf
+	var pa: Dictionary = ProgressionS.new_player()
+	var ex: ExpeditionS = ExpeditionS.new(1, 0, func() -> Dictionary: return pa)
+	for k in 40:
+		ex.on_kill(0)
+	ex.on_elite(0)
+	_check("lanterne: 40 kills puis l'Élite -> Cendre 100, Éclats 1 (= expedition.shards), Combattant 1 396",
+		pa["cendre"] == 100 and pa["shards"] == 1 and ex.shards == 1 and pa["voc_xp"]["COMBATTANT"] == 1396, "%s %d" % [str(pa), ex.shards])
+	# Lanterne à 140 : plafond 150, surplus perdu
+	var pb: Dictionary = ProgressionS.new_player()
+	pb["cendre"] = 140
+	ex = ExpeditionS.new(1, 0, func() -> Dictionary: return pb)
+	var full_at: int = -1
+	for k in 40:
+		ex.on_kill(0)
+		if full_at < 0 and pb["cendre"] == 150:
+			full_at = k + 1
+	var after_kills: int = pb["cendre"]
+	var lost_kills: int = 140 + 40 * BA.CENDRE_GAIN_NORMAL_MOB - after_kills
+	ex.on_elite(0)
+	var lost_elite: int = after_kills + BA.CENDRE_GAIN_ELITE_MOB - pb["cendre"]
+	_check("lanterne: départ 140 -> 150 au 5e kill, 70 perdus sur les kills, 150 après l'Élite (20 perdus), expedition.cendre 100",
+		full_at == 5 and after_kills == 150 and lost_kills == 70 and pb["cendre"] == 150 and lost_elite == 20 and ex.cendre == 100,
+		"%d %d %d %d %d %d" % [full_at, after_kills, lost_kills, pb["cendre"], lost_elite, ex.cendre])
+	# Sacoche pleine : même tirage qu'une Sacoche vide
+	var pc: Dictionary = ProgressionS.new_player()
+	pc["shards"] = 6
+	ex = ExpeditionS.new(1, 0, func() -> Dictionary: return pc)
+	for k in 40:
+		ex.on_kill(0)
+	var refused_kills: int = ex.shards_refused
+	ex.on_elite(0)
+	var pe: Dictionary = ProgressionS.new_player()
+	var ex_empty: ExpeditionS = ExpeditionS.new(1, 0, func() -> Dictionary: return pe)
+	var drops: Array = []
+	for k in 40:
+		drops.append(ex_empty.on_kill(0))
+	drops.append(ex_empty.on_elite(0))
+	_check("lanterne: Sacoche à 6 -> 6, expedition.shards 0, « sacoche_pleine » une fois (l'Élite) ; Sacoche vide : 1 Éclat au même tirage (l'Élite)",
+		pc["shards"] == 6 and ex.shards == 0 and refused_kills == 0 and ex.shards_refused == 1 and drops.count(true) == 1 and drops[40] == true and pe["shards"] == 1,
+		"%d %d %d %d %s" % [pc["shards"], ex.shards, refused_kills, ex.shards_refused, str(drops.count(true))])
+	# Sauvegarde
+	_clean_saves()
+	var ns: Dictionary = SaveS.new_state(7, D0, 0)
+	ns["player"]["cendre"] = 100
+	ns["player"]["shards"] = 3
+	SaveS.save(ns, D0, TEST_SAVE_DIR)
+	var back: Dictionary = SaveS.load_latest(TEST_SAVE_DIR)
+	_check("save: save puis load_latest rendent cendre 100 et shards 3", back["player"]["cendre"] == 100 and back["player"]["shards"] == 3, str(back["player"]))
+	var old: Dictionary = back.duplicate(true)
+	old["player"].erase("cendre")
+	old["player"].erase("shards")
+	var old_back: Dictionary = SaveS.unpack(SaveS.pack(old))
+	_check("save: player sans cendre ni shards (jalon 13) valide, revient avec 0 et 0, voc_xp intact",
+		not old_back.is_empty() and old_back["player"]["cendre"] == 0 and old_back["player"]["shards"] == 0 and old_back["player"]["voc_xp"] == back["player"]["voc_xp"])
+	var bad: Array = []
+	for c: Array in [["cendre", 151], ["shards", 7], ["cendre", -1], ["shards", -1], ["cendre", 1.5], ["shards", 2.0]]:
+		var b: Dictionary = back.duplicate(true)
+		b["player"][c[0]] = c[1]
+		bad.append(SaveS.unpack(SaveS.pack(b)).is_empty())
+	_check("save: cendre 151, shards 7, négatifs, non entiers -> refusé", bad == [true, true, true, true, true, true], str(bad))
+	_clean_saves()
+	# Segment : kill puis mort du joueur
+	var ps: Dictionary = ProgressionS.new_player()
+	var ctx: Array = _seg_ctx(solid1, Vector2(0, 6240), func() -> Dictionary: return ps)
+	var sp: Node2D = ctx[0]
+	var seg: Node2D = ctx[1]
+	for f in 5:
+		_seg_frame(sp, seg)
+	var node2: Node2D = seg.nodes()[2]
+	var victim: Node2D = node2.mobs()[0]
+	while victim.alive:
+		node2._strike(victim)
+	var after_kill: int = ps["cendre"]
+	ps["shards"] = 2
+	sp.hp = 5
+	sp.take_hit(9)
+	for f in 90:
+		_seg_frame(sp, seg)
+	_check("segment: un kill ajoute 2 à la Lanterne ; après la mort du joueur, Cendre 2 et Éclats 2 gardés, expédition finie",
+		after_kill == 2 and ps["cendre"] == 2 and ps["shards"] == 2 and seg.expedition == null and seg.last_end == "mort", "%d %s %s" % [after_kill, str(ps), seg.last_end])
+	_seg_free(ctx)
+
 # Joueur neuf local, relu par l'Expedition comme le fait main.gd avec SaveManager.state.
 func _fresh_ref() -> Callable:
 	var p: Dictionary = ProgressionS.new_player()
@@ -864,6 +951,7 @@ func _jalon_11(vd: Dictionary, solid1: Dictionary) -> void:
 	_jalon_12(vd, solid1)
 	_jalon_12b(solid1)
 	_jalon_13(solid1)
+	_jalon_14(solid1)
 	# Scènes et données
 	var vil: Node = load("res://scenes/village/village.tscn").instantiate()
 	var sg: Node2D = vil.get_node_or_null("Entites/Segment")

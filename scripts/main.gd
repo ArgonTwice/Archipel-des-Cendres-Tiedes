@@ -32,9 +32,9 @@ func _ready() -> void:
 		_show(r)
 	var player: Node2D = _world.player() # player.gd
 	player.set_level(ProgressionS.combat_level(_player_state()))
-	_show_vocations()
+	_show_player()
 	var seg: Node2D = _world.segment() # segment.gd
-	seg.xp_changed.connect(_show_vocations)
+	seg.xp_changed.connect(_show_player)
 	seg.expedition_ended.connect(func(_reason: String) -> void: _sync())
 	_stick.direction_changed.connect(player.set_move_dir)
 	_stick.swiped.connect(player.dodge)
@@ -120,6 +120,7 @@ func _show(r: Dictionary) -> void:
 		layer.show_gold(r["state"]["village"]["player_gold"])
 		layer.show_report(r)
 		layer.show_vocations(r["state"]["player"])
+		layer.show_lantern(r["state"]["player"])
 	_world.refresh(r["state"]["village"], ClockS.now_utc())
 
 # Échelle d'interface choisie ici (FoldMode.ui_scale), zone = fenêtre / échelle : pas de bandes noires.
@@ -171,6 +172,7 @@ func _player_state() -> Dictionary:
 		_fallback_player = ProgressionS.new_player()
 	return _fallback_player
 
-func _show_vocations() -> void:
+func _show_player() -> void:
 	for layer in [_ui_folded, _ui_unfolded]: # ui_layer.gd
 		layer.show_vocations(_player_state())
+		layer.show_lantern(_player_state())

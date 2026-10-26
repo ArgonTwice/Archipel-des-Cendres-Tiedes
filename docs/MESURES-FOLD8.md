@@ -328,3 +328,25 @@ Export debug le 26/10 : 0 ERROR ; `aapt2` donne versionCode 12, versionName 0.13
 | R2 deux expéditions | OK | logcat build/captures/jalon13-R-logcat.txt. Expédition 1 : `debut` 21:38:46, `fin` « mort » 21:41:37 (2 min 51 s), 12 kills, 7 nœuds, Mineur 2 (21:39:26), Combattant 2 (21:40:05, PV max 118) ; Élite : 12,1 s, 8 coups reçus (14), 3 impacts ratés, 8 autos et 3 aptitudes, Élite à 347 / 712. Expédition 2 : `debut` 21:42:02, `fin` « mort » 21:44:08 (2 min 06 s), 12 kills, 7 nœuds, Mineur 3 (21:42:30), Combattant 3 (21:42:56, 64 → 136 PV max) ; Élite : 12,8 s, 6 coups reçus, 6 ratés, 12 autos et 1 aptitude, Élite à 356 / 712. 2 morts. Sauvegarde relue sur l'appareil après les 2 fins : seq 209, Combattant 720, Mineur 882, Forgeron 0. 0 ERROR |
 | R3 relance | OK | la fermeture depuis les applis récentes laissait le même processus (pid 14013) : arrêt par `am force-stop`, relance par l'icône → pid 2599, `niveau` 3, 136 PV ; sauvegarde relue : seq 221, Combattant 810 (Nv 3), Mineur 1 071 (Nv 4), Forgeron 0, XP des parties jouées entre-temps comprise |
 | R4 ressenti | noté tel quel | « on sent la pregression mais le boss waow, digne d'un dark soul » |
+
+## Jalon 14 (APK 0.14.0, code 13) : Lanterne sauvegardée, Cendre Vive et Éclats
+
+Export debug le 26/10 : 0 ERROR ; `aapt2` donne versionCode 13, versionName 0.14.0 ; SHA-256 f6c9c1bcdabf2f862b9a96415aa96d5e0c7cd48857fc4ad767475da8de7ce2a3.
+
+### T1 à T3 (PC, fenêtre 416 × 657, --hour=14, partie neuve ; journal build/captures/jalon14-T-sonde.txt)
+
+Chaque phase : 10 kills de normaux et 3 nœuds de Brume comptés par le signal gathered de Segment (sans geste de récolte).
+
+| Test | Résultat | Preuve |
+|---|---|---|
+| T1 expédition et retour | OK | expédition : Cendre 44, Éclats 3 ; `fin` « retour » ; « Lanterne : Cendre 44/150  Éclats 3/6 » plié et déplié (jalon14-T1-retour.png) |
+| T2 2e expédition, mort | OK | Cendre 44, Éclats 3 de plus ; `fin` « mort » ; « Lanterne : Cendre 88/150  Éclats 6/6 » (jalon14-T2-mort.png) |
+| T3 relance | OK | au lancement : « Lanterne : Cendre 88/150  Éclats 6/6 » (jalon14-T3-relance.png) |
+
+### U1 à U3 (Fold 8, sauvegarde du jalon 13 conservée, copie dans build/backup-fold-jalon13/)
+
+| Test | Résultat | Preuve |
+|---|---|---|
+| U1 sauvegarde du jalon 13 | OK | avant : seq 222, Or 60, Combattant 810, Mineur 1 071 ; après le boot 0.14.0 (pid 13879) : seq 223, mêmes valeurs, Lanterne 0 / 0, `niveau` 3, 136 PV ; 0 ERROR |
+| U2 deux expéditions | OK | logcat build/captures/jalon14-U-logcat.txt. Expédition 1 : 22:34:08 → 22:37:02 (2 min 54 s), `fin` « retour », 13 kills dont l'Élite (combat de 16,7 s), 7 nœuds, Cendre 100, 1 Éclat ; Combattant 4 ; Lanterne 0/0 → 100/150, 1/6. Expédition 2 : 22:37:10 → 22:40:16 (3 min 06 s), `fin` « retour », 13 kills dont l'Élite (16,2 s), 7 nœuds, Cendre 100, 5 Éclats ; Mineur 5, Combattant 5 (172 PV) ; Lanterne → 150/150 (10 `lanterne_pleine`, 50 de Cendre perdus), 6/6 (1 `sacoche_pleine`, l'Éclat de l'Élite). 0 mort, 0 ERROR |
+| U3 relance | OK | `am force-stop` (pid 13879) puis relance par l'icône → pid 26336, `niveau` 5, 172 PV ; sauvegarde relue : seq 226, Combattant 1 922, Mineur 1 953, Forgeron 0, Lanterne 150 / 6 |

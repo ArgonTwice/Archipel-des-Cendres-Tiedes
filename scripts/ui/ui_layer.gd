@@ -13,6 +13,7 @@ const LEVEL_UP_TOAST_SEC: float = 2.5 # PROPOSÉ, à valider (jalon 13)
 @onready var _margin: MarginContainer = $Margin
 @onready var _gold: Label = $Margin/VBox/Gold
 @onready var _vocations: Label = $Margin/VBox/Vocations
+@onready var _lantern: Label = $Margin/VBox/Lanterne
 @onready var _expedition: Label = $Margin/VBox/Expedition
 @onready var _toast: Label = $Margin/VBox/Toast
 
@@ -43,6 +44,10 @@ func show_vocations(player: Dictionary) -> void:
 			parts.append("%s  Nv %d  %d / %d XP" % [label, ProgressionS.level_of(xp), p.x, p.y])
 	_vocations.text = ("  " if compact else "
 ").join(parts)
+
+# Lanterne niveau 1 (jalon 14).
+func show_lantern(player: Dictionary) -> void:
+	_lantern.text = "Lanterne : Cendre %d/%d  Éclats %d/%d" % [player["cendre"], BA.LANTERN_CENDRE_CAP[0], player["shards"], BA.LANTERN_SHARD_BAG_CAP[0]]
 
 # Une nouvelle montée remplace le texte et relance la durée.
 func show_level_up(voc: String, level: int) -> void:

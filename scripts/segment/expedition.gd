@@ -1,7 +1,7 @@
 class_name Expedition
 extends RefCounted
-# Une expédition dans le segment de Brume (volet E §3) : l'XP de vocation part dans l'état du joueur (jalon 13),
-# Cendre Vive, Éclats et compteurs restent en mémoire.
+# Une expédition dans le segment de Brume (volet E §3) : l'XP de vocation (jalon 13), la Cendre Vive et les Éclats
+# (Lanterne, jalon 14) vont dans l'état du joueur, sauvegardé ; le compteur de l'expédition reste en mémoire.
 # Saturation : une action n'est disponible que si son gain tient dans le reste du budget ; jamais de gain partiel.
 
 const BA = preload("res://balance/balance_a.gd")
@@ -16,6 +16,7 @@ var shards: int = 0
 var kills: int = 0
 var gathers: int = 0
 var xp: int = 0 # total de l'expédition, pour le log
+var shards_refused: int = 0 # Éclats tombés Sacoche pleine
 var _rng: RngS.Pcg32
 var _player_ref: Callable
 
@@ -40,14 +41,14 @@ func on_kill(isolat: int) -> bool:
 	assert(normals_open())
 	kills += 1
 	_gain("COMBATTANT", CombatS.kill_xp("NORMAL", isolat))
-	cendre += BA.CENDRE_GAIN_NORMAL_MOB
+	_cendre(BA.CENDRE_GAIN_NORMAL_MOB)
 	return _shard(BA.SHARD_DROP_CHANCE_NORMAL)
 
 func on_gather(isolat: int) -> bool:
 	assert(mist_open())
 	gathers += 1
 	_gain("MINEUR", roundi(BA.XP_GATHER_MIST_NODE * BA.ISOLAT_XP_MULTIPLIERS[isolat]))
-	cendre += BA.CENDRE_GAIN_MIST_NODE
+	_cendre(BA.CENDRE_GAIN_MIST_NODE)
 	return _shard(BA.SHARD_DROP_CHANCE_MIST_NODE)
 
 # Élite porteur de braise : la Cendre ne dépasse jamais SEGMENT_STD_RUN_CENDRE_CAP ; Éclat garanti (chance 1,0).
@@ -55,7 +56,7 @@ func on_elite(isolat: int) -> bool:
 	assert(cendre + BA.CENDRE_GAIN_ELITE_MOB <= BA.SEGMENT_STD_RUN_CENDRE_CAP)
 	kills += 1
 	_gain("COMBATTANT", CombatS.kill_xp("ELITE", isolat))
-	cendre += BA.CENDRE_GAIN_ELITE_MOB
+	_cendre(BA.CENDRE_GAIN_ELITE_MOB)
 	return _shard(BA.SHARD_DROP_CHANCE_ELITE)
 
 func _gain(voc: String, base_xp: int) -> void:
@@ -64,10 +65,32 @@ func _gain(voc: String, base_xp: int) -> void:
 	if g["level_after"] > g["level_before"]:
 		leveled.emit(voc, g["level_after"])
 
-# Le tirage a lieu même Sacoche pleine : le flux ne dépend pas du plafond.
+# Compteur de l'expédition (budget, saturation) et Lanterne, plafonnée : le surplus est perdu.
+func _cendre(amount: int) -> void:
+	cendre += amount
+	var p: Dictionary = _player_ref.call()
+	var added: int = mini(amount, BA.LANTERN_CENDRE_CAP[0] - p["cendre"])
+	p["cendre"] += added
+	if added < amount:
+		_log("lanterne_pleine", {"perdu": amount - added})
+
+# Le tirage a lieu même Sacoche pleine : le flux ne dépend pas du plafond. La Sacoche plafonne, pas l'expédition.
 func _shard(chance: float) -> bool:
-	var drop: bool = _rng.next_float() < chance
-	if drop and shards < BA.LANTERN_SHARD_BAG_CAP[0]:
-		shards += 1
-		return true
-	return false
+	if _rng.next_float() >= chance:
+		return false
+	var p: Dictionary = _player_ref.call()
+	if p["shards"] >= BA.LANTERN_SHARD_BAG_CAP[0]:
+		shards_refused += 1
+		_log("sacoche_pleine", {})
+		return false
+	p["shards"] += 1
+	shards += 1
+	return true
+
+# Événements seulement ; build debug seulement.
+func _log(event: String, extra: Dictionary) -> void:
+	if not OS.is_debug_build():
+		return
+	var d: Dictionary = {"event": event}
+	d.merge(extra)
+	print("[EXPEDITION] " + JSON.stringify(d))

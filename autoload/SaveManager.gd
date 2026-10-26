@@ -1,7 +1,8 @@
 extends Node
 # Autoload « SaveManager » : graine + delta, double fichier tournant, export/import Base64.
 # État : {"format": int, "seq": int, "world_seed": int, "village": Dictionary (format de OfflineDag.resume),
-# "player": {"voc_xp": {vocation: int}} (jalon 13, clé optionnelle : absente avant, ajoutée au chargement)}.
+# "player": {"voc_xp": {vocation: int}, "cendre": int, "shards": int}} (clés optionnelles, ajoutées au chargement :
+# player au jalon 13, cendre et shards de la Lanterne au jalon 14).
 # Le delta est l'état mutable complet ; rien de ce qui se régénère depuis world_seed n'y entre.
 # Fichier = SHA-256(payload) + payload, payload = var_to_bytes(état). Hash vérifié avant décodage, jamais d'objets.
 # seq impair -> save_a.dat, pair -> save_b.dat : une écriture n'écrase que l'emplacement le plus ancien.
@@ -10,6 +11,7 @@ const Dag = preload("res://scripts/offline_dag.gd")
 const ClockS = preload("res://autoload/Clock.gd")
 const RngS = preload("res://autoload/Rng.gd")
 const NewGameS = preload("res://scripts/new_game.gd")
+const BA = preload("res://balance/balance_a.gd")
 const BB = preload("res://balance/balance_b.gd")
 const ProgressionS = preload("res://scripts/progression.gd")
 
@@ -83,6 +85,9 @@ static func unpack(bytes: PackedByteArray) -> Dictionary:
 		return {}
 	if not v.has("player"):
 		v["player"] = ProgressionS.new_player()
+	for k: String in ["cendre", "shards"]:
+		if not v["player"].has(k):
+			v["player"][k] = 0
 	return v
 
 # Aucune migration : un autre format est refusé.
@@ -105,7 +110,11 @@ static func _is_valid_player(p: Variant) -> bool:
 		var xp: Variant = p["voc_xp"].get(voc)
 		if typeof(xp) != TYPE_INT or xp < 0:
 			return false
-	return true
+	return _is_valid_count(p.get("cendre"), BA.LANTERN_CENDRE_CAP[0]) and _is_valid_count(p.get("shards"), BA.LANTERN_SHARD_BAG_CAP[0])
+
+# Absent (sauvegarde du jalon 13) ou int dans [0, cap].
+static func _is_valid_count(n: Variant, cap: int) -> bool:
+	return n == null or (typeof(n) == TYPE_INT and n >= 0 and n <= cap)
 
 static func slot_path(seq: int, dir: String = DEFAULT_DIR) -> String:
 	return dir.path_join(SLOT_FILES[0 if seq % 2 == 1 else 1])

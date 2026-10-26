@@ -36,3 +36,5 @@ Format : `AAAA-MM-JJ — type: description`. Une ligne par changement validé.
 - 2026-10-26 — chore: APK debug 0.12.2 (code 11) testé sur Z Fold 8
 - 2026-10-26 — feat: XP de vocation et niveaux sauvegardés (jalon 13)
 - 2026-10-26 — chore: APK debug 0.13.0 (code 12) testé sur Z Fold 8
+- 2026-10-26 — feat: Lanterne sauvegardée, Cendre Vive et Éclats (jalon 14)
+- 2026-10-26 — chore: APK debug 0.14.0 (code 13) testé sur Z Fold 8

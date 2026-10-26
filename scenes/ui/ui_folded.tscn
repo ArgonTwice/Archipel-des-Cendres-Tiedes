@@ -28,6 +28,10 @@ layout_mode = 2
 layout_mode = 2
 autowrap_mode = 3
 
+[node name="Lanterne" type="Label" parent="Margin/VBox"]
+layout_mode = 2
+autowrap_mode = 3
+
 [node name="Expedition" type="Label" parent="Margin/VBox"]
 visible = false
 layout_mode = 2
