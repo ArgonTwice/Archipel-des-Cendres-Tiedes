@@ -307,3 +307,24 @@ Export debug le 26/10 : plus aucune ERROR (l'erreur « No project icon specified
 |---|---|---|
 | Icône sur l'écran d'accueil, plié | OK | APK installé (adb install -r OK, versionCode 11) ; Antho : « Icône OK plié et déplié » |
 | Icône sur l'écran d'accueil, déplié | OK | idem |
+
+## Jalon 13 (APK 0.13.0, code 12) : XP de vocation et niveaux sauvegardés
+
+Export debug le 26/10 : 0 ERROR ; `aapt2` donne versionCode 12, versionName 0.13.0 ; SHA-256 afd858df281632ea62fd5755919a9d7e4e5e86a2b8740d84816affc1ba0ef558.
+
+### Q1 à Q3 (PC, fenêtre 416 × 657, --hour=14, sauvegardes du PC supprimées avant ; journal build/captures/jalon13-Q-sonde.txt)
+
+| Test | Résultat | Preuve |
+|---|---|---|
+| Q1 toast au 7e kill | OK | 7e kill : `niveau` COMBATTANT 2 (xp 210), joueur `niveau` 2 PV 118 / 118, ATK 24, DEF 6 ; toast « Combattant niveau 2 ! » visible (jalon13-Q1-toast.png) |
+| Q2 relance | OK | retour au village : `fin` « retour », écriture ; relance : voc_xp {COMBATTANT 210, MINEUR 0, FORGERON 0}, joueur Nv 2 PV 118 / 118 (jalon13-Q2-relance.png) |
+| Q3 déplié | OK | « Combattant  Nv 2  10 / 330 XP », « Mineur  Nv 1  0 / 200 XP », « Forgeron  Nv 1  0 / 200 XP » (jalon13-Q3-deplie.png) |
+
+### R1 à R4 (Fold 8, sauvegarde du jalon 12 conservée)
+
+| Test | Résultat | Preuve |
+|---|---|---|
+| R1 sauvegarde du jalon 12 | OK | copie avant installation dans build/backup-fold-jalon12/ : seq 204, Or 60, 5 PNJ (moral 83 / 85 / 91 / 82 / 87), sans clé player ; après le boot 0.13.0 : seq 205, même graine, Or 60, mêmes PNJ (Forge 92 : reprise hors-ligne de 40 min), voc_xp 0 / 0 / 0, `niveau` 1, 100 PV ; 0 ERROR |
+| R2 deux expéditions | OK | logcat build/captures/jalon13-R-logcat.txt. Expédition 1 : `debut` 21:38:46, `fin` « mort » 21:41:37 (2 min 51 s), 12 kills, 7 nœuds, Mineur 2 (21:39:26), Combattant 2 (21:40:05, PV max 118) ; Élite : 12,1 s, 8 coups reçus (14), 3 impacts ratés, 8 autos et 3 aptitudes, Élite à 347 / 712. Expédition 2 : `debut` 21:42:02, `fin` « mort » 21:44:08 (2 min 06 s), 12 kills, 7 nœuds, Mineur 3 (21:42:30), Combattant 3 (21:42:56, 64 → 136 PV max) ; Élite : 12,8 s, 6 coups reçus, 6 ratés, 12 autos et 1 aptitude, Élite à 356 / 712. 2 morts. Sauvegarde relue sur l'appareil après les 2 fins : seq 209, Combattant 720, Mineur 882, Forgeron 0. 0 ERROR |
+| R3 relance | OK | la fermeture depuis les applis récentes laissait le même processus (pid 14013) : arrêt par `am force-stop`, relance par l'icône → pid 2599, `niveau` 3, 136 PV ; sauvegarde relue : seq 221, Combattant 810 (Nv 3), Mineur 1 071 (Nv 4), Forgeron 0, XP des parties jouées entre-temps comprise |
+| R4 ressenti | noté tel quel | « on sent la pregression mais le boss waow, digne d'un dark soul » |

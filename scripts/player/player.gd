@@ -18,7 +18,7 @@ const IFRAME_ALPHA: float = 0.5 # repère visuel de DODGE_IFRAME_SEC ; à valide
 # Miroir seulement au-delà de 30° de la verticale : sur un glisser vertical, le pouce oscille de 1 à 2 px et
 # retournait le sprite à chaque glissé (W1 « vibrant » sur le Fold 8). À valider (jalon 9).
 const FLIP_MIN_X: float = 0.5
-const RANGE_RING_COLOR: Color = Color(1, 1, 1, 0.35) # repère de portée en combat. PROPOSÉ, à valider (jalon 12)
+const RANGE_RING_COLOR: Color = Color(1, 1, 1, 0.35) # repère de portée en combat. validé sur Fold (jalon 12)
 const RANGE_RING_POINTS: int = 32
 
 var state: int = State.IDLE # IDLE = « à l'arrêt » : accroche de la récolte
@@ -30,7 +30,7 @@ var _dodge_dir: Vector2 = Vector2.ZERO
 var _dodge_t: float = -1.0 # -1 = pas d'esquive en cours
 var _dodge_start: float = -1.0 # instant de départ de la dernière esquive
 var _dodge_from: Vector2
-var level: int = 1 # niveau de Combattant : aucune vocation dans l'état, niveau de départ
+var level: int = 1 # niveau de Combattant, déduit de state.player.voc_xp (jalon 13) ; posé par set_level
 var max_hp: int = 0
 var hp: int = 0
 var atk: int = 0
@@ -67,6 +67,17 @@ func setup(pos: Vector2, texture: Texture2D, shadow: Texture2D, solid: Dictionar
 	atk = stats["atk"]
 	def = stats["def"]
 	_set_hp(max_hp)
+
+# Une montée de niveau ne soigne que le gain de PV max. PROPOSÉ, à valider (jalon 13)
+func set_level(value: int) -> void:
+	level = value
+	var stats: Dictionary = CombatS.player_stats(level, CombatS.starting_weapon_atk())
+	var gain: int = stats["hp"] - max_hp
+	max_hp = stats["hp"]
+	atk = stats["atk"]
+	def = stats["def"]
+	_set_hp(mini(hp + gain, max_hp))
+	_log("niveau", {"niveau": level, "pv": hp, "pv_max": max_hp, "atk": atk, "def": def})
 
 func set_move_dir(dir: Vector2) -> void:
 	var was_moving: bool = _dir != Vector2.ZERO
@@ -222,7 +233,7 @@ func _process(delta: float) -> void:
 			_hit_t -= delta
 			if _hit_t <= 0.0:
 				_sprite.modulate = Color.WHITE
-	if CombatS.in_safe_zone(position): # le village et le Brasero soignent. PROPOSÉ, à valider (jalon 11) pour le Brasero
+	if CombatS.in_safe_zone(position): # le village et le Brasero soignent. validé sur Fold (jalon 11) pour le Brasero
 		_set_hp(max_hp)
 
 func _set_hp(value: int) -> void:

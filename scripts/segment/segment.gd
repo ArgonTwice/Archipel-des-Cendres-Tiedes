@@ -1,9 +1,13 @@
 extends Node2D
 # Segment de Brume de la tranche (SOCLE §A4, volet E §3) : 3 nœuds au sud du village, reliés par des passages en fondu.
-# Un seul nœud actif (INHERIT), les autres DISABLED. Expédition en mémoire : rien n'est écrit dans l'état de la partie.
+# Un seul nœud actif (INHERIT), les autres DISABLED. Expédition en mémoire, sauf l'XP de vocation (jalon 13), écrite
+# dans le dictionnaire du joueur rendu par player_ref.
 # Ordre dans une image : Joueur._process, puis Segment._process, puis le nœud actif (enfant de Segment).
 
 signal expedition_changed(shown: bool, cendre: int, shards: int)
+signal leveled(voc: String, level: int)
+signal xp_changed
+signal expedition_ended(reason: String) # main.gd écrit alors la sauvegarde, sans attendre un pliage
 
 const SG = preload("res://scripts/segment/segment_gen.gd")
 const VL = preload("res://scripts/village/village_layout.gd")
@@ -11,6 +15,7 @@ const CombatS = preload("res://scripts/combat/combat.gd")
 const ExpeditionS = preload("res://scripts/segment/expedition.gd")
 const LisiereS = preload("res://scripts/combat/lisiere.gd")
 const BA = preload("res://balance/balance_a.gd")
+const ProgressionS = preload("res://scripts/progression.gd")
 
 var expedition: ExpeditionS = null
 var active: int = SG.VILLAGE
@@ -26,10 +31,12 @@ var _isolat: int = 0
 var _count: int = 0 # expéditions de la session, non sauvegardé
 var _vitrified: bool = false
 var _saturated: bool = false
+var _player_ref: Callable
 
 func setup(world_seed: int, isolat: int, player: Node2D, village_solid: Dictionary, mob_texture: Texture2D,
-		mist_texture: Texture2D, shadow: Texture2D, brazier: Node2D = null, elite_texture: Texture2D = null) -> void:
+		mist_texture: Texture2D, shadow: Texture2D, player_ref: Callable, brazier: Node2D = null, elite_texture: Texture2D = null) -> void:
 	_world_seed = world_seed
+	_player_ref = player_ref
 	_isolat = isolat
 	_player = player
 	_village_solid = village_solid
@@ -92,7 +99,8 @@ func _process(_delta: float) -> void:
 		_nodes[i].process_mode = Node.PROCESS_MODE_INHERIT if i == active else Node.PROCESS_MODE_DISABLED
 
 func _begin() -> void:
-	expedition = ExpeditionS.new(_world_seed, _count)
+	expedition = ExpeditionS.new(_world_seed, _count, _player_ref)
+	expedition.leveled.connect(_on_leveled)
 	_count += 1
 	_vitrified = false
 	_saturated = false
@@ -108,6 +116,13 @@ func _end(reason: String) -> void:
 	last_end = reason
 	expedition = null
 	expedition_changed.emit(false, 0, 0)
+	expedition_ended.emit(reason)
+
+func _on_leveled(voc: String, level: int) -> void:
+	_log("niveau", {"vocation": voc, "niveau": level, "xp": _player_ref.call()["voc_xp"][voc]})
+	if voc == "COMBATTANT":
+		_player.set_level(level)
+	leveled.emit(voc, level)
 
 func _on_killed(_index: int, role: String) -> void:
 	if expedition == null:
@@ -116,6 +131,7 @@ func _on_killed(_index: int, role: String) -> void:
 		expedition.on_elite(_isolat)
 		_log("mort_elite", {"cendre": expedition.cendre, "eclats": expedition.shards})
 		expedition_changed.emit(true, expedition.cendre, expedition.shards)
+		xp_changed.emit()
 		return
 	if not expedition.normals_open():
 		return # déjà dissipé
@@ -132,6 +148,7 @@ func _on_gathered(_index: int) -> void:
 # dès qu'un kill ne tient plus ; l'Élite s'éveille alors et sa cellule est libérée.
 func _after_gain() -> void:
 	expedition_changed.emit(true, expedition.cendre, expedition.shards)
+	xp_changed.emit()
 	if not _vitrified and not expedition.mist_open():
 		_vitrified = true
 		for node: Node2D in _nodes:

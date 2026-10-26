@@ -2,7 +2,7 @@ extends Control
 # Boutons d'aptitude du mode plié (Volet A §4) : I en bas à droite, II au-dessus, droitier (gaucher hors périmètre).
 # Des Button : un deuxième doigt atteint un Control (viewport.cpp, gui.touch_focus par index ; base_button.cpp traite
 # InputEventScreenTouch de tout index) et le Button consomme le posé, qui n'atteint jamais le joystick.
-# Constantes techniques, toutes PROPOSÉ, à valider (jalon 12).
+# Constantes techniques, toutes validées sur Fold (jalon 12).
 
 const SKILL_BUTTON_SIZE_PX: int = 28 # 10 mm à l'échelle 6
 const MARGIN_PX: int = 8

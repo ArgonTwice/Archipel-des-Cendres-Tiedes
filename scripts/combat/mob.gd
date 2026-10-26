@@ -27,9 +27,9 @@ var _windup_t: float = -1.0 # -1 = pas de télégraphe
 var _last_attack: float = -1.0 # début du télégraphe précédent, -1 = aucun
 var _flash_t: float = 0.0
 
-const DORMANT_MODULATE: Color = Color(0.4, 0.4, 0.45) # PROPOSÉ, à valider (jalon 12)
-const ELITE_AOE_FILL_COLOR: Color = Color(1.0, 0.25, 0.15, 0.15) # PROPOSÉ, à valider (jalon 12 bis)
-const ELITE_AOE_RING_COLOR: Color = Color(1.0, 0.25, 0.15, 0.6) # PROPOSÉ, à valider (jalon 12 bis)
+const DORMANT_MODULATE: Color = Color(0.4, 0.4, 0.45) # validé sur Fold (jalon 12)
+const ELITE_AOE_FILL_COLOR: Color = Color(1.0, 0.25, 0.15, 0.15) # validé sur Fold (jalon 12 bis)
+const ELITE_AOE_RING_COLOR: Color = Color(1.0, 0.25, 0.15, 0.6) # validé sur Fold (jalon 12 bis)
 const ELITE_AOE_RING_SEGMENTS: int = 32
 
 # Nœuds lus ici : setup peut précéder _ready (simulateur headless).

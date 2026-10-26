@@ -1,6 +1,7 @@
 extends Node
 # Autoload « SaveManager » : graine + delta, double fichier tournant, export/import Base64.
-# État : {"format": int, "seq": int, "world_seed": int, "village": Dictionary (format de OfflineDag.resume)}.
+# État : {"format": int, "seq": int, "world_seed": int, "village": Dictionary (format de OfflineDag.resume),
+# "player": {"voc_xp": {vocation: int}} (jalon 13, clé optionnelle : absente avant, ajoutée au chargement)}.
 # Le delta est l'état mutable complet ; rien de ce qui se régénère depuis world_seed n'y entre.
 # Fichier = SHA-256(payload) + payload, payload = var_to_bytes(état). Hash vérifié avant décodage, jamais d'objets.
 # seq impair -> save_a.dat, pair -> save_b.dat : une écriture n'écrase que l'emplacement le plus ancien.
@@ -10,6 +11,7 @@ const ClockS = preload("res://autoload/Clock.gd")
 const RngS = preload("res://autoload/Rng.gd")
 const NewGameS = preload("res://scripts/new_game.gd")
 const BB = preload("res://balance/balance_b.gd")
+const ProgressionS = preload("res://scripts/progression.gd")
 
 const SAVE_FORMAT_VERSION: int = 1
 const SLOT_FILES: Array[String] = ["save_a.dat", "save_b.dat"]
@@ -79,6 +81,8 @@ static func unpack(bytes: PackedByteArray) -> Dictionary:
 	var v: Variant = bytes_to_var(payload)
 	if typeof(v) != TYPE_DICTIONARY or not _is_valid(v):
 		return {}
+	if not v.has("player"):
+		v["player"] = ProgressionS.new_player()
 	return v
 
 # Aucune migration : un autre format est refusé.
@@ -90,7 +94,18 @@ static func _is_valid(s: Dictionary) -> bool:
 	if typeof(s.get("village")) != TYPE_DICTIONARY or not s["village"].has_all(VILLAGE_KEYS):
 		return false
 	var v: Dictionary = s["village"]
-	return typeof(v["shops"]) == TYPE_DICTIONARY and v["shops"].has_all(["MAT", "TAVERN", "FORGE"]) and typeof(v["npcs"]) == TYPE_ARRAY
+	if typeof(v["shops"]) != TYPE_DICTIONARY or not v["shops"].has_all(["MAT", "TAVERN", "FORGE"]) or typeof(v["npcs"]) != TYPE_ARRAY:
+		return false
+	return not s.has("player") or _is_valid_player(s["player"])
+
+static func _is_valid_player(p: Variant) -> bool:
+	if typeof(p) != TYPE_DICTIONARY or typeof(p.get("voc_xp")) != TYPE_DICTIONARY:
+		return false
+	for voc: String in ProgressionS.VOCATIONS:
+		var xp: Variant = p["voc_xp"].get(voc)
+		if typeof(xp) != TYPE_INT or xp < 0:
+			return false
+	return true
 
 static func slot_path(seq: int, dir: String = DEFAULT_DIR) -> String:
 	return dir.path_join(SLOT_FILES[0 if seq % 2 == 1 else 1])
@@ -142,7 +157,8 @@ static func import_base64(text: String) -> Dictionary:
 
 # seq 0 : save() pose le seq.
 static func new_state(world_seed: int, now_utc: int, tz_offset_sec: int) -> Dictionary:
-	return {"format": SAVE_FORMAT_VERSION, "seq": 0, "world_seed": world_seed, "village": NewGameS.village(world_seed, now_utc, tz_offset_sec)}
+	return {"format": SAVE_FORMAT_VERSION, "seq": 0, "world_seed": world_seed, "village": NewGameS.village(world_seed, now_utc, tz_offset_sec),
+		"player": ProgressionS.new_player()}
 
 # Reprise : dernier état valide, DAG hors-ligne, puis écriture. Aucune sauvegarde : nouvelle partie.
 # Fichier présent mais illisible : {} et rien n'est écrit (le joueur ne perd pas sa partie sur une erreur).

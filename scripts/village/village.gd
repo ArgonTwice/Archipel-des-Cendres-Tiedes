@@ -18,7 +18,7 @@ const TILE_SORT_ORIGIN: int = 8 # bas de la tuile
 const FLAT_SORT_ORIGIN: int = -8 # haut de la tuile : touffes toujours sous un PNJ debout dans la cellule
 const SHADOW_SIZE: Vector2i = Vector2i(12, 4)
 const SHADOW_ALPHA: float = 0.35
-const BRAZIER_LIGHT_SCALE: float = 1.5 # Brasero = copie réduite de l'Âtre. PROPOSÉ, à valider (jalon 11)
+const BRAZIER_LIGHT_SCALE: float = 1.5 # Brasero = copie réduite de l'Âtre. validé sur Fold (jalon 11)
 
 @onready var _day: CanvasModulate = $Jour
 @onready var _ground: TileMapLayer = $Sol
@@ -41,7 +41,8 @@ var _base_energy: float = 0.0
 var _t: float = 0.0
 var _brazier_light: PointLight2D
 
-func setup(world_seed: int, village: Dictionary, now_utc: int) -> void:
+# player_ref : rend le dictionnaire courant du joueur (main.gd), transmis au Segment.
+func setup(world_seed: int, village: Dictionary, now_utc: int, player_ref: Callable) -> void:
 	_data = VL.load_data()
 	var ts: TileSet = _build_tileset()
 	for layer: TileMapLayer in [_ground, _paths, _buildings, _deco]:
@@ -73,7 +74,7 @@ func setup(world_seed: int, village: Dictionary, now_utc: int) -> void:
 	_torch.texture = _tile_texture("torche")
 	var solid: Dictionary = VL.solid_cells(sites, patterns, _data["props"], deco)
 	_player.setup(VL.cell_center(VL.PLAYER_SPAWN_CELL), _tile_texture(_data["player_sprite"]), shadow, solid)
-	_setup_segment(world_seed, village.get("isolat", 0), solid, shadow)
+	_setup_segment(world_seed, village.get("isolat", 0), solid, shadow, player_ref)
 	_village = village
 	var npcs: Array = village.get("npcs", [])
 	var hour: int = _hour(now_utc)
@@ -104,7 +105,7 @@ func rect_at(pos: Vector2) -> Rect2i:
 	return VL.GROUND_RECT if i == SG.VILLAGE else SG.node_rect(i)
 
 # Segment de Brume : sol et arbres des 3 nœuds (même shader que le village), Brasero = copie réduite de l'Âtre.
-func _setup_segment(world_seed: int, isolat: int, village_solid: Dictionary, shadow: Texture2D) -> void:
+func _setup_segment(world_seed: int, isolat: int, village_solid: Dictionary, shadow: Texture2D, player_ref: Callable) -> void:
 	var seg: Dictionary = _data["segment"]
 	var names: Array = _data["trees"]
 	for i in SG.NODE_FIRST_ROW.size():
@@ -119,7 +120,7 @@ func _setup_segment(world_seed: int, isolat: int, village_solid: Dictionary, sha
 	brazier.name = "Brasero"
 	_brazier_light = brazier.get_node("Lumiere")
 	_brazier_light.texture_scale = BRAZIER_LIGHT_SCALE
-	_segment.setup(world_seed, isolat, _player, village_solid, _tile_texture(seg["mob_sprite"]), _tile_texture(seg["mist_sprite"]), shadow, brazier,
+	_segment.setup(world_seed, isolat, _player, village_solid, _tile_texture(seg["mob_sprite"]), _tile_texture(seg["mist_sprite"]), shadow, player_ref, brazier,
 		_tile_texture(seg["elite_sprite"]))
 
 func refresh(village: Dictionary, now_utc: int) -> void:

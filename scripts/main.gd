@@ -6,6 +6,7 @@ const ClockS = preload("res://autoload/Clock.gd")
 const VL = preload("res://scripts/village/village_layout.gd")
 const BA = preload("res://balance/balance_a.gd")
 const CombatS = preload("res://scripts/combat/combat.gd")
+const ProgressionS = preload("res://scripts/progression.gd")
 
 @onready var _world: Node2D = $World # village.gd
 @onready var _camera: Camera2D = $Camera2D
@@ -16,19 +17,25 @@ const CombatS = preload("res://scripts/combat/combat.gd")
 
 var _folded: bool = true
 var _tween: Tween
+var _fallback_player: Dictionary = {} # boot en erreur : XP en mémoire seulement, rien n'est sauvegardé
 
 func _ready() -> void:
 	var now: int = ClockS.now_utc()
 	var r: Dictionary = SaveManager.start(now)
 	var capture: String = _debug_args()
 	if r.is_empty(): # state reste vide : plus aucune sauvegarde
-		_world.setup(0, {}, now)
+		_world.setup(0, {}, now, _player_state)
 		for layer in [_ui_folded, _ui_unfolded]: # ui_layer.gd
 			layer.show_error("Sauvegarde illisible. Rien n'a été écrit.")
 	else:
-		_world.setup(r["state"]["world_seed"], r["state"]["village"], now)
+		_world.setup(r["state"]["world_seed"], r["state"]["village"], now, _player_state)
 		_show(r)
 	var player: Node2D = _world.player() # player.gd
+	player.set_level(ProgressionS.combat_level(_player_state()))
+	_show_vocations()
+	var seg: Node2D = _world.segment() # segment.gd
+	seg.xp_changed.connect(_show_vocations)
+	seg.expedition_ended.connect(func(_reason: String) -> void: _sync())
 	_stick.direction_changed.connect(player.set_move_dir)
 	_stick.swiped.connect(player.dodge)
 	_stick.was_reset.connect(player.on_input_reset)
@@ -36,7 +43,8 @@ func _ready() -> void:
 	_ui_folded.get_node("Aptitudes").setup(player)
 	player.teleported.connect(func() -> void: _set_camera_limits(_world.rect_at(player.position)))
 	for layer in [_ui_folded, _ui_unfolded]: # ui_layer.gd
-		_world.segment().expedition_changed.connect(layer.show_expedition)
+		seg.expedition_changed.connect(layer.show_expedition)
+		seg.leveled.connect(layer.show_level_up)
 	_black.color = CombatS.EVAC_COLOR
 	_black.color.a = 0.0
 	_set_camera_limits(VL.GROUND_RECT)
@@ -111,6 +119,7 @@ func _show(r: Dictionary) -> void:
 	for layer in [_ui_folded, _ui_unfolded]: # ui_layer.gd
 		layer.show_gold(r["state"]["village"]["player_gold"])
 		layer.show_report(r)
+		layer.show_vocations(r["state"]["player"])
 	_world.refresh(r["state"]["village"], ClockS.now_utc())
 
 # Échelle d'interface choisie ici (FoldMode.ui_scale), zone = fenêtre / échelle : pas de bandes noires.
@@ -146,6 +155,22 @@ func _on_size_changed() -> void:
 	_tween = create_tween().set_parallel()
 	_tween.tween_property(_camera, "zoom", FoldModeS.zoom_for(_folded), FoldModeS.TWEEN_SEC)
 	_tween.tween_property(_camera, "position", camera_target(_folded, _world.player().position), FoldModeS.TWEEN_SEC)
+	_sync()
+
+# Pliage, dépliage et fin d'expédition (jalon 13) : même écriture.
+func _sync() -> void:
 	var r: Dictionary = SaveManager.sync(ClockS.now_utc())
 	if not r.is_empty():
 		_show(r)
+
+# Dictionnaire courant du joueur, relu à chaque appel : sync remplace SaveManager.state.
+func _player_state() -> Dictionary:
+	if not SaveManager.state.is_empty():
+		return SaveManager.state["player"]
+	if _fallback_player.is_empty():
+		_fallback_player = ProgressionS.new_player()
+	return _fallback_player
+
+func _show_vocations() -> void:
+	for layer in [_ui_folded, _ui_unfolded]: # ui_layer.gd
+		layer.show_vocations(_player_state())

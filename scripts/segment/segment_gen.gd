@@ -8,15 +8,15 @@ const BA = preload("res://balance/balance_a.gd")
 const VL = preload("res://scripts/village/village_layout.gd")
 const RngS = preload("res://autoload/Rng.gd")
 
-const NODE_SIZE: Vector2i = Vector2i(41, 96) # couvre la vue dépliée (38,5 x 51 tuiles). PROPOSÉ, à valider (jalon 11)
-const NODE_FIRST_ROW: Array[int] = [100, 200, 300] # technique : nœuds loin du village. PROPOSÉ, à valider (jalon 11)
-const CONTENT_ROWS: Vector2i = Vector2i(8, 87) # lignes locales du contenu, bornes incluses. PROPOSÉ, à valider (jalon 11)
-const CONTENT_X: Vector2i = Vector2i(4, 14) # |x| du contenu. PROPOSÉ, à valider (jalon 11)
-const BRAZIER_NODE: int = 1 # PROPOSÉ, à valider (jalon 11)
-const BRAZIER_RADIUS_CELLS: int = 3 # PROPOSÉ, à valider (jalon 11)
+const NODE_SIZE: Vector2i = Vector2i(41, 96) # couvre la vue dépliée (38,5 x 51 tuiles). validé sur Fold (jalon 11)
+const NODE_FIRST_ROW: Array[int] = [100, 200, 300] # technique : nœuds loin du village. validé sur Fold (jalon 11)
+const CONTENT_ROWS: Vector2i = Vector2i(8, 87) # lignes locales du contenu, bornes incluses. validé sur Fold (jalon 11)
+const CONTENT_X: Vector2i = Vector2i(4, 14) # |x| du contenu. validé sur Fold (jalon 11)
+const BRAZIER_NODE: int = 1 # validé sur Fold (jalon 11)
+const BRAZIER_RADIUS_CELLS: int = 3 # validé sur Fold (jalon 11)
 const NODE_TYPES: Array[int] = [BA.SegmentNodeType.NODE_OUTSKIRTS, BA.SegmentNodeType.NODE_BRAZIER_CROSSROADS, BA.SegmentNodeType.NODE_ELITE_LAIR]
 const VILLAGE: int = -1
-const ELITE_ROW: int = 91 # ligne locale de l'Élite, dans l'allée centrale déjà dégagée. PROPOSÉ, à valider (jalon 12)
+const ELITE_ROW: int = 91 # ligne locale de l'Élite, dans l'allée centrale déjà dégagée. validé sur Fold (jalon 12)
 
 static func node_rect(i: int) -> Rect2i:
 	return Rect2i(-NODE_SIZE.x / 2, NODE_FIRST_ROW[i], NODE_SIZE.x, NODE_SIZE.y)

@@ -22,6 +22,7 @@ const SegGenS = preload("res://scripts/segment/segment_gen.gd")
 const SegmentS = preload("res://scripts/segment/segment.gd")
 const ExpeditionS = preload("res://scripts/segment/expedition.gd")
 const MistS = preload("res://scripts/segment/mist_node.gd")
+const ProgressionS = preload("res://scripts/progression.gd")
 const LISIERE_SPAWNS_10: Array = [[0, 16], [0, 20], [0, 24]] # banc d'essai du jalon 10, retiré du village au jalon 11
 const FONT_PATH: String = "res://assets/fonts/silkscreen/Silkscreen-Regular.ttf"
 const OFL_PATH: String = "res://assets/fonts/silkscreen/OFL.txt"
@@ -265,6 +266,146 @@ func _jalon_9(vd: Dictionary, built: Dictionary, p: Dictionary) -> void:
 	_check("projet: emulate_touch_from_mouse true", ProjectSettings.get_setting("input_devices/pointing/emulate_touch_from_mouse") == true)
 
 # Jalon 10 : combat de la lisière. Jumeau Python : prep_jalon_10.py.
+# Jalon 13 : XP de vocation, niveaux, sauvegarde. Jumeau Python : prep_jalon_13.py.
+func _jalon_13(solid1: Dictionary) -> void:
+	var curve: Array = [1, 2, 3, 4, 5, 10, 50].map(func(l: int) -> int: return BA.get_cumulative_xp(l))
+	_check("xp: cumul Nv 1 / 2 / 3 / 4 / 5 / 10 / 50 == 0 / 200 / 530 / 1 020 / 1 700 / 9 000 / 715 400", curve == [0, 200, 530, 1020, 1700, 9000, 715400], str(curve))
+	var lv: Array = [0, 199, 200, 529, 530, 1019, 1020, 1699, 1700, 715399, 715400, 10000000].map(func(x: int) -> int: return ProgressionS.level_of(x))
+	_check("progression: level_of 0 … 10 000 000 == 1 1 2 2 3 3 4 4 5 49 50 50", lv == [1, 1, 2, 2, 3, 3, 4, 4, 5, 49, 50, 50], str(lv))
+	var stats: Array = []
+	var dmg: Array = []
+	for l in range(2, 6):
+		var st: Dictionary = CombatS.player_stats(l, 10)
+		stats.append([st["hp"], st["atk"], st["def"]])
+		if l <= 4:
+			dmg.append([CombatS.damage(st["atk"], 4, l, false), CombatS.damage(st["atk"], 4, l, false, BA.SKILL_1_DMG_MULT), CombatS.damage(st["atk"], 4, l, false, BA.SKILL_2_DMG_MULT)])
+	_check("combat: player_stats(2…5, 10) == 118/24/6, 136/27/8, 154/29/9, 172/32/11", stats == [[118, 24, 6], [136, 27, 8], [154, 29, 9], [172, 32, 11]], str(stats))
+	_check("combat: dégâts sur DEF 4 (auto / I / II) Nv 2 = 22/49/79, Nv 3 = 25/56/90, Nv 4 = 27/61/97", dmg == [[22, 49, 79], [25, 56, 90], [27, 61, 97]], str(dmg))
+	# X1 : 40 kills puis l'Élite
+	var p1: Dictionary = ProgressionS.new_player()
+	var ex: ExpeditionS = ExpeditionS.new(1, 0, func() -> Dictionary: return p1)
+	var ups: Array = []
+	var n: Array[int] = [0]
+	ex.leveled.connect(func(voc: String, level: int) -> void: ups.append([n[0], voc, level]))
+	for k in 40:
+		n[0] = k + 1
+		ex.on_kill(0)
+	n[0] = 41
+	ex.on_elite(0)
+	_check("X1: montées aux kills 7 (Nv 2), 18 (Nv 3), 34 (Nv 4), voc_xp 1 396 / 0 / 0, Nv 4, expedition.xp 1 396",
+		ups == [[7, "COMBATTANT", 2], [18, "COMBATTANT", 3], [34, "COMBATTANT", 4]] and p1["voc_xp"] == {"COMBATTANT": 1396, "MINEUR": 0, "FORGERON": 0}
+		and ProgressionS.combat_level(p1) == 4 and ex.xp == 1396, "%s %s %d" % [str(ups), str(p1), ex.xp])
+	# X2 : rattrapage
+	var p2: Dictionary = ProgressionS.new_player()
+	p2["voc_xp"]["COMBATTANT"] = 1700
+	var x2: Array = []
+	for k in 6:
+		var g: Dictionary = ProgressionS.gain(p2, "MINEUR", 63)
+		x2.append([g["gained"], p2["voc_xp"]["MINEUR"], g["level_after"]])
+	_check("X2: Combattant Nv 5, 6 gains Mineur de 63 -> 126 x5 puis 63, cumul 126 … 693, niveaux 1 2 2 2 3 3",
+		x2 == [[126, 126, 1], [126, 252, 2], [126, 378, 2], [126, 504, 2], [126, 630, 3], [63, 693, 3]], str(x2))
+	var cm: Array = [[5, 5], [4, 5], [2, 5], [49, 50], [50, 50]].map(func(c: Array) -> float: return BA.get_action_xp_catchup_mult(c[0], c[1]))
+	_check("X3: rattrapage (5,5) 1, (4,5) 1, (2,5) 2, (49,50) 2, (50,50) 1", cm == [1.0, 1.0, 2.0, 2.0, 1.0], str(cm))
+	# X4 : l'expédition de M1 (jalon 12)
+	var p4: Dictionary = ProgressionS.new_player()
+	ex = ExpeditionS.new(1, 0, func() -> Dictionary: return p4)
+	for k in 12:
+		ex.on_kill(0)
+	for k in 7:
+		ex.on_gather(0)
+	ex.on_elite(0)
+	var lv4: Array = ProgressionS.VOCATIONS.map(func(v: String) -> int: return ProgressionS.level_of(p4["voc_xp"][v]))
+	_check("X4: 12 kills, 7 nœuds, l'Élite -> Combattant 556 (Nv 3), Mineur 441 (Nv 2), Forgeron 0 (Nv 1)",
+		p4["voc_xp"] == {"COMBATTANT": 556, "MINEUR": 441, "FORGERON": 0} and lv4 == [3, 2, 1], "%s %s" % [str(p4), str(lv4)])
+	# Montée en combat
+	var pl: Node2D = load("res://scenes/player/player.tscn").instantiate()
+	root.add_child(pl)
+	pl.setup(Vector2(0, 216), null, null, solid1)
+	pl.hp = 73
+	pl.set_level(2)
+	_check("joueur: Nv 1 à 73 PV, set_level(2) -> 91 / 118 PV, ATK 24, DEF 6", pl.level == 2 and pl.hp == 91 and pl.max_hp == 118 and pl.atk == 24 and pl.def == 6,
+		"%d %d %d %d" % [pl.hp, pl.max_hp, pl.atk, pl.def])
+	pl.free()
+	# Sauvegarde
+	_clean_saves()
+	var ns: Dictionary = SaveS.new_state(7, D0, 0)
+	_check("save: new_state contient player == new_player()", ns.get("player") == ProgressionS.new_player())
+	ns["player"]["voc_xp"]["MINEUR"] = 441
+	var saved: Dictionary = SaveS.save(ns, D0, TEST_SAVE_DIR)
+	var back: Dictionary = SaveS.load_latest(TEST_SAVE_DIR)
+	_check("save: save puis load_latest rendent le même voc_xp, export/import Base64 aussi",
+		not saved.is_empty() and back["player"] == ns["player"] and SaveS.import_base64(SaveS.export_base64(back))["player"] == ns["player"])
+	var old: Dictionary = back.duplicate(true)
+	old.erase("player")
+	var old_back: Dictionary = SaveS.unpack(SaveS.pack(old))
+	_check("save: état sans player (jalon 12) valide, revient avec new_player(), village intact",
+		not old_back.is_empty() and old_back["player"] == ProgressionS.new_player() and old_back["village"] == old["village"])
+	var bad: Array = []
+	var mutations: Array[Callable] = [func(d: Dictionary) -> void: d["voc_xp"].erase("FORGERON"), func(d: Dictionary) -> void: d["voc_xp"]["MINEUR"] = -1,
+		func(d: Dictionary) -> void: d["voc_xp"]["MINEUR"] = 1.5, func(d: Dictionary) -> void: d.erase("voc_xp")]
+	for mutate: Callable in mutations:
+		var b: Dictionary = back.duplicate(true)
+		mutate.call(b["player"])
+		bad.append(SaveS.unpack(SaveS.pack(b)).is_empty())
+	_check("save: vocation manquante, négative, non entière, voc_xp absent -> refusé", bad == [true, true, true, true], str(bad))
+	# SaveManager : gain, sync, gain relu via le Callable, sync
+	_clean_saves()
+	var sm: Node = SaveS.new()
+	sm.state = SaveS.save(SaveS.new_state(7, D0, 0), D0, TEST_SAVE_DIR)
+	var main_ref: Callable = func() -> Dictionary: return sm.state["player"] # même lecture que main.gd._player_state
+	ProgressionS.gain(sm.state["player"], "COMBATTANT", 30)
+	sm.sync(D0 + 60, TEST_SAVE_DIR)
+	ProgressionS.gain(main_ref.call(), "COMBATTANT", 30)
+	sm.sync(D0 + 120, TEST_SAVE_DIR)
+	var reloaded: int = SaveS.load_latest(TEST_SAVE_DIR)["player"]["voc_xp"]["COMBATTANT"]
+	_check("SaveManager: gain, sync, gain via le Callable, sync -> load_latest Combattant 60", reloaded == 60, str(reloaded))
+	sm.free()
+	_clean_saves()
+	# Référence périmée
+	var cur: Array = [ProgressionS.new_player()]
+	var a_dict: Dictionary = cur[0]
+	ex = ExpeditionS.new(1, 0, func() -> Dictionary: return cur[0])
+	ex.on_kill(0)
+	cur[0] = a_dict.duplicate(true)
+	ex.on_kill(0)
+	_check("référence: après une copie profonde (sync), le 2e kill va dans B (60), A reste à 30",
+		cur[0]["voc_xp"]["COMBATTANT"] == 60 and a_dict["voc_xp"]["COMBATTANT"] == 30, "%d %d" % [cur[0]["voc_xp"]["COMBATTANT"], a_dict["voc_xp"]["COMBATTANT"]])
+	# Segment : kill de normal, kill de l'Élite, mort du joueur
+	var ps: Dictionary = ProgressionS.new_player()
+	var ctx: Array = _seg_ctx(solid1, Vector2(0, 6240), func() -> Dictionary: return ps)
+	var sp: Node2D = ctx[0]
+	var seg: Node2D = ctx[1]
+	var ends: Array = []
+	seg.expedition_ended.connect(func(r: String) -> void: ends.append(r))
+	for f in 5:
+		_seg_frame(sp, seg)
+	var node2: Node2D = seg.nodes()[2]
+	var victim: Node2D = node2.mobs()[0]
+	while victim.alive:
+		node2._strike(victim)
+	var after_kill: int = ps["voc_xp"]["COMBATTANT"]
+	seg.expedition.cendre = 78
+	victim = node2.mobs()[1]
+	while victim.alive:
+		node2._strike(victim)
+	var before_elite: int = ps["voc_xp"]["COMBATTANT"]
+	var el: Node2D = node2.elite()
+	while el.alive:
+		node2._strike(el)
+	var elite_gain: int = ps["voc_xp"]["COMBATTANT"] - before_elite
+	sp.hp = 5
+	sp.take_hit(9)
+	for f in 90:
+		_seg_frame(sp, seg)
+	_check("segment: kill de normal +30, kill de l'Élite +196, après la mort du joueur l'XP reste (256), fin « mort » émise",
+		after_kill == 30 and elite_gain == 196 and ps["voc_xp"]["COMBATTANT"] == 256 and ends == ["mort"], "%d %d %d %s" % [after_kill, elite_gain, ps["voc_xp"]["COMBATTANT"], str(ends)])
+	_seg_free(ctx)
+
+# Joueur neuf local, relu par l'Expedition comme le fait main.gd avec SaveManager.state.
+func _fresh_ref() -> Callable:
+	var p: Dictionary = ProgressionS.new_player()
+	return func() -> Dictionary: return p
+
 func _approx(a: float, b: float, eps: float) -> bool:
 	return absf(a - b) <= eps
 
@@ -600,7 +741,7 @@ func _jalon_11(vd: Dictionary, solid1: Dictionary) -> void:
 		draws.append(rng0.next_float())
 		draws_ok = draws_ok and _approx(draws[k], want[k], 1e-6)
 	_check("expédition: 12 premiers tirages de loot/eclats/0, 1er de loot/eclats/1 == 0,177019", draws_ok and _approx(RngS.make_rng(1, "loot/eclats/1").next_float(), 0.177019, 1e-6), str(draws))
-	var ex: ExpeditionS = ExpeditionS.new(1, 0)
+	var ex: ExpeditionS = ExpeditionS.new(1, 0, _fresh_ref())
 	var n_kills: int = 0
 	var mist_closed_at: int = -1
 	while ex.normals_open():
@@ -610,7 +751,7 @@ func _jalon_11(vd: Dictionary, solid1: Dictionary) -> void:
 			mist_closed_at = n_kills
 	_check("expédition: kills seuls -> 40, Cendre 80, 0 Éclat, XP 1 200, nœuds fermés au 37e kill (Cendre 74)",
 		n_kills == 40 and ex.cendre == 80 and ex.shards == 0 and ex.xp == 1200 and mist_closed_at == 37, "%d %d %d %d %d" % [n_kills, ex.cendre, ex.shards, ex.xp, mist_closed_at])
-	ex = ExpeditionS.new(1, 0)
+	ex = ExpeditionS.new(1, 0, _fresh_ref())
 	for k in 8:
 		ex.on_gather(0)
 	var after8: Array = [ex.cendre, ex.shards, ex.mist_open()]
@@ -618,7 +759,7 @@ func _jalon_11(vd: Dictionary, solid1: Dictionary) -> void:
 		ex.on_kill(0)
 	_check("expédition: 8 nœuds -> Cendre 64, 2 Éclats, nœuds ouverts ; + 8 kills -> Cendre 80, 2 Éclats, XP 744",
 		after8 == [64, 2, true] and ex.cendre == 80 and ex.shards == 2 and ex.xp == 744 and not ex.normals_open(), "%s %d %d %d" % [str(after8), ex.cendre, ex.shards, ex.xp])
-	ex = ExpeditionS.new(1, 0)
+	ex = ExpeditionS.new(1, 0, _fresh_ref())
 	for k in 10:
 		ex.on_gather(0)
 	_check("expédition: 10 nœuds -> Cendre 80, normaux fermés", ex.cendre == 80 and not ex.normals_open())
@@ -722,6 +863,7 @@ func _jalon_11(vd: Dictionary, solid1: Dictionary) -> void:
 	pb.free()
 	_jalon_12(vd, solid1)
 	_jalon_12b(solid1)
+	_jalon_13(solid1)
 	# Scènes et données
 	var vil: Node = load("res://scenes/village/village.tscn").instantiate()
 	var sg: Node2D = vil.get_node_or_null("Entites/Segment")
@@ -762,7 +904,7 @@ func _jalon_12(vd: Dictionary, solid1: Dictionary) -> void:
 	pd.take_hit(9)
 	_check("aptitude: armée puis oubliée à la mort", armed and not pd.skill_queued(0) and pd.take_ready_skill() == -1)
 	pd.free()
-	var ex: ExpeditionS = ExpeditionS.new(1, 0)
+	var ex: ExpeditionS = ExpeditionS.new(1, 0, _fresh_ref())
 	for k in 40:
 		ex.on_kill(0)
 	ex.on_elite(0)
@@ -1001,13 +1143,13 @@ func _gather_alone(pos: Vector2, frames: int) -> Array:
 	return [at, count[0]]
 
 # Joueur et Segment (graine 1, isolat 0), sans textures.
-func _seg_ctx(village_solid: Dictionary, pos: Vector2) -> Array:
+func _seg_ctx(village_solid: Dictionary, pos: Vector2, player_ref: Callable = Callable()) -> Array:
 	var pl: Node2D = load("res://scenes/player/player.tscn").instantiate()
 	root.add_child(pl)
 	pl.setup(pos, null, null, village_solid)
 	var seg: Node2D = SegmentS.new()
 	root.add_child(seg)
-	seg.setup(1, 0, pl, village_solid, null, null, null)
+	seg.setup(1, 0, pl, village_solid, null, null, null, player_ref if player_ref.is_valid() else _fresh_ref())
 	return [pl, seg]
 
 # Une image : Joueur, puis Segment, puis le nœud actif.
@@ -1650,7 +1792,7 @@ func _initialize() -> void:
 	_check("R9: tresorerie Forge 202 / 254 / 306 / 358 / 410 / 464 / 516", tr9 == _bonds([202, 254, 306, 358, 410, 464, 516]), str(tr9))
 	# Jalon 3 : SaveManager
 	_clean_saves()
-	var S: Dictionary = {"format": 1, "seq": 1, "world_seed": RngS.fnv1a64("archipel"), "village": _village(t10)}
+	var S: Dictionary = {"format": 1, "seq": 1, "world_seed": RngS.fnv1a64("archipel"), "village": _village(t10), "player": ProgressionS.new_player()} # player : jalon 13
 	var rt: Dictionary = SaveS.unpack(SaveS.pack(S))
 	_check("save: unpack(pack(S)) == S", rt == S)
 	_check("save: types conserves (tool_durability float, player_gold int)", typeof(rt["village"]["npcs"][0]["tool_durability"]) == TYPE_FLOAT and typeof(rt["village"]["player_gold"]) == TYPE_INT)

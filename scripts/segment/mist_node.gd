@@ -7,11 +7,11 @@ const VL = preload("res://scripts/village/village_layout.gd")
 
 enum State { AVAILABLE, GATHERED, VITRIFIED }
 
-const GATHER_SEC: float = 1.5 # PROPOSÉ, à valider (jalon 11)
-const GATHER_RANGE_PX: float = 24.0 # centre à centre ; joueur collé à la cellule = 12 à 16 px. PROPOSÉ, à valider (jalon 11)
-const GATHERED_ALPHA: float = 0.35 # PROPOSÉ, à valider (jalon 11)
-const VITRIFIED_MODULATE: Color = Color(0.5, 0.5, 0.55) # PROPOSÉ, à valider (jalon 11)
-const BAR_GATHER: Color = Color(0.55, 0.75, 0.95) # PROPOSÉ, à valider (jalon 11)
+const GATHER_SEC: float = 1.5 # validé sur Fold (jalon 11)
+const GATHER_RANGE_PX: float = 24.0 # centre à centre ; joueur collé à la cellule = 12 à 16 px. validé sur Fold (jalon 11)
+const GATHERED_ALPHA: float = 0.35 # validé sur Fold (jalon 11)
+const VITRIFIED_MODULATE: Color = Color(0.5, 0.5, 0.55) # validé sur Fold (jalon 11)
+const BAR_GATHER: Color = Color(0.55, 0.75, 0.95) # validé sur Fold (jalon 11)
 
 var index: int = 0
 var cell: Vector2i

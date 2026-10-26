@@ -9,13 +9,13 @@ const BC = preload("res://balance/balance_c.gd")
 const VL = preload("res://scripts/village/village_layout.gd")
 const SegmentGenS = preload("res://scripts/segment/segment_gen.gd")
 
-# Arme de départ : Épée & Écu, Commun, ilvl 1, 3 pièces Enclume (Foyer), sans affixe. PROPOSÉ, à valider (jalon 10)
+# Arme de départ : Épée & Écu, Commun, ilvl 1, 3 pièces Enclume (Foyer), sans affixe. validé sur Fold (jalon 10)
 const START_WEAPON_TYPE: int = BC.WeaponType.SWORD_SHIELD
 const START_WEAPON_RARITY: int = 0
 const START_WEAPON_ILVL: int = 1
 const START_WEAPON_SCHOOLS: Array[int] = [BC.SchoolId.FOYER, BC.SchoolId.FOYER, BC.SchoolId.FOYER]
 
-# Rendu, techniques. PROPOSÉ, à valider (jalon 10)
+# Rendu, techniques. validé sur Fold (jalon 10)
 const BAR_SIZE: Vector2i = Vector2i(12, 2)
 const BAR_Y: int = -19
 const BAR_BG: Color = Color(0, 0, 0, 0.6)
