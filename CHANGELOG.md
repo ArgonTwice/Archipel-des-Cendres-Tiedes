@@ -32,3 +32,5 @@ Format : `AAAA-MM-JJ — type: description`. Une ligne par changement validé.
 - 2026-10-24 — chore: APK debug 0.12.0 (code 9) testé sur Z Fold 8
 - 2026-10-26 — feat: Fauchage de Braise de l'Élite (jalon 12 bis)
 - 2026-10-26 — chore: APK debug 0.12.1 (code 10) testé sur Z Fold 8
+- 2026-10-26 — assets: icône du projet (jalon 12 ter)
+- 2026-10-26 — chore: APK debug 0.12.2 (code 11) testé sur Z Fold 8

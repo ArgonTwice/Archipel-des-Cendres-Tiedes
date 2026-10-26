@@ -2117,6 +2117,17 @@ func _initialize() -> void:
 		_check("npc: bob_offset(%.2f, marche) == %d" % [c[0], c[1]], NpcS.bob_offset(c[0], true) == c[1], str(NpcS.bob_offset(c[0], true)))
 	_jalon_9(vd8, built8, p8)
 	_jalon_10(vd8, built8, p8)
+	# Jalon 12 ter : icône du projet
+	var icons: Dictionary = {"icon": 192, "icon_foreground": 432, "icon_background": 432}
+	var imgs: Dictionary = {}
+	for k: String in icons:
+		var tex: Texture2D = load("res://assets/icon/%s.png" % k)
+		imgs[k] = tex.get_image() if tex != null else null
+		_check("icône: %s.png se charge, %d × %d" % [k, icons[k], icons[k]], imgs[k] != null and imgs[k].get_size() == Vector2i(icons[k], icons[k]))
+	_check("icône: application/config/icon == res://assets/icon/icon.png", ProjectSettings.get_setting("application/config/icon") == "res://assets/icon/icon.png")
+	_check("icône: icon.png (0, 0) == Color8(34, 30, 30), icon_foreground.png (0, 0) transparent",
+		imgs["icon"] != null and imgs["icon"].get_pixel(0, 0).to_rgba32() == Color8(34, 30, 30).to_rgba32()
+		and imgs["icon_foreground"] != null and imgs["icon_foreground"].get_pixel(0, 0).a == 0.0)
 	# Garde-fou
 	var ba_script: Script = load("res://balance/balance_a.gd") # BA.get_script_constant_map() est refusé par le parseur (appel non statique sur une classe)
 	_check("garde-fou: BalanceA sans WEAPON_SAME_SCHOOL_3PIECE_AFFINITY_BONUS", not ba_script.get_script_constant_map().has("WEAPON_SAME_SCHOOL_3PIECE_AFFINITY_BONUS"))

@@ -298,3 +298,12 @@ Export debug le 26/10 : `aapt2` donne versionCode 10, versionName 0.12.1 ; SHA-2
 | N1 expédition jusqu'à l'Élite | OK | 26/10, plié, logcat build/captures/jalon12b-N-logcat.txt. `debut` 18:59:11 ; Carrefour 19:00:05 ; `vitrification` 19:00:38 (78) ; `saturation` et `eveil_elite` 19:00:43 ; Antre 19:00:53 ; poursuite de l'Élite 19:01:15 ; `mort_joueur` 19:01:34 : expédition de 2 min 23 s, combat de 18,2 s. Bilan `fin` « mort » : 8 kills, 8 nœuds, Cendre 80, 0 Éclat, XP 744. Élite : 8 coups reçus (14 chacun, 100 → mort), 11 impacts ratés, tous à pied (aucun pendant l'esquive : 1 esquive dans le combat, 1 refusée), Élite à 465 / 712 PV ; 2 aptitudes (72 et 45), 6 autos dont 1 critique ; 1 mort. 0 ERROR et 0 SCRIPT ERROR. Jalon 12 (M1) pour comparaison : Élite tué en 28 s, 0 mort |
 | N2 lisibilité du disque en plié | OK | Antho : « oui bien lisible » |
 | N3 ressenti | noté tel quel | « Oh oui, comme un dark soul lol » |
+
+## Jalon 12 ter (APK 0.12.2, code 11) : icône du projet
+
+Export debug le 26/10 : plus aucune ERROR (l'erreur « No project icon specified » a disparu) ; reste l'avertissement `aapt2` sur `mipmap/themed_icon` (référence du modèle Godot vers un fichier absent, indépendante de l'icône : icon.xml déclare bien background, foreground et monochrome). `aapt2` : versionCode 11, versionName 0.12.2, application-icon = res/mipmap-anydpi-v26/icon.xml ; SHA-256 fc3bf1df00f6a8c6a86f34cc82523dbf63cb08173665cabd15695b1c57b78634. Avant-plan à l'échelle 7 (224 × 112, diagonale 250 px, dans la zone sûre de 264 px = 66/108 × 432) ; monochrome = icon_foreground.png. Aperçus tirés de l'APK (mipmap-xxxhdpi) : build/captures/jalon12ter-icone-192.png, jalon12ter-icone-adaptative.png (masque rond de 264 px, rien n'est rogné).
+
+| Test | Résultat | Preuve |
+|---|---|---|
+| Icône sur l'écran d'accueil, plié | OK | APK installé (adb install -r OK, versionCode 11) ; Antho : « Icône OK plié et déplié » |
+| Icône sur l'écran d'accueil, déplié | OK | idem |
