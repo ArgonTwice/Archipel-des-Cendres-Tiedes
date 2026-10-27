@@ -406,9 +406,9 @@ func _jalon_13(solid1: Dictionary) -> void:
 
 # Jalon 14 : Lanterne niveau 1, Cendre Vive et Éclats sauvegardés, gardés à la mort.
 func _jalon_14(solid1: Dictionary) -> void:
-	_check("lanterne: new_player() == voc_xp à 0, cendre 0, shards 0",
-		ProgressionS.new_player() == {"voc_xp": {"COMBATTANT": 0, "MINEUR": 0, "FORGERON": 0}, "cendre": 0, "shards": 0,
-		"equipment": EquipmentS.new_equipment(), "shards_elite": 0, "purify_n": 0}) # clés du jalon 15
+	_check("lanterne: new_player() == voc_xp à 0, cendre 0, Sacoche vide",
+		ProgressionS.new_player() == {"voc_xp": {"COMBATTANT": 0, "MINEUR": 0, "FORGERON": 0}, "cendre": 0, "shard_bag": [],
+		"equipment": EquipmentS.new_equipment(), "purify_n": 0, "elite_kills": 0}) # clés des jalons 15 et 15 bis
 	# 40 kills puis l'Élite, joueur neuf
 	var pa: Dictionary = ProgressionS.new_player()
 	var ex: ExpeditionS = ExpeditionS.new(1, 0, func() -> Dictionary: return pa)
@@ -416,7 +416,7 @@ func _jalon_14(solid1: Dictionary) -> void:
 		ex.on_kill(0)
 	ex.on_elite(0)
 	_check("lanterne: 40 kills puis l'Élite -> Cendre 100, Éclats 1 (= expedition.shards), Combattant 1 396",
-		pa["cendre"] == 100 and pa["shards"] + pa["shards_elite"] == 1 and ex.shards == 1 and pa["voc_xp"]["COMBATTANT"] == 1396, "%s %d" % [str(pa), ex.shards])
+		pa["cendre"] == 100 and pa["shard_bag"].size() == 1 and ex.shards == 1 and pa["voc_xp"]["COMBATTANT"] == 1396, "%s %d" % [str(pa), ex.shards])
 	# Lanterne à 140 : plafond 150, surplus perdu
 	var pb: Dictionary = ProgressionS.new_player()
 	pb["cendre"] = 140
@@ -435,7 +435,7 @@ func _jalon_14(solid1: Dictionary) -> void:
 		"%d %d %d %d %d %d" % [full_at, after_kills, lost_kills, pb["cendre"], lost_elite, ex.cendre])
 	# Sacoche pleine : même tirage qu'une Sacoche vide
 	var pc: Dictionary = ProgressionS.new_player()
-	pc["shards"] = 6
+	pc["shard_bag"] = _bag(6, 0)
 	ex = ExpeditionS.new(1, 0, func() -> Dictionary: return pc)
 	for k in 40:
 		ex.on_kill(0)
@@ -448,22 +448,22 @@ func _jalon_14(solid1: Dictionary) -> void:
 		drops.append(ex_empty.on_kill(0))
 	drops.append(ex_empty.on_elite(0))
 	_check("lanterne: Sacoche à 6 -> 6, expedition.shards 0, « sacoche_pleine » une fois (l'Élite) ; Sacoche vide : 1 Éclat au même tirage (l'Élite)",
-		pc["shards"] == 6 and ex.shards == 0 and refused_kills == 0 and ex.shards_refused == 1 and drops.count(true) == 1 and drops[40] == true and pe["shards"] + pe["shards_elite"] == 1,
-		"%d %d %d %d %s" % [pc["shards"], ex.shards, refused_kills, ex.shards_refused, str(drops.count(true))])
+		pc["shard_bag"].size() == 6 and ex.shards == 0 and refused_kills == 0 and ex.shards_refused == 1 and drops.count(true) == 1 and drops[40] == true and pe["shard_bag"].size() == 1,
+		"%d %d %d %d %s" % [pc["shard_bag"].size(), ex.shards, refused_kills, ex.shards_refused, str(drops.count(true))])
 	# Sauvegarde
 	_clean_saves()
 	var ns: Dictionary = SaveS.new_state(7, D0, 0)
 	ns["player"]["cendre"] = 100
-	ns["player"]["shards"] = 3
+	ns["player"]["shard_bag"] = _bag(3, 0)
 	SaveS.save(ns, D0, TEST_SAVE_DIR)
 	var back: Dictionary = SaveS.load_latest(TEST_SAVE_DIR)
-	_check("save: save puis load_latest rendent cendre 100 et shards 3", back["player"]["cendre"] == 100 and back["player"]["shards"] == 3, str(back["player"]))
+	_check("save: save puis load_latest rendent cendre 100 et 3 Éclats", back["player"]["cendre"] == 100 and back["player"]["shard_bag"] == _bag(3, 0), str(back["player"]))
 	var old: Dictionary = back.duplicate(true)
 	old["player"].erase("cendre")
-	old["player"].erase("shards")
+	old["player"].erase("shard_bag")
 	var old_back: Dictionary = SaveS.unpack(SaveS.pack(old))
-	_check("save: player sans cendre ni shards (jalon 13) valide, revient avec 0 et 0, voc_xp intact",
-		not old_back.is_empty() and old_back["player"]["cendre"] == 0 and old_back["player"]["shards"] == 0 and old_back["player"]["voc_xp"] == back["player"]["voc_xp"])
+	_check("save: player sans cendre ni Éclats (jalon 13) valide, revient avec 0 et Sacoche vide, voc_xp intact",
+		not old_back.is_empty() and old_back["player"]["cendre"] == 0 and old_back["player"]["shard_bag"] == [] and old_back["player"]["voc_xp"] == back["player"]["voc_xp"])
 	var bad: Array = []
 	for c: Array in [["cendre", 151], ["shards", 7], ["cendre", -1], ["shards", -1], ["cendre", 1.5], ["shards", 2.0]]:
 		var b: Dictionary = back.duplicate(true)
@@ -483,13 +483,13 @@ func _jalon_14(solid1: Dictionary) -> void:
 	while victim.alive:
 		node2._strike(victim)
 	var after_kill: int = ps["cendre"]
-	ps["shards"] = 2
+	ps["shard_bag"] = _bag(2, 0)
 	sp.hp = 5
 	sp.take_hit(9)
 	for f in 90:
 		_seg_frame(sp, seg)
 	_check("segment: un kill ajoute 2 à la Lanterne ; après la mort du joueur, Cendre 2 et Éclats 2 gardés, expédition finie",
-		after_kill == 2 and ps["cendre"] == 2 and ps["shards"] == 2 and seg.expedition == null and seg.last_end == "mort", "%d %s %s" % [after_kill, str(ps), seg.last_end])
+		after_kill == 2 and ps["cendre"] == 2 and ps["shard_bag"].size() == 2 and seg.expedition == null and seg.last_end == "mort", "%d %s %s" % [after_kill, str(ps), seg.last_end])
 	_seg_free(ctx)
 
 # Jalon 15 : purification des Éclats et équipement porté (Volet F). Références : jumeau Python d'Antho.
@@ -580,22 +580,21 @@ func _jalon_15(solid1: Dictionary) -> void:
 		"%s %s %.4f %d" % [str(slots), str(rar), fr.call(full, weapons), common_pct])
 	# Purification
 	var pp: Dictionary = ProgressionS.new_player()
-	pp["shards"] = 2
-	pp["shards_elite"] = 1
-	var v1: Dictionary = PurifS.preview(1, pp, 0)
-	var v1b: Dictionary = PurifS.preview(1, pp, 0)
-	var unchanged: bool = pp["purify_n"] == 0 and pp["shards"] == 2 and pp["shards_elite"] == 1
+	pp["shard_bag"] = _bag(2, 1)
+	var v1: Dictionary = PurifS.preview(1, pp)
+	var v1b: Dictionary = PurifS.preview(1, pp)
+	var unchanged: bool = pp["purify_n"] == 0 and pp["shard_bag"] == _bag(2, 1)
 	var log1: Dictionary = PurifS.commit(pp, v1, true, "VILLAGE")
-	var v2: Dictionary = PurifS.preview(1, pp, 0)
+	var v2: Dictionary = PurifS.preview(1, pp)
 	var eq_before: Array = pp["equipment"].duplicate(true)
 	var log2: Dictionary = PurifS.commit(pp, v2, false, "VILLAGE")
 	_check("purification: 1re = Éclat d'Élite (T2 n°0, équipée), 2e = normal n = 1 (T1 n°1, jetée) ; l'aperçu répété ne change rien",
 		v1 == v1b and unchanged and log1["source"] == "ELITE" and _piece_is(v1, t2_want[0]) and pp["equipment"][0] == v1 and log2["source"] == "NORMAL"
 		and log2["n"] == 1 and _piece_is(v2, t1_want[1]), "%s %s" % [str(log1), str(log2)])
-	_check("purification: « Jeter » consomme l'Éclat sans toucher l'équipement", pp["equipment"] == eq_before and pp["shards"] == 1 and pp["shards_elite"] == 0 and pp["purify_n"] == 2)
+	_check("purification: « Jeter » consomme l'Éclat sans toucher l'équipement", pp["equipment"] == eq_before and pp["shard_bag"] == _bag(1, 0) and pp["purify_n"] == 2)
 	# Brasero : 2 par expédition, village sans limite
 	var pb: Dictionary = ProgressionS.new_player()
-	pb["shards"] = 4
+	pb["shard_bag"] = _bag(4, 0)
 	var ctx: Array = _seg_ctx(solid1, Vector2(0, 3984), func() -> Dictionary: return pb)
 	var bp: Node2D = ctx[0]
 	var seg: Node2D = ctx[1]
@@ -607,36 +606,35 @@ func _jalon_15(solid1: Dictionary) -> void:
 		places.append(place)
 		if place != "":
 			seg.on_purified(place)
-			PurifS.commit(pb, PurifS.preview(1, pb, 0), false, place)
+			PurifS.commit(pb, PurifS.preview(1, pb), false, place)
 	var village_place: String = seg.purify_place(Vector2(0, 32))
 	_check("purification: au Brasero, 2 passent et la 3e est refusée ; au village, acceptée", places == ["BRASERO", "BRASERO", ""] and village_place == "VILLAGE"
-		and pb["shards"] == 2, "%s %s %d" % [str(places), village_place, pb["shards"]])
+		and pb["shard_bag"].size() == 2, "%s %s %d" % [str(places), village_place, pb["shard_bag"].size()])
 	_seg_free(ctx)
 	# Sauvegarde
 	_clean_saves()
 	var ns: Dictionary = SaveS.new_state(7, D0, 0)
 	ns["player"]["equipment"][1] = EquipmentS.roll(1, 3, false, 1)
 	ns["player"]["equipment"][0] = EquipmentS.roll(1, 1, false, 1)
-	ns["player"]["shards_elite"] = 2
-	ns["player"]["shards"] = 3
+	ns["player"]["shard_bag"] = _bag(3, 2)
 	ns["player"]["purify_n"] = 9
 	SaveS.save(ns, D0, TEST_SAVE_DIR)
 	var back: Dictionary = SaveS.load_latest(TEST_SAVE_DIR)
-	_check("save: equipment, shards_elite, purify_n rendus ; stats recalculées identiques (Array non typé de bytes_to_var)",
-		back["player"]["equipment"] == ns["player"]["equipment"] and back["player"]["shards_elite"] == 2 and back["player"]["purify_n"] == 9
+	_check("save: equipment, Sacoche (2 d'Élite), purify_n rendus ; stats recalculées identiques (Array non typé de bytes_to_var)",
+		back["player"]["equipment"] == ns["player"]["equipment"] and back["player"]["shard_bag"] == _bag(3, 2) and back["player"]["purify_n"] == 9
 		and EquipmentS.player_stats(3, back["player"]["equipment"]) == EquipmentS.player_stats(3, ns["player"]["equipment"]),
 		"%s" % str(EquipmentS.player_stats(3, back["player"]["equipment"])))
 	var old: Dictionary = back.duplicate(true)
-	for k: String in ["equipment", "shards_elite", "purify_n"]:
+	for k: String in ["equipment", "shard_bag", "purify_n", "elite_kills"]:
 		old["player"].erase(k)
 	old["player"]["shards"] = 6
 	var old_back: Dictionary = SaveS.unpack(SaveS.pack(old))
-	_check("save: player du jalon 14 -> arme de départ, shards_elite 0, purify_n 0, ses 6 Éclats en normaux",
-		not old_back.is_empty() and old_back["player"]["equipment"] == EquipmentS.new_equipment() and old_back["player"]["shards_elite"] == 0
-		and old_back["player"]["purify_n"] == 0 and old_back["player"]["shards"] == 6)
+	_check("save: player du jalon 14 -> arme de départ, aucun Éclat d'Élite, purify_n 0, ses 6 Éclats en normaux",
+		not old_back.is_empty() and old_back["player"]["equipment"] == EquipmentS.new_equipment() and old_back["player"]["shard_bag"] == _bag(6, 0)
+		and old_back["player"]["purify_n"] == 0 and not old_back["player"].has("shards"))
 	var bad: Array = []
 	var muts: Array[Callable] = [
-		func(p: Dictionary) -> void: p.merge({"shards": 5, "shards_elite": 2}, true),
+		func(p: Dictionary) -> void: p["shard_bag"] = _bag(5, 2),
 		func(p: Dictionary) -> void: p["equipment"][1]["rarity"] = 3,
 		func(p: Dictionary) -> void: p["equipment"][1]["ilvl"] = 13,
 		func(p: Dictionary) -> void: p["equipment"][1]["affixes"][0]["id"] = "MOVE_SPEED",
@@ -650,8 +648,7 @@ func _jalon_15(solid1: Dictionary) -> void:
 	_clean_saves()
 	# Expedition : Sacoche pleine sur la somme des deux compteurs
 	var pf: Dictionary = ProgressionS.new_player()
-	pf["shards"] = 4
-	pf["shards_elite"] = 2
+	pf["shard_bag"] = _bag(4, 2)
 	var exf: ExpeditionS = ExpeditionS.new(1, 0, func() -> Dictionary: return pf)
 	for k in 40:
 		exf.on_kill(0)
@@ -661,8 +658,131 @@ func _jalon_15(solid1: Dictionary) -> void:
 	for k in 40:
 		exg.on_kill(0)
 	var elite_drop_empty: bool = exg.on_elite(0)
-	_check("expédition: Sacoche 4 + 2 pleine -> Éclat de l'Élite refusé (« sacoche_pleine »), même flux : Sacoche vide -> shards_elite 1",
-		not elite_drop and exf.shards_refused == 1 and pf["shards"] == 4 and pf["shards_elite"] == 2 and elite_drop_empty and pg["shards_elite"] == 1 and pg["shards"] == 0)
+	_check("expédition: Sacoche 4 + 2 pleine -> Éclat de l'Élite refusé (« sacoche_pleine »), même flux : Sacoche vide -> 1 Éclat d'Élite",
+		not elite_drop and exf.shards_refused == 1 and pf["shard_bag"] == _bag(4, 2) and elite_drop_empty and pg["shard_bag"] == _bag(0, 1))
+
+# Jalon 15 bis : niveau des monstres dans l'isolat (n°37) et Éclats à ilvl. Références : Argon et Antho.
+func _jalon_15b(solid1: Dictionary) -> void:
+	var g1_in: Array = [[1, 0], [3, 0], [4, 0], [2, 1], [1, 5], [6, 1], [12, 3]]
+	var g1: Array = []
+	for c: Array in g1_in:
+		g1.append(BA.get_segment_mob_level(0, c[0], c[1]))
+	_check("G1: get_segment_mob_level(0, L, kills) (1,0) 1, (3,0) 1, (4,0) 4, (2,1) 2, (1,5) 1, (6,1) 6, (12,3) 10", g1 == [1, 1, 4, 2, 1, 6, 10], str(g1))
+	var el6: Dictionary = CombatS.mob_stats(6, 0, "ELITE")
+	var no6: Dictionary = CombatS.mob_stats(6, 0, "NORMAL")
+	_check("G2: mob_stats(6, 0) Élite 1800 / 33 / 10, normal 240 / 21 / 10", el6 == {"hp": 1800, "atk": 33, "def": 10} and no6 == {"hp": 240, "atk": 21, "def": 10},
+		"%s %s" % [str(el6), str(no6)])
+	var g2: Array = [CombatS.damage(53, el6["def"], 6, false), CombatS.damage(53, el6["def"], 6, false, BA.SKILL_1_DMG_MULT),
+		CombatS.damage(53, el6["def"], 6, false, BA.SKILL_2_DMG_MULT), CombatS.damage(el6["atk"], 15, 6, false)]
+	_check("G2: joueur 213 / 53 / 15 Nv 6 contre l'Élite Nv 6 -> 48, 106, 170 ; l'Élite lui fait 29", g2 == [48, 106, 170, 29], str(g2))
+	# G3 : Combattant 6, 1 Élite tué
+	var ps: Dictionary = ProgressionS.new_player()
+	ps["voc_xp"]["COMBATTANT"] = BA.get_cumulative_xp(7) - 1
+	ps["elite_kills"] = 1
+	var ctx: Array = _seg_ctx(solid1, Vector2(0, 6240), func() -> Dictionary: return ps)
+	var sp: Node2D = ctx[0]
+	var seg: Node2D = ctx[1]
+	sp.set_level(6)
+	_seg_frame(sp, seg)
+	var node2: Node2D = seg.nodes()[2]
+	var lv_start: Array = [seg.expedition.mob_level]
+	for n: Node2D in seg.nodes():
+		lv_start.append(n.mob_level())
+	var el: Node2D = node2.elite()
+	var mob: Node2D = node2.mobs()[0]
+	var stats_ok: bool = [el.max_hp, el.atk, el.def] == [1800, 33, 10] and [mob.max_hp, mob.atk, mob.def] == [240, 21, 10]
+	while mob.alive:
+		node2._strike(mob)
+	var lv_after_up: Array = [ProgressionS.combat_level(ps), sp.level, node2.mob_level(), el.max_hp, node2.mobs()[1].max_hp]
+	sp.position = Vector2(0, 32)
+	_seg_frame(sp, seg)
+	var ended: bool = seg.expedition == null and seg.last_end == "retour"
+	sp.position = Vector2(0, 6240)
+	_seg_frame(sp, seg)
+	var lv_next: Array = [seg.expedition.mob_level, node2.mob_level(), el.max_hp, el.hp]
+	var el7: Dictionary = CombatS.mob_stats(7, 0, "ELITE")
+	_check("G3: Combattant 6, 1 Élite tué -> segment 6 sur les 3 nœuds, Élite 1800 / 33 / 10, normal 240 / 21 / 10",
+		lv_start == [6, 6, 6, 6] and stats_ok, "%s %s" % [str(lv_start), str([el.max_hp, el.atk, el.def, mob.max_hp, mob.atk, mob.def])])
+	_check("G3: niveau 7 pendant l'expédition -> monstres au niveau 6 ; à l'expédition suivante, niveau 7",
+		lv_after_up == [7, 7, 6, 1800, 240] and ended and lv_next == [7, 7, el7["hp"], el7["hp"]], "%s %s %s" % [str(lv_after_up), str(ended), str(lv_next)])
+	_seg_free(ctx)
+	# G4 : joueur neuf
+	ctx = _seg_ctx(solid1, Vector2(0, 6240))
+	_seg_frame(ctx[0], ctx[1])
+	var el1: Dictionary = CombatS.mob_stats(1, 0, "ELITE")
+	var no1: Dictionary = CombatS.mob_stats(1, 0, "NORMAL")
+	var n2: Node2D = ctx[1].nodes()[2]
+	_check("G4: joueur neuf -> segment au niveau 1 (== Combat.mob_level(0)), stats des jalons 10 à 15",
+		ctx[1].expedition.mob_level == 1 and n2.mob_level() == CombatS.mob_level(0) and n2.elite().max_hp == el1["hp"] and n2.mobs()[0].max_hp == no1["hp"]
+		and n2.mobs()[0].atk == no1["atk"], "%d %d %d" % [ctx[1].expedition.mob_level, n2.elite().max_hp, n2.mobs()[0].max_hp])
+	_seg_free(ctx)
+	# G5 : Éclat d'une expédition au niveau 6
+	var pg: Dictionary = ProgressionS.new_player()
+	var ex: ExpeditionS = ExpeditionS.new(1, 0, func() -> Dictionary: return pg, 6)
+	ex.on_elite(0)
+	var g5_want: Array = [[0, 0, "EEE", [["FLAT_ATK", 26.0]]], [0, 1, "EBE", [["FLAT_HP", 15.1762], ["FLAT_ATK", 14.4638]]],
+		[1, 0, "", [["FLAT_HP", 26.0]]], [1, 1, "", [["FLAT_HP", 13.5393], ["FLAT_DEF", 16.1007]]]]
+	var got: Array = []
+	var g5_ok: bool = pg["shard_bag"] == _bag(0, 1, 6) and pg["elite_kills"] == 1
+	for n in g5_want.size():
+		var pn: Dictionary = ProgressionS.new_player()
+		pn["shard_bag"] = _bag(1, 0, 6)
+		pn["purify_n"] = n
+		var piece: Dictionary = PurifS.preview(1, pn)
+		got.append(_piece_str(n, piece))
+		g5_ok = g5_ok and piece == EquipmentS.roll(1, n, false, 6) and _piece_is(piece, g5_want[n], 6)
+	_check("G5: Éclat au niveau 6 -> shard_bag ilvl 6 ; roll(1, n, false, 6) pour n = 0 à 3 == références", g5_ok, str(pg["shard_bag"]) + "\n" + "\n".join(got))
+	var foyer3: Array[int] = [BC.SchoolId.FOYER, BC.SchoolId.FOYER, BC.SchoolId.FOYER]
+	var wa: float = BC.compute_weapon_atk(6, 0, foyer3)
+	_check("G5: ATK d'arme Commune 3/3 à l'ilvl 6 == 33,6375", _approx(wa, 33.6375, 1e-9), "%.6f" % wa)
+	# G6 : ordre de purification
+	var po: Dictionary = ProgressionS.new_player()
+	po["shard_bag"] = [{"elite": false, "ilvl": 1}, {"elite": false, "ilvl": 6}, {"elite": true, "ilvl": 1}]
+	var bag_before: Array = po["shard_bag"].duplicate(true)
+	PurifS.preview(1, po)
+	var preview_kept: bool = po["shard_bag"] == bag_before and po["purify_n"] == 0
+	var order: Array = []
+	for k in 3:
+		var lg: Dictionary = PurifS.commit(po, PurifS.preview(1, po), false, "VILLAGE")
+		order.append([lg["source"], lg["ilvl"]])
+	_check("G6: Sacoche [N1, N6, E1] -> Élite d'abord, puis ilvl 6, puis ilvl 1 ; l'aperçu ne retire rien",
+		preview_kept and order == [["ELITE", 1], ["NORMAL", 6], ["NORMAL", 1]] and po["shard_bag"].is_empty(), str(order))
+	# G7 : sauvegarde
+	var st: Dictionary = SaveS.new_state(7, D0, 0)
+	st["seq"] = 1 # new_state pose seq 0, refusé par unpack
+	var p15: Dictionary = st["player"]
+	p15.erase("shard_bag")
+	p15.erase("elite_kills")
+	p15["shards"] = 2
+	p15["shards_elite"] = 1
+	var back: Dictionary = SaveS.unpack(SaveS.pack(st))
+	_check("G7: player du jalon 15 (shards 2, shards_elite 1) -> [E1, N1, N1], elite_kills 0, anciennes clés retirées",
+		not back.is_empty() and back["player"]["shard_bag"] == _bag(2, 1) and back["player"]["elite_kills"] == 0 and not back["player"].has("shards")
+		and not back["player"].has("shards_elite"), str(back.get("player", {})))
+	var good: Dictionary = SaveS.new_state(7, D0, 0)
+	good["seq"] = 1 # idem
+	var bad: Array = []
+	var muts: Array[Callable] = [
+		func(p: Dictionary) -> void: p["shard_bag"] = _bag(7, 0),
+		func(p: Dictionary) -> void: p["shard_bag"] = _bag(1, 0, 0),
+		func(p: Dictionary) -> void: p["shard_bag"] = _bag(1, 0, 11),
+		func(p: Dictionary) -> void: p["shard_bag"] = [{"elite": 1, "ilvl": 1}],
+		func(p: Dictionary) -> void: p["elite_kills"] = -1]
+	for m: Callable in muts:
+		var b: Dictionary = good.duplicate(true)
+		m.call(b["player"])
+		bad.append(SaveS.unpack(SaveS.pack(b)).is_empty())
+	_check("G7: 7 Éclats, ilvl 0, ilvl 11, elite non booléen, elite_kills négatif -> refusé ; état témoin accepté",
+		bad == [true, true, true, true, true] and not SaveS.unpack(SaveS.pack(good)).is_empty(), str(bad))
+
+# Sacoche : e Éclats d'Élite puis n normaux, à l'ilvl donné (ordre de la conversion de SaveManager).
+func _bag(n: int, e: int, ilvl: int = 1) -> Array:
+	var bag: Array = []
+	for i in e:
+		bag.append({"elite": true, "ilvl": ilvl})
+	for i in n:
+		bag.append({"elite": false, "ilvl": ilvl})
+	return bag
 
 func _armor(slot: int, affixes: Array) -> Dictionary:
 	var a: Array = []
@@ -688,9 +808,9 @@ func _near_eps(a: Array, b: Array, eps: float) -> bool:
 			return false
 	return true
 
-# want = [slot, rareté, Écoles ("EEE", "EBE"… ou "" pour une armure), [[id, units à 1e-4]]], ilvl 1.
-func _piece_is(piece: Dictionary, want: Array) -> bool:
-	if piece["slot"] != want[0] or piece["rarity"] != want[1] or piece["ilvl"] != 1 or _schools_str(piece) != want[2] or piece["affixes"].size() != want[3].size():
+# want = [slot, rareté, Écoles ("EEE", "EBE"… ou "" pour une armure), [[id, units à 1e-4]]].
+func _piece_is(piece: Dictionary, want: Array, ilvl: int = 1) -> bool:
+	if piece["slot"] != want[0] or piece["rarity"] != want[1] or piece["ilvl"] != ilvl or _schools_str(piece) != want[2] or piece["affixes"].size() != want[3].size():
 		return false
 	for k in want[3].size():
 		if piece["affixes"][k]["id"] != want[3][k][0] or not _approx(piece["affixes"][k]["units"], want[3][k][1], 1e-4):
@@ -1176,6 +1296,7 @@ func _jalon_11(vd: Dictionary, solid1: Dictionary) -> void:
 	_jalon_13(solid1)
 	_jalon_14(solid1)
 	_jalon_15(solid1)
+	_jalon_15b(solid1)
 	# Scènes et données
 	var vil: Node = load("res://scenes/village/village.tscn").instantiate()
 	var sg: Node2D = vil.get_node_or_null("Entites/Segment")

@@ -19,6 +19,21 @@ const MASTERY_GRANTS_COMBAT_STATS: bool = false
 const ISOLAT_LEVEL_RANGES: Array[Vector2i] = [Vector2i(1, 10), Vector2i(11, 20), Vector2i(21, 30), Vector2i(31, 40), Vector2i(41, 50)]
 const ISOLAT_XP_MULTIPLIERS: Array[float] = [1.00, 1.12, 1.24, 1.36, 1.48]
 
+# Delta de balance_a.gd (n°37, validé le 27/10/2026) : a ajouter apres ISOLAT_LEVEL_RANGES / ISOLAT_XP_MULTIPLIERS.
+# Progression du niveau des monstres L_m dans un isolat (entre ISOLAT_LEVEL_RANGES[i].x et .y)
+const LOCK_SEGMENT_LEVEL_ON_RUN_START: bool = true
+const SEGMENT_SCALING_REQUIRES_FIRST_ELITE_KILL: bool = true
+const FIRST_ELITE_KILL_PROTECTION_MAX_LVL_OFFSET: int = 2 # Tant que 0 Elite tue et L_combattant <= x + 2, L_m reste a x
+const NODE_DEPTH_LEVEL_OFFSET: Array[int] = [0, 0, 0]     # Niveau uniforme sur les 3 noeuds du segment
+
+# Niveau L_m du segment fixe a l'entree en Brume (sert aussi de source_level pour l'ilvl des Eclats)
+static func get_segment_mob_level(isolat_index: int, fighter_level: int, isolat_elite_kills: int) -> int:
+	var idx: int = clampi(isolat_index, 0, ISOLAT_LEVEL_RANGES.size() - 1)
+	var bounds: Vector2i = ISOLAT_LEVEL_RANGES[idx]
+	if SEGMENT_SCALING_REQUIRES_FIRST_ELITE_KILL and isolat_elite_kills <= 0 and fighter_level <= bounds.x + FIRST_ELITE_KILL_PROTECTION_MAX_LVL_OFFSET:
+		return bounds.x
+	return clampi(fighter_level, bounds.x, bounds.y)
+
 # XP par action (base Isolat 1, avant M_isolat et repos). 1 expédition standard = 1 680 XP actif.
 const XP_KILL_NORMAL: int = 30
 const XP_KILL_ELITE: int = 196

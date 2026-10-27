@@ -2,32 +2,29 @@ extends RefCounted
 # Purification d'un Éclat (Volet F §1) : 1 Éclat -> 1 pièce, aperçu sans effet sur l'état, puis Équiper ou Jeter.
 # Le tirage est nommé par purify_n : fermer l'aperçu ou relancer l'appli redonne la même pièce. Statiques pures.
 
-const BA = preload("res://balance/balance_a.gd")
-const CombatS = preload("res://scripts/combat/combat.gd")
 const EquipmentS = preload("res://scripts/loot/equipment.gd")
 
-# Éclats d'Élite d'abord. PROPOSÉ, à valider (jalon 15)
-static func next_is_elite(player: Dictionary) -> bool:
-	return player["shards_elite"] > 0
+# Éclat purifié : l'Élite d'abord, puis l'ilvl le plus haut, puis le premier de la Sacoche ; -1 si vide (jalon 15 bis).
+static func next_index(player: Dictionary) -> int:
+	var bag: Array = player["shard_bag"]
+	var best: int = -1
+	for i in bag.size():
+		if best < 0 or (bag[i]["elite"] and not bag[best]["elite"]) or (bag[i]["elite"] == bag[best]["elite"] and bag[i]["ilvl"] > bag[best]["ilvl"]):
+			best = i
+	return best
 
 static func has_shard(player: Dictionary) -> bool:
-	return player["shards"] + player["shards_elite"] > 0
+	return not player["shard_bag"].is_empty()
 
-static func ilvl_for(isolat: int) -> int:
-	var r: Vector2i = BA.ISOLAT_LEVEL_RANGES[isolat]
-	return clampi(CombatS.mob_level(isolat), r.x, r.y)
-
-static func preview(world_seed: int, player: Dictionary, isolat: int) -> Dictionary:
-	return EquipmentS.roll(world_seed, player["purify_n"], next_is_elite(player), ilvl_for(isolat))
+# L'ilvl de la pièce est celui de l'Éclat.
+static func preview(world_seed: int, player: Dictionary) -> Dictionary:
+	var shard: Dictionary = player["shard_bag"][next_index(player)]
+	return EquipmentS.roll(world_seed, player["purify_n"], shard["elite"], shard["ilvl"])
 
 # Consomme l'Éclat et avance purify_n ; equip : la pièce remplace celle de son emplacement (pas encore d'inventaire,
 # l'ancienne disparaît. PROPOSÉ, à valider (jalon 15)). Rend le log « purification ».
 static func commit(player: Dictionary, piece: Dictionary, equip: bool, place: String) -> Dictionary:
-	var elite: bool = next_is_elite(player)
-	if elite:
-		player["shards_elite"] -= 1
-	else:
-		player["shards"] -= 1
+	var elite: bool = player["shard_bag"].pop_at(next_index(player))["elite"]
 	var n: int = player["purify_n"]
 	player["purify_n"] += 1
 	if equip:

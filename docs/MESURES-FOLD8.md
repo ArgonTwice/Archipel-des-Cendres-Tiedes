@@ -386,3 +386,24 @@ Lisibilité PC : le « & » d'« Épée & Écu » ressemble à un « $ » dans S
 | V4 Brasero | OK | Antho, après le ré-export |
 | W1 toast « Combattant niveau X » | KO, corrigé | resté affiché ; cause probable : le timer (somme des delta) finissait avant Time.get_ticks_msec() + 2,5 s, le masquage était ignoré ; correctif : numéro du dernier toast ; APK 0.15.0 ré-exporté et installé le 27/10 à 08:19 ; W1 bis OK (Antho) |
 | Lisibilité à 48 px par tuile | OK | Antho : panneau Équipement lisible ; LEVEL_UP_TOAST_SEC 2,5 s lisible ; « & » de Silkscreen lu « $ », remplacement par « et » refusé, & conservé ; soin partiel non vu (invisible à PV pleins) |
+
+## Jalon 15 bis (APK 0.15.1)
+
+Niveau du segment figé au départ (BalanceA.get_segment_mob_level, n°37), Sacoche = liste d'Éclats avec leur ilvl. Simulateur : 660 PASS, 0 FAIL (G1 à G7).
+
+Export debug le 27/10 : 0 ERROR ; `aapt2` donne versionCode 15, versionName 0.15.1 ; SHA-256 6a0925aab54fd3950fd63a41adf1334795ec10f92b0cdd7ccb9aadec4902edfe.
+
+### W1 et W2 (PC, 416 × 657, --hour=14, partie neuve ; journal build/captures/jalon15b-W-sonde.txt)
+
+| Test | Résultat | Preuve |
+|---|---|---|
+| W1 1re expédition | OK | Combattant 1, elite_kills 0 : « debut » niveau_segment 1, nœuds [1, 1, 1], Élite 712 / 16 / 4, normal 95 / 10 / 4 ; Élite tué ; fin : Combattant 3, elite_kills 1, Sacoche 3 normaux + 1 d'Élite, tous ilvl 1 |
+| W2 2e expédition | OK | attendu get_segment_mob_level(0, 3, 1) = 3 : « debut » niveau_segment 3, nœuds [3, 3, 3], Élite 1147 / 23 / 6, normal 153 / 14 / 6 ; Éclats ramassés ilvl 3 ; Combattant 4 en fin, monstres restés au niveau 3 |
+
+### X1 à X3 (Fold 8, sauvegarde du jalon 15 conservée, copie dans build/backup-fold-jalon15/ ; journal build/captures/jalon15b-X-logcat.txt)
+
+| Test | Résultat | Preuve |
+|---|---|---|
+| X1 sauvegarde du jalon 15 | OK | avant : seq 276, Combattant 3 064 (niveau 6), shards 0, shards_elite 0, purify_n 13 ; après le boot 0.15.1 (pid 30217) : seq 277, shard_bag [], elite_kills 0, anciennes clés retirées ; segment attendu 6 ; « niveau » 6 : 245 / 40 / 23 ; 0 ERROR |
+| X2 deux expéditions | OK | expédition 0 : « debut » niveau_segment 6 ; 12 normaux, 7 nœuds, 0 Éclat (probabilité 0,95^12 × 0,80^7 = 0,11) ; Élite niveau 6 : stat 245 / 40 / 23 (« niveau » 6), 211 PV au 1er coup, 17,8 s du 1er coup à la mort du joueur, 8 coups reçus à 27 (10 ratés), Élite à 900 / 1800 ; coups portés : 36 (auto), 80 et 128 (aptitudes) ; 1 mort, fin « mort », Éclat garanti de l'Élite perdu ; expédition 1 : « debut » niveau_segment 6 (pas de recalcul, Combattant 6, elite_kills 0), 3 normaux, 4 nœuds, 1 Éclat normal ilvl 6, retour sans combat d'Élite ; 0 ERROR |
+| X3 purification d'Éclats ilvl 6 | OK | n 13 au village, source NORMAL, ilvl 6 : Arme Commune, Écoles 3/3/1, FLAT_HP 26,0, équipée -> 323 / 63 / 16 |

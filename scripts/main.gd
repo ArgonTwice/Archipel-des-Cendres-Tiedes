@@ -198,7 +198,7 @@ func _on_purify_requested() -> void:
 		return
 	var p: Dictionary = _player_state()
 	_preview_place = _world.segment().purify_place(_world.player().position)
-	_preview = PurifS.preview(SaveManager.state["world_seed"], p, SaveManager.state["village"].get("isolat", 0))
+	_preview = PurifS.preview(SaveManager.state["world_seed"], p)
 	var level: int = ProgressionS.combat_level(p)
 	var after: Array = p["equipment"].duplicate(true)
 	after[_preview["slot"]] = _preview

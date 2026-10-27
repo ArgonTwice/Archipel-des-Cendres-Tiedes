@@ -18,15 +18,17 @@ var gathers: int = 0
 var xp: int = 0 # total de l'expédition, pour le log
 var shards_refused: int = 0 # Éclats tombés Sacoche pleine
 var brazier_purified: int = 0 # purifications au Brasero dans cette expédition (jalon 15)
+var mob_level: int = 1 # niveau du segment, figé au départ (n°37) : ilvl des Éclats ramassés
 var _rng: RngS.Pcg32
 var _player_ref: Callable
 
 # index : numéro de l'expédition dans la session (0, 1, 2…), non sauvegardé.
 # player_ref rend le dictionnaire courant du joueur, relu à chaque gain : SaveManager.sync remplace l'état à chaque
 # pliage, une référence gardée deviendrait périmée.
-func _init(world_seed: int, index: int, player_ref: Callable) -> void:
+func _init(world_seed: int, index: int, player_ref: Callable, level: int = 1) -> void:
 	_rng = RngS.make_rng(world_seed, "loot/eclats/%d" % index)
 	_player_ref = player_ref
+	mob_level = level
 
 func remaining() -> int:
 	return BA.SEGMENT_PRE_ELITE_CENDRE_BUDGET - cendre
@@ -56,6 +58,8 @@ func on_gather(isolat: int) -> bool:
 func on_elite(isolat: int) -> bool:
 	assert(cendre + BA.CENDRE_GAIN_ELITE_MOB <= BA.SEGMENT_STD_RUN_CENDRE_CAP)
 	kills += 1
+	var p: Dictionary = _player_ref.call()
+	p["elite_kills"] = p.get("elite_kills", 0) + 1
 	_gain("COMBATTANT", CombatS.kill_xp("ELITE", isolat))
 	_cendre(BA.CENDRE_GAIN_ELITE_MOB)
 	return _shard(BA.SHARD_DROP_CHANCE_ELITE, true)
@@ -76,16 +80,16 @@ func _cendre(amount: int) -> void:
 		_log("lanterne_pleine", {"perdu": amount - added})
 
 # Le tirage a lieu même Sacoche pleine : le flux ne dépend pas du plafond. La Sacoche (Éclats normaux + d'Élite)
-# plafonne, pas l'expédition ; l'Élite remplit shards_elite (jalon 15).
+# plafonne, pas l'expédition ; chaque Éclat garde le niveau du segment (jalon 15 bis).
 func _shard(chance: float, elite: bool) -> bool:
 	if _rng.next_float() >= chance:
 		return false
 	var p: Dictionary = _player_ref.call()
-	if p["shards"] + p["shards_elite"] >= BA.LANTERN_SHARD_BAG_CAP[0]:
+	if p["shard_bag"].size() >= BA.LANTERN_SHARD_BAG_CAP[0]:
 		shards_refused += 1
 		_log("sacoche_pleine", {})
 		return false
-	p["shards_elite" if elite else "shards"] += 1
+	p["shard_bag"].append({"elite": elite, "ilvl": mob_level})
 	shards += 1
 	return true
 

@@ -60,10 +60,13 @@ func show_vocations(player: Dictionary) -> void:
 
 # Lanterne niveau 1 (jalon 14).
 func show_lantern(player: Dictionary) -> void:
-	_lantern.text = "Lanterne : Cendre %d/%d  Éclats %d/%d" % [player["cendre"], BA.LANTERN_CENDRE_CAP[0], player["shards"] + player["shards_elite"],
+	var elite: int = 0
+	for s: Dictionary in player["shard_bag"]:
+		elite += int(s["elite"])
+	_lantern.text = "Lanterne : Cendre %d/%d  Éclats %d/%d" % [player["cendre"], BA.LANTERN_CENDRE_CAP[0], player["shard_bag"].size(),
 		BA.LANTERN_SHARD_BAG_CAP[0]]
-	if player["shards_elite"] > 0:
-		_lantern.text += " (Élite %d)" % player["shards_elite"]
+	if elite > 0:
+		_lantern.text += " (Élite %d)" % elite
 
 # Une ligne par emplacement (affixes en retrait), puis les stats portées.
 func show_equipment(equipment: Array, stats: Dictionary) -> void:

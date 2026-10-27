@@ -99,16 +99,20 @@ func _process(_delta: float) -> void:
 	for i in _nodes.size():
 		_nodes[i].process_mode = Node.PROCESS_MODE_INHERIT if i == active else Node.PROCESS_MODE_DISABLED
 
+# Niveau du segment calculé une seule fois : une montée de niveau en cours d'expédition ne le change pas (n°37).
 func _begin() -> void:
-	expedition = ExpeditionS.new(_world_seed, _count, _player_ref)
+	var p: Dictionary = _player_ref.call()
+	var level: int = BA.get_segment_mob_level(_isolat, ProgressionS.combat_level(p), p.get("elite_kills", 0))
+	expedition = ExpeditionS.new(_world_seed, _count, _player_ref, level)
 	expedition.leveled.connect(_on_leveled)
 	_count += 1
 	_vitrified = false
 	_saturated = false
-	for node: Node2D in _nodes:
-		node.reset()
+	for i in _nodes.size():
+		_nodes[i].set_mob_level(level + BA.NODE_DEPTH_LEVEL_OFFSET[i])
+		_nodes[i].reset()
 	_player_solids[BA.SEGMENT_ELITE_NODE_INDEX][SG.elite_cell()] = true # l'Élite se rendort : sa cellule redevient pleine
-	_log("debut", {"index": _count - 1})
+	_log("debut", {"index": _count - 1, "niveau_segment": level})
 	expedition_changed.emit(true, 0, 0)
 
 func _end(reason: String) -> void:

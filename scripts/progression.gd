@@ -1,7 +1,8 @@
 extends RefCounted
 # Vocations du joueur (Volet A §1 à §4, SOCLE §A9) : XP cumulée depuis le niveau 1 ; le niveau s'en déduit.
-# Lanterne niveau 1 (Volet A §5, jalon 14) : Cendre Vive et Éclats (shards = normaux, shards_elite) gardés entre les
-# expéditions. Équipement porté et compteur de purifications (Volet F, jalon 15). Statiques pures.
+# Lanterne niveau 1 (Volet A §5, jalon 14) : Cendre Vive et Sacoche (shard_bag = liste de {"elite", "ilvl"}, jalon 15 bis)
+# gardées entre les expéditions. Équipement porté et compteur de purifications (Volet F, jalon 15) ; Élites tués dans
+# l'isolat (n°37). Statiques pures.
 
 const BA = preload("res://balance/balance_a.gd")
 const EquipmentS = preload("res://scripts/loot/equipment.gd")
@@ -10,8 +11,8 @@ const VOCATIONS: Array[String] = ["COMBATTANT", "MINEUR", "FORGERON"]
 const VOCATION_NAMES: Dictionary = {"COMBATTANT": "Combattant", "MINEUR": "Mineur", "FORGERON": "Forgeron"}
 
 static func new_player() -> Dictionary:
-	return {"voc_xp": {"COMBATTANT": 0, "MINEUR": 0, "FORGERON": 0}, "cendre": 0, "shards": 0,
-		"equipment": EquipmentS.new_equipment(), "shards_elite": 0, "purify_n": 0}
+	return {"voc_xp": {"COMBATTANT": 0, "MINEUR": 0, "FORGERON": 0}, "cendre": 0, "shard_bag": [],
+		"equipment": EquipmentS.new_equipment(), "purify_n": 0, "elite_kills": 0}
 
 # Plafonné à MAX_VOCATION_LEVEL : la Maîtrise est hors jalon.
 static func level_of(xp: int) -> int:

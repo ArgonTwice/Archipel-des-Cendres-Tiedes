@@ -79,6 +79,15 @@ func mobs() -> Array[Node2D]:
 func mist_nodes() -> Array[Node2D]:
 	return _mist
 
+# Niveau du segment figé au départ de l'expédition (n°37) : stats des monstres et de l'Élite, dégâts reçus.
+func set_mob_level(level: int) -> void:
+	_mob_level = level
+	for mob: Node2D in _mobs:
+		mob.set_stats(CombatS.mob_stats(level, DENSITY_INDEX, mob.role))
+
+func mob_level() -> int:
+	return _mob_level
+
 # Saturation (volet E) : normaux dissipés, plus aucune réapparition. L'Élite n'est pas dissipé.
 func dissipate() -> void:
 	_dissipated = true

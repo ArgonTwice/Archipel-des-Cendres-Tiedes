@@ -40,10 +40,14 @@ func setup(home_pos: Vector2, texture: Texture2D, shadow: Texture2D, solid: Dict
 	_solid = solid
 	_bounds = bounds
 	home = home_pos
+	set_stats(stats)
+	respawn()
+
+# Niveau du segment (n°37) : appliqué avant reset(), qui remet les PV au max.
+func set_stats(stats: Dictionary) -> void:
 	max_hp = stats["hp"]
 	atk = stats["atk"]
 	def = stats["def"]
-	respawn()
 
 # Rend vrai quand un coup touche le joueur (fin de télégraphe, cible à portée).
 func step(delta: float, target: Vector2, target_ok: bool) -> bool:

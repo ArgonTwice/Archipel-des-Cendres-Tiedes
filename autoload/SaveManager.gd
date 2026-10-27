@@ -1,8 +1,9 @@
 extends Node
 # Autoload « SaveManager » : graine + delta, double fichier tournant, export/import Base64.
 # État : {"format": int, "seq": int, "world_seed": int, "village": Dictionary (format de OfflineDag.resume),
-# "player": {"voc_xp": {vocation: int}, "cendre": int, "shards": int}} (clés optionnelles, ajoutées au chargement :
-# player au jalon 13, cendre et shards de la Lanterne au jalon 14 ; equipment, shards_elite et purify_n au jalon 15).
+# "player": {"voc_xp": {vocation: int}, "cendre": int, "shard_bag": Array, ...}} (clés optionnelles, ajoutées au chargement :
+# player au jalon 13, cendre de la Lanterne au jalon 14 ; equipment et purify_n au jalon 15 ; shard_bag, qui remplace les
+# compteurs shards et shards_elite des jalons 14 et 15, et elite_kills au jalon 15 bis).
 # Le delta est l'état mutable complet ; rien de ce qui se régénère depuis world_seed n'y entre.
 # Fichier = SHA-256(payload) + payload, payload = var_to_bytes(état). Hash vérifié avant décodage, jamais d'objets.
 # seq impair -> save_a.dat, pair -> save_b.dat : une écriture n'écrase que l'emplacement le plus ancien.
@@ -86,11 +87,21 @@ static func unpack(bytes: PackedByteArray) -> Dictionary:
 		return {}
 	if not v.has("player"):
 		v["player"] = ProgressionS.new_player()
-	for k: String in ["cendre", "shards", "shards_elite", "purify_n"]:
-		if not v["player"].has(k):
-			v["player"][k] = 0
-	if not v["player"].has("equipment"):
-		v["player"]["equipment"] = EquipmentS.new_equipment()
+	var p: Dictionary = v["player"]
+	for k: String in ["cendre", "purify_n", "elite_kills"]:
+		if not p.has(k):
+			p[k] = 0
+	if not p.has("equipment"):
+		p["equipment"] = EquipmentS.new_equipment()
+	if not p.has("shard_bag"): # compteurs des jalons 14 et 15 : Éclats d'Élite puis normaux, ilvl 1
+		var bag: Array = []
+		for i in int(p.get("shards_elite", 0)):
+			bag.append({"elite": true, "ilvl": 1})
+		for i in int(p.get("shards", 0)):
+			bag.append({"elite": false, "ilvl": 1})
+		p["shard_bag"] = bag
+	p.erase("shards")
+	p.erase("shards_elite")
 	return v
 
 # Aucune migration : un autre format est refusé.
@@ -116,9 +127,23 @@ static func _is_valid_player(p: Variant) -> bool:
 	var bag: int = BA.LANTERN_SHARD_BAG_CAP[0]
 	if not _is_valid_count(p.get("cendre"), BA.LANTERN_CENDRE_CAP[0]) or not _is_valid_count(p.get("shards"), bag) 			or not _is_valid_count(p.get("shards_elite"), bag) or int(p.get("shards", 0)) + int(p.get("shards_elite", 0)) > bag:
 		return false
+	if p.has("shard_bag") and not _is_valid_bag(p["shard_bag"], bag):
+		return false
+	if p.has("elite_kills") and (typeof(p["elite_kills"]) != TYPE_INT or p["elite_kills"] < 0):
+		return false
 	if p.has("purify_n") and (typeof(p["purify_n"]) != TYPE_INT or p["purify_n"] < 0):
 		return false
 	return not p.has("equipment") or EquipmentS.is_valid_equipment(p["equipment"])
+
+# Taille <= plafond ; chaque Éclat {"elite": bool, "ilvl": int dans la plage de l'isolat 0}.
+static func _is_valid_bag(b: Variant, cap: int) -> bool:
+	if typeof(b) != TYPE_ARRAY or b.size() > cap:
+		return false
+	var r: Vector2i = BA.ISOLAT_LEVEL_RANGES[0]
+	for s: Variant in b:
+		if typeof(s) != TYPE_DICTIONARY or typeof(s.get("elite")) != TYPE_BOOL or typeof(s.get("ilvl")) != TYPE_INT or s["ilvl"] < r.x or s["ilvl"] > r.y:
+			return false
+	return true
 
 # Absent (sauvegarde du jalon 13) ou int dans [0, cap].
 static func _is_valid_count(n: Variant, cap: int) -> bool:
