@@ -1,14 +1,17 @@
 extends RefCounted
 # Vocations du joueur (Volet A §1 à §4, SOCLE §A9) : XP cumulée depuis le niveau 1 ; le niveau s'en déduit.
-# Lanterne niveau 1 (Volet A §5, jalon 14) : Cendre Vive et Éclats gardés entre les expéditions. Statiques pures.
+# Lanterne niveau 1 (Volet A §5, jalon 14) : Cendre Vive et Éclats (shards = normaux, shards_elite) gardés entre les
+# expéditions. Équipement porté et compteur de purifications (Volet F, jalon 15). Statiques pures.
 
 const BA = preload("res://balance/balance_a.gd")
+const EquipmentS = preload("res://scripts/loot/equipment.gd")
 
 const VOCATIONS: Array[String] = ["COMBATTANT", "MINEUR", "FORGERON"]
 const VOCATION_NAMES: Dictionary = {"COMBATTANT": "Combattant", "MINEUR": "Mineur", "FORGERON": "Forgeron"}
 
 static func new_player() -> Dictionary:
-	return {"voc_xp": {"COMBATTANT": 0, "MINEUR": 0, "FORGERON": 0}, "cendre": 0, "shards": 0}
+	return {"voc_xp": {"COMBATTANT": 0, "MINEUR": 0, "FORGERON": 0}, "cendre": 0, "shards": 0,
+		"equipment": EquipmentS.new_equipment(), "shards_elite": 0, "purify_n": 0}
 
 # Plafonné à MAX_VOCATION_LEVEL : la Maîtrise est hors jalon.
 static func level_of(xp: int) -> int:
@@ -29,7 +32,7 @@ static func top_level(player: Dictionary) -> int:
 # base_xp : XP de l'action après M_isolat. Rattrapage ×2 face à la plus haute vocation. Modifie player en place.
 static func gain(player: Dictionary, voc: String, base_xp: int) -> Dictionary:
 	var before: int = level_of(player["voc_xp"][voc])
-	var gained: int = roundi(base_xp * BA.get_action_xp_catchup_mult(before, top_level(player)))
+	var gained: int = floori(base_xp * BA.get_action_xp_catchup_mult(before, top_level(player))) # floor : Volet F
 	player["voc_xp"][voc] += gained
 	return {"gained": gained, "level_before": before, "level_after": level_of(player["voc_xp"][voc])}
 

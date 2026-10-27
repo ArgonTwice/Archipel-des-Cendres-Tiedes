@@ -31,6 +31,44 @@ autowrap_mode = 3
 layout_mode = 2
 autowrap_mode = 3
 
+[node name="Equipement" type="PanelContainer" parent="Margin/VBox"]
+layout_mode = 2
+
+[node name="Box" type="VBoxContainer" parent="Margin/VBox/Equipement"]
+layout_mode = 2
+
+[node name="Lines" type="Label" parent="Margin/VBox/Equipement/Box"]
+layout_mode = 2
+autowrap_mode = 3
+
+[node name="Purifier" type="Button" parent="Margin/VBox/Equipement/Box"]
+layout_mode = 2
+size_flags_horizontal = 0
+disabled = true
+text = "Purifier un Éclat"
+
+[node name="Apercu" type="PanelContainer" parent="Margin/VBox"]
+visible = false
+layout_mode = 2
+
+[node name="Box" type="VBoxContainer" parent="Margin/VBox/Apercu"]
+layout_mode = 2
+
+[node name="Lines" type="Label" parent="Margin/VBox/Apercu/Box"]
+layout_mode = 2
+autowrap_mode = 3
+
+[node name="Choix" type="HBoxContainer" parent="Margin/VBox/Apercu/Box"]
+layout_mode = 2
+
+[node name="Equiper" type="Button" parent="Margin/VBox/Apercu/Box/Choix"]
+layout_mode = 2
+text = "Équiper"
+
+[node name="Jeter" type="Button" parent="Margin/VBox/Apercu/Box/Choix"]
+layout_mode = 2
+text = "Jeter"
+
 [node name="Expedition" type="Label" parent="Margin/VBox"]
 visible = false
 layout_mode = 2

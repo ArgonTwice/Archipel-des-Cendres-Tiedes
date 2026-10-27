@@ -23,6 +23,9 @@ const SegmentS = preload("res://scripts/segment/segment.gd")
 const ExpeditionS = preload("res://scripts/segment/expedition.gd")
 const MistS = preload("res://scripts/segment/mist_node.gd")
 const ProgressionS = preload("res://scripts/progression.gd")
+const EquipmentS = preload("res://scripts/loot/equipment.gd")
+const PurifS = preload("res://scripts/loot/purification.gd")
+const BF = preload("res://balance/balance_f.gd")
 const LISIERE_SPAWNS_10: Array = [[0, 16], [0, 20], [0, 24]] # banc d'essai du jalon 10, retiré du village au jalon 11
 const FONT_PATH: String = "res://assets/fonts/silkscreen/Silkscreen-Regular.ttf"
 const OFL_PATH: String = "res://assets/fonts/silkscreen/OFL.txt"
@@ -404,7 +407,8 @@ func _jalon_13(solid1: Dictionary) -> void:
 # Jalon 14 : Lanterne niveau 1, Cendre Vive et Éclats sauvegardés, gardés à la mort.
 func _jalon_14(solid1: Dictionary) -> void:
 	_check("lanterne: new_player() == voc_xp à 0, cendre 0, shards 0",
-		ProgressionS.new_player() == {"voc_xp": {"COMBATTANT": 0, "MINEUR": 0, "FORGERON": 0}, "cendre": 0, "shards": 0})
+		ProgressionS.new_player() == {"voc_xp": {"COMBATTANT": 0, "MINEUR": 0, "FORGERON": 0}, "cendre": 0, "shards": 0,
+		"equipment": EquipmentS.new_equipment(), "shards_elite": 0, "purify_n": 0}) # clés du jalon 15
 	# 40 kills puis l'Élite, joueur neuf
 	var pa: Dictionary = ProgressionS.new_player()
 	var ex: ExpeditionS = ExpeditionS.new(1, 0, func() -> Dictionary: return pa)
@@ -412,7 +416,7 @@ func _jalon_14(solid1: Dictionary) -> void:
 		ex.on_kill(0)
 	ex.on_elite(0)
 	_check("lanterne: 40 kills puis l'Élite -> Cendre 100, Éclats 1 (= expedition.shards), Combattant 1 396",
-		pa["cendre"] == 100 and pa["shards"] == 1 and ex.shards == 1 and pa["voc_xp"]["COMBATTANT"] == 1396, "%s %d" % [str(pa), ex.shards])
+		pa["cendre"] == 100 and pa["shards"] + pa["shards_elite"] == 1 and ex.shards == 1 and pa["voc_xp"]["COMBATTANT"] == 1396, "%s %d" % [str(pa), ex.shards])
 	# Lanterne à 140 : plafond 150, surplus perdu
 	var pb: Dictionary = ProgressionS.new_player()
 	pb["cendre"] = 140
@@ -444,7 +448,7 @@ func _jalon_14(solid1: Dictionary) -> void:
 		drops.append(ex_empty.on_kill(0))
 	drops.append(ex_empty.on_elite(0))
 	_check("lanterne: Sacoche à 6 -> 6, expedition.shards 0, « sacoche_pleine » une fois (l'Élite) ; Sacoche vide : 1 Éclat au même tirage (l'Élite)",
-		pc["shards"] == 6 and ex.shards == 0 and refused_kills == 0 and ex.shards_refused == 1 and drops.count(true) == 1 and drops[40] == true and pe["shards"] == 1,
+		pc["shards"] == 6 and ex.shards == 0 and refused_kills == 0 and ex.shards_refused == 1 and drops.count(true) == 1 and drops[40] == true and pe["shards"] + pe["shards_elite"] == 1,
 		"%d %d %d %d %s" % [pc["shards"], ex.shards, refused_kills, ex.shards_refused, str(drops.count(true))])
 	# Sauvegarde
 	_clean_saves()
@@ -488,6 +492,224 @@ func _jalon_14(solid1: Dictionary) -> void:
 		after_kill == 2 and ps["cendre"] == 2 and ps["shards"] == 2 and seg.expedition == null and seg.last_end == "mort", "%d %s %s" % [after_kill, str(ps), seg.last_end])
 	_seg_free(ctx)
 
+# Jalon 15 : purification des Éclats et équipement porté (Volet F). Références : jumeau Python d'Antho.
+func _jalon_15(solid1: Dictionary) -> void:
+	_check("xp: kill_xp(NORMAL, 1) == 33 et kill_xp(ELITE, 1) == 219 (floor)", CombatS.kill_xp("NORMAL", 1) == 33 and CombatS.kill_xp("ELITE", 1) == 219,
+		"%d %d" % [CombatS.kill_xp("NORMAL", 1), CombatS.kill_xp("ELITE", 1)])
+	var st: Dictionary = EquipmentS.starter_weapon()
+	var start_schools: Array = []
+	start_schools.assign(CombatS.START_WEAPON_SCHOOLS)
+	_check("équipement: arme de départ == START_* de Combat (Épée & Écu, Commun, ilvl 1, Enclume 3/3, 0 affixe)",
+		BF.STARTER_WEAPON_TYPE == CombatS.START_WEAPON_TYPE and st["rarity"] == CombatS.START_WEAPON_RARITY and st["ilvl"] == CombatS.START_WEAPON_ILVL
+		and st["schools"] == start_schools and st["affixes"].is_empty() and st["slot"] == BF.EquipmentSlot.WEAPON)
+	var same: bool = true
+	for l in range(1, 6):
+		var a: Dictionary = EquipmentS.player_stats(l, EquipmentS.new_equipment())
+		var b: Dictionary = CombatS.player_stats(l, CombatS.starting_weapon_atk())
+		same = same and a["hp"] == b["hp"] and a["atk"] == b["atk"] and a["def"] == b["def"]
+	_check("équipement: player_stats(L, arme de départ) == Combat.player_stats pour L = 1..5", same)
+	var s1: Dictionary = EquipmentS.player_stats(1, EquipmentS.new_equipment())
+	_check("S1: arme de départ, Nv 1 -> 100 / 22 / 5, période 1/1,2, critique 0,05, ×1,5",
+		s1["hp"] == 100 and s1["atk"] == 22 and s1["def"] == 5 and _approx(s1["period"], 1.0 / 1.2, 1e-9) and _approx(s1["crit_rate"], 0.05, 1e-9) and _approx(s1["crit_mult"], 1.5, 1e-9), str(s1))
+	var w2: Dictionary = EquipmentS.starter_weapon()
+	w2["affixes"] = [{"id": "FLAT_ATK", "units": 12.0}]
+	var eq2: Array = [w2, _armor(1, [["FLAT_DEF", 12.0]]), _armor(2, [["FLAT_HP", 12.0]]), null]
+	var s2: Dictionary = EquipmentS.player_stats(2, eq2)
+	_check("S2: Nv 2, FLAT_ATK / FLAT_DEF / FLAT_HP 12 -> 154 / 30 / 13", s2["hp"] == 154 and s2["atk"] == 30 and s2["def"] == 13, str(s2))
+	var w3: Dictionary = EquipmentS.starter_weapon()
+	w3["affixes"] = [{"id": "PCT_CRIT_CHANCE", "units": 4.0}]
+	var eq3: Array = [w3]
+	for slot in range(1, 4):
+		eq3.append(_armor(slot, [["PCT_CRIT_CHANCE", 4.0], ["PCT_ATK", 6.0]]))
+	var s3: Dictionary = EquipmentS.player_stats(1, eq3)
+	_check("S3: critique 0,17 (16 unités plafonnées à 12), ATK 24 (PCT_ATK 18), PV 100, DEF 5",
+		_approx(s3["crit_rate"], 0.17, 1e-9) and s3["atk"] == 24 and s3["hp"] == 100 and s3["def"] == 5, str(s3))
+	var sh: Array = [EquipmentS.shares(2, _f([0.0])), EquipmentS.shares(2, _f([1.0])), EquipmentS.shares(3, _f([1.0, 0.0, 0.0])), EquipmentS.shares(3, _f([0.0, 0.0, 0.0])),
+		EquipmentS.shares(3, _f([0.5, 0.25, 0.25]))]
+	var sh_want: Array = [[0.4, 0.6], [0.6, 0.4], [0.5, 0.25, 0.25], [1.0 / 3.0, 1.0 / 3.0, 1.0 / 3.0], [0.4, 0.3, 0.3]]
+	var sh_ok: bool = true
+	for i in sh.size():
+		sh_ok = sh_ok and _near_eps(sh[i], sh_want[i], 1e-9)
+	_check("P1: shares(2, [0]) [0,4 0,6], (2, [1]) [0,6 0,4], (3, [1 0 0]) [0,5 0,25 0,25], (3, [0 0 0]) [1/3 ×3], (3, [0,5 0,25 0,25]) [0,4 0,3 0,3]", sh_ok, str(sh))
+	var p2: Array[float] = EquipmentS.units_of(_s(["PCT_ATK", "FLAT_HP"]), _f([0.5, 0.5]), 1, 1)
+	_check("P2: units_of(PCT_ATK, FLAT_HP ; 0,5 0,5 ; ilvl 1, Bon) == [6,0 10,92] (report du reliquat)", _near_eps(p2, [6.0, 10.92], 1e-6), str(p2))
+	var p3: Array[float] = EquipmentS.units_of(_s(["PCT_ATK", "PCT_ASPD"]), _f([0.5, 0.5]), 1, 1)
+	_check("P3: units_of(PCT_ATK, PCT_ASPD ; 0,5 0,5 ; ilvl 1, Bon) == [6,0 4,0] (reliquat perdu)", _near_eps(p3, [6.0, 4.0], 1e-6), str(p3))
+	# T1 / T2 : références du jumeau
+	var t1_want: Array = [
+		[0, 0, "EEE", [["FLAT_ATK", 12.0]]], [0, 1, "EBE", [["FLAT_HP", 7.0044], ["FLAT_ATK", 6.6756]]], [1, 0, "", [["FLAT_HP", 12.0]]],
+		[1, 1, "", [["FLAT_HP", 6.2489], ["FLAT_DEF", 7.4311]]], [2, 0, "", [["FLAT_DEF", 12.0]]], [0, 0, "EEE", [["FLAT_HP", 12.0]]],
+		[3, 0, "", [["FLAT_DEF", 12.0]]], [1, 1, "", [["FLAT_ATK", 10.08], ["PCT_ASPD", 4.0]]], [1, 0, "", [["FLAT_DEF", 12.0]]],
+		[1, 0, "", [["FLAT_ATK", 12.0]]], [3, 0, "", [["FLAT_HP", 12.0]]], [1, 1, "", [["FLAT_DEF", 6.9845], ["FLAT_ATK", 6.6955]]]]
+	var t2_want: Array = [
+		[0, 1, "EEE", [["PCT_ATK", 6.0], ["PCT_ASPD", 4.0]]], [0, 2, "EBE", [["FLAT_HP", 7.0020], ["FLAT_ATK", 4.7580], ["PCT_ASPD", 4.0]]],
+		[1, 1, "", [["PCT_ATK", 6.0], ["FLAT_ATK", 10.92]]], [1, 2, "", [["FLAT_HP", 6.9163], ["FLAT_DEF", 4.8437], ["PCT_ASPD", 4.0]]],
+		[2, 1, "", [["FLAT_DEF", 11.88], ["PCT_CRIT_DMG", 10.0]]], [0, 1, "EEE", [["PCT_ATK", 6.0], ["FLAT_ATK", 10.92]]]]
+	for t: Array in [["T1", false, t1_want], ["T2", true, t2_want]]:
+		var got: Array = []
+		var ok: bool = true
+		for n in t[2].size():
+			var piece: Dictionary = EquipmentS.roll(1, n, t[1], 1)
+			got.append(_piece_str(n, piece))
+			ok = ok and _piece_is(piece, t[2][n])
+		_check("%s: roll(1, n, %s, 1) pour n = 0 à %d == références du jumeau" % [t[0], "true" if t[1] else "false", t[2].size() - 1], ok, "\n" + "\n".join(got))
+	# C1 : répartition sur 20 000 tirages
+	var slots: Array[int] = [0, 0, 0, 0]
+	var rar: Array[int] = [0, 0, 0]
+	var weapons: int = 0
+	var full: int = 0
+	var common_pct: int = 0
+	var n_draws: int = 20000
+	for n in n_draws:
+		var piece: Dictionary = EquipmentS.roll(7, n, false, 1)
+		slots[piece["slot"]] += 1
+		rar[piece["rarity"]] += 1
+		if piece["slot"] == 0:
+			weapons += 1
+			if piece["schools"][0] == piece["schools"][1] and piece["schools"][1] == piece["schools"][2]:
+				full += 1
+		if piece["rarity"] == 0 and not BF.COMMON_ALLOWED_AFFIXES.has(piece["affixes"][0]["id"]):
+			common_pct += 1
+	var fr: Callable = func(c: int, total: int) -> float: return float(c) / total
+	var c1_ok: bool = common_pct == 0 and absf(fr.call(full, weapons) - 0.49) <= 0.02
+	for i in 4:
+		c1_ok = c1_ok and absf(fr.call(slots[i], n_draws) - 0.25) <= 0.02
+	for i in 3:
+		c1_ok = c1_ok and absf(fr.call(rar[i], n_draws) - [0.65, 0.25, 0.10][i]) <= 0.02
+	_check("C1: 20 000 tirages roll(7, n) -> emplacements 0,25, raretés 0,65 / 0,25 / 0,10, armes 3/3 0,49 (±0,02), aucun Commun en %", c1_ok,
+		"%s %s %.4f %d" % [str(slots), str(rar), fr.call(full, weapons), common_pct])
+	# Purification
+	var pp: Dictionary = ProgressionS.new_player()
+	pp["shards"] = 2
+	pp["shards_elite"] = 1
+	var v1: Dictionary = PurifS.preview(1, pp, 0)
+	var v1b: Dictionary = PurifS.preview(1, pp, 0)
+	var unchanged: bool = pp["purify_n"] == 0 and pp["shards"] == 2 and pp["shards_elite"] == 1
+	var log1: Dictionary = PurifS.commit(pp, v1, true, "VILLAGE")
+	var v2: Dictionary = PurifS.preview(1, pp, 0)
+	var eq_before: Array = pp["equipment"].duplicate(true)
+	var log2: Dictionary = PurifS.commit(pp, v2, false, "VILLAGE")
+	_check("purification: 1re = Éclat d'Élite (T2 n°0, équipée), 2e = normal n = 1 (T1 n°1, jetée) ; l'aperçu répété ne change rien",
+		v1 == v1b and unchanged and log1["source"] == "ELITE" and _piece_is(v1, t2_want[0]) and pp["equipment"][0] == v1 and log2["source"] == "NORMAL"
+		and log2["n"] == 1 and _piece_is(v2, t1_want[1]), "%s %s" % [str(log1), str(log2)])
+	_check("purification: « Jeter » consomme l'Éclat sans toucher l'équipement", pp["equipment"] == eq_before and pp["shards"] == 1 and pp["shards_elite"] == 0 and pp["purify_n"] == 2)
+	# Brasero : 2 par expédition, village sans limite
+	var pb: Dictionary = ProgressionS.new_player()
+	pb["shards"] = 4
+	var ctx: Array = _seg_ctx(solid1, Vector2(0, 3984), func() -> Dictionary: return pb)
+	var bp: Node2D = ctx[0]
+	var seg: Node2D = ctx[1]
+	for f in 3:
+		_seg_frame(bp, seg)
+	var places: Array = []
+	for k in 3:
+		var place: String = seg.purify_place(bp.position)
+		places.append(place)
+		if place != "":
+			seg.on_purified(place)
+			PurifS.commit(pb, PurifS.preview(1, pb, 0), false, place)
+	var village_place: String = seg.purify_place(Vector2(0, 32))
+	_check("purification: au Brasero, 2 passent et la 3e est refusée ; au village, acceptée", places == ["BRASERO", "BRASERO", ""] and village_place == "VILLAGE"
+		and pb["shards"] == 2, "%s %s %d" % [str(places), village_place, pb["shards"]])
+	_seg_free(ctx)
+	# Sauvegarde
+	_clean_saves()
+	var ns: Dictionary = SaveS.new_state(7, D0, 0)
+	ns["player"]["equipment"][1] = EquipmentS.roll(1, 3, false, 1)
+	ns["player"]["equipment"][0] = EquipmentS.roll(1, 1, false, 1)
+	ns["player"]["shards_elite"] = 2
+	ns["player"]["shards"] = 3
+	ns["player"]["purify_n"] = 9
+	SaveS.save(ns, D0, TEST_SAVE_DIR)
+	var back: Dictionary = SaveS.load_latest(TEST_SAVE_DIR)
+	_check("save: equipment, shards_elite, purify_n rendus ; stats recalculées identiques (Array non typé de bytes_to_var)",
+		back["player"]["equipment"] == ns["player"]["equipment"] and back["player"]["shards_elite"] == 2 and back["player"]["purify_n"] == 9
+		and EquipmentS.player_stats(3, back["player"]["equipment"]) == EquipmentS.player_stats(3, ns["player"]["equipment"]),
+		"%s" % str(EquipmentS.player_stats(3, back["player"]["equipment"])))
+	var old: Dictionary = back.duplicate(true)
+	for k: String in ["equipment", "shards_elite", "purify_n"]:
+		old["player"].erase(k)
+	old["player"]["shards"] = 6
+	var old_back: Dictionary = SaveS.unpack(SaveS.pack(old))
+	_check("save: player du jalon 14 -> arme de départ, shards_elite 0, purify_n 0, ses 6 Éclats en normaux",
+		not old_back.is_empty() and old_back["player"]["equipment"] == EquipmentS.new_equipment() and old_back["player"]["shards_elite"] == 0
+		and old_back["player"]["purify_n"] == 0 and old_back["player"]["shards"] == 6)
+	var bad: Array = []
+	var muts: Array[Callable] = [
+		func(p: Dictionary) -> void: p.merge({"shards": 5, "shards_elite": 2}, true),
+		func(p: Dictionary) -> void: p["equipment"][1]["rarity"] = 3,
+		func(p: Dictionary) -> void: p["equipment"][1]["ilvl"] = 13,
+		func(p: Dictionary) -> void: p["equipment"][1]["affixes"][0]["id"] = "MOVE_SPEED",
+		func(p: Dictionary) -> void: p["equipment"][0]["affixes"] = [{"id": "PCT_ASPD", "units": 4.5}],
+		func(p: Dictionary) -> void: p["equipment"][2] = p["equipment"][1].duplicate(true)]
+	for m: Callable in muts:
+		var b: Dictionary = back.duplicate(true)
+		m.call(b["player"])
+		bad.append(SaveS.unpack(SaveS.pack(b)).is_empty())
+	_check("save: shards 5 + élite 2, rarity 3, ilvl 13, affixe inconnu, units au-dessus du plafond, case 2 avec slot 1 -> refusé", bad == [true, true, true, true, true, true], str(bad))
+	_clean_saves()
+	# Expedition : Sacoche pleine sur la somme des deux compteurs
+	var pf: Dictionary = ProgressionS.new_player()
+	pf["shards"] = 4
+	pf["shards_elite"] = 2
+	var exf: ExpeditionS = ExpeditionS.new(1, 0, func() -> Dictionary: return pf)
+	for k in 40:
+		exf.on_kill(0)
+	var elite_drop: bool = exf.on_elite(0)
+	var pg: Dictionary = ProgressionS.new_player()
+	var exg: ExpeditionS = ExpeditionS.new(1, 0, func() -> Dictionary: return pg)
+	for k in 40:
+		exg.on_kill(0)
+	var elite_drop_empty: bool = exg.on_elite(0)
+	_check("expédition: Sacoche 4 + 2 pleine -> Éclat de l'Élite refusé (« sacoche_pleine »), même flux : Sacoche vide -> shards_elite 1",
+		not elite_drop and exf.shards_refused == 1 and pf["shards"] == 4 and pf["shards_elite"] == 2 and elite_drop_empty and pg["shards_elite"] == 1 and pg["shards"] == 0)
+
+func _armor(slot: int, affixes: Array) -> Dictionary:
+	var a: Array = []
+	for x: Array in affixes:
+		a.append({"id": x[0], "units": x[1]})
+	return {"slot": slot, "rarity": 2, "ilvl": 1, "schools": [], "affixes": a}
+
+func _f(values: Array) -> Array[float]:
+	var out: Array[float] = []
+	out.assign(values)
+	return out
+
+func _s(values: Array) -> Array[String]:
+	var out: Array[String] = []
+	out.assign(values)
+	return out
+
+func _near_eps(a: Array, b: Array, eps: float) -> bool:
+	if a.size() != b.size():
+		return false
+	for i in a.size():
+		if not _approx(a[i], b[i], eps):
+			return false
+	return true
+
+# want = [slot, rareté, Écoles ("EEE", "EBE"… ou "" pour une armure), [[id, units à 1e-4]]], ilvl 1.
+func _piece_is(piece: Dictionary, want: Array) -> bool:
+	if piece["slot"] != want[0] or piece["rarity"] != want[1] or piece["ilvl"] != 1 or _schools_str(piece) != want[2] or piece["affixes"].size() != want[3].size():
+		return false
+	for k in want[3].size():
+		if piece["affixes"][k]["id"] != want[3][k][0] or not _approx(piece["affixes"][k]["units"], want[3][k][1], 1e-4):
+			return false
+	return true
+
+func _schools_str(piece: Dictionary) -> String:
+	var s: String = ""
+	for x: int in piece["schools"]:
+		s += "E" if x == BC.SchoolId.FOYER else "B"
+	return s
+
+func _piece_str(n: int, piece: Dictionary) -> String:
+	var a: PackedStringArray = []
+	for x: Dictionary in piece["affixes"]:
+		a.append("%s %.4f" % [x["id"], x["units"]])
+	return "%2d %-10s %s ilvl %d %s [%s]" % [n, ["WEAPON", "HELMET", "CHESTPLATE", "BOOTS"][piece["slot"]], BC.RARITY_KEYS[piece["rarity"]], piece["ilvl"],
+		"/".join(_schools_str(piece).split("", false)), ", ".join(a)]
+
 # Joueur neuf local, relu par l'Expedition comme le fait main.gd avec SaveManager.state.
 func _fresh_ref() -> Callable:
 	var p: Dictionary = ProgressionS.new_player()
@@ -517,7 +739,8 @@ func _jalon_10(vd: Dictionary, built: Dictionary, p: Dictionary) -> void:
 			[86, 14, 10, true, 1.0, 117], [22, 4, 1, false, 2.2, 45], [22, 4, 1, false, 3.5, 72]]:
 		var dm: int = CombatS.damage(c[0], c[1], c[2], c[3], c[4])
 		_check("combat: damage(%d, %d, %d, %s, %s) == %d" % [c[0], c[1], c[2], str(c[3]), str(c[4]), c[5]], dm == c[5], str(dm))
-	for c: Array in [["NORMAL", 0, 30], ["ELITE", 1, 220], ["BOSS", 4, 666]]:
+	# ELITE 1 : 220 avec roundi, 219 en floor (jalon 15)
+	for c: Array in [["NORMAL", 0, 30], ["ELITE", 1, 219], ["BOSS", 4, 666]]:
 		_check("combat: kill_xp(%s, %d) == %d" % c, CombatS.kill_xp(c[0], c[1]) == c[2], str(CombatS.kill_xp(c[0], c[1])))
 	for c: Array in [[95, 95, 12], [75, 95, 10], [1, 95, 1], [0, 95, 0], [91, 100, 11], [-5, 95, 0]]:
 		_check("combat: bar_fill_px(%d, %d) == %d" % c, CombatS.bar_fill_px(c[0], c[1]) == c[2], str(CombatS.bar_fill_px(c[0], c[1])))
@@ -952,6 +1175,7 @@ func _jalon_11(vd: Dictionary, solid1: Dictionary) -> void:
 	_jalon_12b(solid1)
 	_jalon_13(solid1)
 	_jalon_14(solid1)
+	_jalon_15(solid1)
 	# Scènes et données
 	var vil: Node = load("res://scenes/village/village.tscn").instantiate()
 	var sg: Node2D = vil.get_node_or_null("Entites/Segment")

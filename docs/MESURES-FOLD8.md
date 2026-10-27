@@ -350,3 +350,39 @@ Chaque phase : 10 kills de normaux et 3 nœuds de Brume comptés par le signal g
 | U1 sauvegarde du jalon 13 | OK | avant : seq 222, Or 60, Combattant 810, Mineur 1 071 ; après le boot 0.14.0 (pid 13879) : seq 223, mêmes valeurs, Lanterne 0 / 0, `niveau` 3, 136 PV ; 0 ERROR |
 | U2 deux expéditions | OK | logcat build/captures/jalon14-U-logcat.txt. Expédition 1 : 22:34:08 → 22:37:02 (2 min 54 s), `fin` « retour », 13 kills dont l'Élite (combat de 16,7 s), 7 nœuds, Cendre 100, 1 Éclat ; Combattant 4 ; Lanterne 0/0 → 100/150, 1/6. Expédition 2 : 22:37:10 → 22:40:16 (3 min 06 s), `fin` « retour », 13 kills dont l'Élite (16,2 s), 7 nœuds, Cendre 100, 5 Éclats ; Mineur 5, Combattant 5 (172 PV) ; Lanterne → 150/150 (10 `lanterne_pleine`, 50 de Cendre perdus), 6/6 (1 `sacoche_pleine`, l'Éclat de l'Élite). 0 mort, 0 ERROR |
 | U3 relance | OK | `am force-stop` (pid 13879) puis relance par l'icône → pid 26336, `niveau` 5, 172 PV ; sauvegarde relue : seq 226, Combattant 1 922, Mineur 1 953, Forgeron 0, Lanterne 150 / 6 |
+
+## Jalon 15 (APK 0.15.0, code 14) : purification des Éclats et équipement porté
+
+Export debug le 26/10 : 0 ERROR ; `aapt2` donne versionCode 14, versionName 0.15.0 ; SHA-256 5dc3a66c5e8e7fa6b7a54bcab17d45cd485bf12fe8ce547923aa8dee7314da33.
+
+### Q1 à Q3 (PC, 416 × 657 plié et 1248 × 1300 déplié, --hour=14, partie neuve ; journal build/captures/jalon15-Q-sonde.txt)
+
+Expédition de la sonde : 7 nœuds comptés par le signal gathered, 12 normaux, puis l'Élite : 6 Éclats normaux, l'Éclat de l'Élite refusé (`sacoche_pleine`). Choix de la sonde : Équiper si l'écart PV / ATK / DEF n'a aucun négatif, sinon Jeter.
+
+| n | Pièce | Choix | Stats avant → après (Nv 3) |
+|---|---|---|---|
+| 0 | Arme Bonne, Brasier 3/3, ATK d'arme 10,9, +5,5 ATK, +6 % ATK d'arme | Équiper | ATK 27 → 33 |
+| 1 | Plastron Commun, +36 PV | Équiper | PV 136 → 172 |
+| 2 | Bottes Rares, +28 PV, +10 % dégâts critiques, +2,3 DEF | Équiper | PV 172 → 199, DEF 8 → 10, ×1,5 → ×1,6 |
+| 3 | Bottes Bonnes, +24 PV, +2,8 ATK | Jeter | inchangé |
+| 4 | Plastron Commun, +6,6 DEF | Jeter | inchangé |
+| 5 | Arme Bonne, Enclume 3/3, +3,5 DEF, +22 PV | Jeter | inchangé |
+
+| Test | Résultat | Preuve |
+|---|---|---|
+| Q1 purification au village | OK | 6 purifications (n 0 à 5), Sacoche 6 → 0, bouton grisé ensuite ; final PV 199, ATK 33, DEF 10, cadence 1,20/s, critique 5 % ×1,6 (jalon15-Q1-avant.png, jalon15-Q1-apres.png) |
+| Q2 Brasero | OK | Sacoche complétée à 3 par la sonde ; au Brasero (0, 3984) : n 6 jetée, n 7 (Casque Commun +6,0 ATK) équipée, 3e bouton grisé, brazier_purified 2 (jalon15-Q2-brasero-grise.png) |
+| Q3 relance | OK | relance : PV 199, ATK 39, DEF 10, équipement identique ; aperçu (Bottes Communes +6,6 DEF) fermé par le pliage puis rouvert : même pièce, purify_n 8 inchangé (jalon15-Q3-relance.png, jalon15-Q3-apercu.png) |
+
+Lisibilité PC : le « & » d'« Épée & Écu » ressemble à un « $ » dans Silkscreen.
+
+### V1 à V4 (Fold 8, sauvegarde du jalon 14 conservée, copie dans build/backup-fold-jalon14/)
+
+| Test | Résultat | Preuve |
+|---|---|---|
+| V1 sauvegarde du jalon 14 | OK | avant : seq 229, Or 60, Combattant 1 922, Mineur 1 953, Lanterne 150 / 6 ; après le boot 0.15.0 (pid 2795) : seq 230, mêmes valeurs, 6 Éclats normaux, 0 d'Élite, purify_n 0, arme de départ ; `equipement` puis `niveau` 5 (172 PV, ATK 32, DEF 11) ; 0 ERROR |
+| V2 purification des 6 Éclats | OK | Antho : arme purifiée et équipée, puis les autres ; journal : n 6 = Éclat d'Élite purifié en premier au village (Bottes, jetées) ; n 0 à 5 hors journal (capture coupée) |
+| V3 deux expéditions équipé | OK | journal build/captures/jalon15-V-logcat.txt : 2 fins « retour » (7 nœuds, 13 monstres, Élite tuée, Cendre 100, Éclats 1 puis 6) ; niveau 6 Mineur et Combattant (ATK 53, DEF 15, PV 189/213) ; 0 ERROR |
+| V4 Brasero | OK | Antho, après le ré-export |
+| W1 toast « Combattant niveau X » | KO, corrigé | resté affiché ; cause probable : le timer (somme des delta) finissait avant Time.get_ticks_msec() + 2,5 s, le masquage était ignoré ; correctif : numéro du dernier toast ; APK 0.15.0 ré-exporté et installé le 27/10 à 08:19 ; W1 bis OK (Antho) |
+| Lisibilité à 48 px par tuile | OK | Antho : panneau Équipement lisible ; LEVEL_UP_TOAST_SEC 2,5 s lisible ; « & » de Silkscreen lu « $ », remplacement par « et » refusé, & conservé ; soin partiel non vu (invisible à PV pleins) |

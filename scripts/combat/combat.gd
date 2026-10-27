@@ -85,16 +85,17 @@ static func mob_stats(level: int, density_index: int, role: String) -> Dictionar
 static func mitigation(def_target: float, level_attacker: int) -> float:
 	return def_target / (def_target + BA.ARMOR_K_BASE + BA.ARMOR_K_PER_LVL * level_attacker)
 
-static func damage(atk: float, def_target: float, level_attacker: int, crit: bool, m_comp: float = 1.0, m_elem: float = 1.0) -> int:
-	var m_crit: float = BA.PLAYER_BASE_CRIT_DMG if crit else 1.0
+static func damage(atk: float, def_target: float, level_attacker: int, crit: bool, m_comp: float = 1.0, m_elem: float = 1.0,
+		crit_mult: float = BA.PLAYER_BASE_CRIT_DMG) -> int:
+	var m_crit: float = crit_mult if crit else 1.0
 	return floori(atk * m_comp * (1.0 - mitigation(def_target, level_attacker)) * m_elem * m_crit)
 
-static func is_crit(rng: RefCounted) -> bool:
-	return rng.next_float() < BA.PLAYER_BASE_CRIT_RATE
+static func is_crit(rng: RefCounted, rate: float = BA.PLAYER_BASE_CRIT_RATE) -> bool:
+	return rng.next_float() < rate
 
 static func kill_xp(role: String, isolat: int) -> int:
 	var base: Dictionary = {"NORMAL": BA.XP_KILL_NORMAL, "ELITE": BA.XP_KILL_ELITE, "BOSS": BA.XP_KILL_BOSS}
-	return roundi(base[role] * BA.ISOLAT_XP_MULTIPLIERS[isolat])
+	return floori(base[role] * BA.ISOLAT_XP_MULTIPLIERS[isolat]) # floor : Volet F
 
 static func bar_fill_px(hp: int, max_hp: int) -> int:
 	return clampi(ceili(float(BAR_SIZE.x) * hp / max_hp), 0, BAR_SIZE.x)

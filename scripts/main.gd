@@ -7,6 +7,9 @@ const VL = preload("res://scripts/village/village_layout.gd")
 const BA = preload("res://balance/balance_a.gd")
 const CombatS = preload("res://scripts/combat/combat.gd")
 const ProgressionS = preload("res://scripts/progression.gd")
+const EquipmentS = preload("res://scripts/loot/equipment.gd")
+const PurifS = preload("res://scripts/loot/purification.gd")
+const EqText = preload("res://scripts/ui/equipment_text.gd")
 
 @onready var _world: Node2D = $World # village.gd
 @onready var _camera: Camera2D = $Camera2D
@@ -18,6 +21,8 @@ const ProgressionS = preload("res://scripts/progression.gd")
 var _folded: bool = true
 var _tween: Tween
 var _fallback_player: Dictionary = {} # boot en erreur : XP en mémoire seulement, rien n'est sauvegardé
+var _preview: Dictionary = {} # pièce en aperçu de purification, {} sinon
+var _preview_place: String = ""
 
 func _ready() -> void:
 	var now: int = ClockS.now_utc()
@@ -31,6 +36,7 @@ func _ready() -> void:
 		_world.setup(r["state"]["world_seed"], r["state"]["village"], now, _player_state)
 		_show(r)
 	var player: Node2D = _world.player() # player.gd
+	player.set_equipment(_player_state()["equipment"])
 	player.set_level(ProgressionS.combat_level(_player_state()))
 	_show_player()
 	var seg: Node2D = _world.segment() # segment.gd
@@ -45,6 +51,8 @@ func _ready() -> void:
 	for layer in [_ui_folded, _ui_unfolded]: # ui_layer.gd
 		seg.expedition_changed.connect(layer.show_expedition)
 		seg.leveled.connect(layer.show_level_up)
+	_ui_unfolded.purify_requested.connect(_on_purify_requested)
+	_ui_unfolded.purify_chosen.connect(_on_purify_chosen)
 	_black.color = CombatS.EVAC_COLOR
 	_black.color.a = 0.0
 	_set_camera_limits(VL.GROUND_RECT)
@@ -69,6 +77,8 @@ func _process(_delta: float) -> void:
 	if _tween == null or not _tween.is_running():
 		_camera.position = camera_target(_folded, player.position)
 	_black.color.a = player.fade_alpha()
+	if not _folded:
+		_ui_unfolded.set_purify_enabled(_preview.is_empty() and _can_purify())
 
 # Plié : sur le joueur. Déplié hors du rayon de l'Âtre : le combat continue, caméra sur le joueur (n°25).
 # Déplié dans le rayon : Vision d'architecte centrée sur l'Âtre, tout le rayon visible.
@@ -119,8 +129,7 @@ func _show(r: Dictionary) -> void:
 	for layer in [_ui_folded, _ui_unfolded]: # ui_layer.gd
 		layer.show_gold(r["state"]["village"]["player_gold"])
 		layer.show_report(r)
-		layer.show_vocations(r["state"]["player"])
-		layer.show_lantern(r["state"]["player"])
+	_show_player()
 	_world.refresh(r["state"]["village"], ClockS.now_utc())
 
 # Échelle d'interface choisie ici (FoldMode.ui_scale), zone = fenêtre / échelle : pas de bandes noires.
@@ -151,6 +160,7 @@ func _on_size_changed() -> void:
 	_folded = folded
 	FoldModeS.apply(_folded, _ui_folded, _ui_unfolded)
 	_stick.reset()
+	_cancel_preview() # rien n'est consommé : le même tirage reviendra
 	if _tween != null:
 		_tween.kill()
 	_tween = create_tween().set_parallel()
@@ -173,6 +183,43 @@ func _player_state() -> Dictionary:
 	return _fallback_player
 
 func _show_player() -> void:
+	var p: Dictionary = _player_state()
 	for layer in [_ui_folded, _ui_unfolded]: # ui_layer.gd
-		layer.show_vocations(_player_state())
-		layer.show_lantern(_player_state())
+		layer.show_vocations(p)
+		layer.show_lantern(p)
+	_ui_unfolded.show_equipment(p["equipment"], EquipmentS.player_stats(ProgressionS.combat_level(p), p["equipment"]))
+
+# Purification (Volet F §1, déplié) : au village sans limite, au Brasero 2 par expédition ; jamais sans sauvegarde.
+func _can_purify() -> bool:
+	return not SaveManager.state.is_empty() and PurifS.has_shard(_player_state()) and _world.segment().purify_place(_world.player().position) != ""
+
+func _on_purify_requested() -> void:
+	if not _preview.is_empty() or not _can_purify():
+		return
+	var p: Dictionary = _player_state()
+	_preview_place = _world.segment().purify_place(_world.player().position)
+	_preview = PurifS.preview(SaveManager.state["world_seed"], p, SaveManager.state["village"].get("isolat", 0))
+	var level: int = ProgressionS.combat_level(p)
+	var after: Array = p["equipment"].duplicate(true)
+	after[_preview["slot"]] = _preview
+	_ui_unfolded.show_preview(_preview, p["equipment"][_preview["slot"]],
+		EqText.diff_line(EquipmentS.player_stats(level, p["equipment"]), EquipmentS.player_stats(level, after)))
+
+func _on_purify_chosen(equip: bool) -> void:
+	if _preview.is_empty():
+		return
+	var p: Dictionary = _player_state()
+	var entry: Dictionary = PurifS.commit(p, _preview, equip, _preview_place)
+	_world.segment().on_purified(_preview_place)
+	if OS.is_debug_build():
+		print("[EQUIPEMENT] " + JSON.stringify(entry))
+	if equip:
+		_world.player().set_equipment(p["equipment"])
+	_cancel_preview()
+	_show_player()
+	_sync()
+
+func _cancel_preview() -> void:
+	_preview = {}
+	_preview_place = ""
+	_ui_unfolded.hide_preview()

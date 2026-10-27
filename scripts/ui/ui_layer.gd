@@ -5,6 +5,10 @@ const VeilleeReportS = preload("res://scripts/ui/veillee_report.gd")
 const FoldModeS = preload("res://scripts/ui/fold_mode.gd")
 const BA = preload("res://balance/balance_a.gd")
 const ProgressionS = preload("res://scripts/progression.gd")
+const EqText = preload("res://scripts/ui/equipment_text.gd")
+
+signal purify_requested
+signal purify_chosen(equip: bool)
 
 const LEVEL_UP_TOAST_SEC: float = 2.5 # PROPOSÉ, à valider (jalon 13)
 
@@ -17,13 +21,22 @@ const LEVEL_UP_TOAST_SEC: float = 2.5 # PROPOSÉ, à valider (jalon 13)
 @onready var _expedition: Label = $Margin/VBox/Expedition
 @onready var _toast: Label = $Margin/VBox/Toast
 
-var _toast_until: int = 0 # Time.get_ticks_msec() de fin du toast en cours
+var _toast_id: int = 0 # numéro du dernier toast affiché
 @onready var _report: PanelContainer = $Margin/VBox/Report
 @onready var _report_lines: VBoxContainer = $Margin/VBox/Report/Lines
 @onready var _error: Label = $Margin/VBox/Error
 
+# Panneau Équipement et aperçu de purification : couche dépliée seulement.
+@onready var _equipment: PanelContainer = get_node_or_null("Margin/VBox/Equipement")
+@onready var _preview: PanelContainer = get_node_or_null("Margin/VBox/Apercu")
+@onready var _purify: Button = get_node_or_null("Margin/VBox/Equipement/Box/Purifier")
+
 func _ready() -> void:
 	_report.gui_input.connect(_on_report_input)
+	if _purify != null:
+		_purify.pressed.connect(purify_requested.emit)
+		$Margin/VBox/Apercu/Box/Choix/Equiper.pressed.connect(purify_chosen.emit.bind(true))
+		$Margin/VBox/Apercu/Box/Choix/Jeter.pressed.connect(purify_chosen.emit.bind(false))
 	var credits_button: Button = get_node_or_null("Margin/VBox/CreditsButton")
 	if credits_button != null:
 		credits_button.pressed.connect($Credits.show)
@@ -47,17 +60,53 @@ func show_vocations(player: Dictionary) -> void:
 
 # Lanterne niveau 1 (jalon 14).
 func show_lantern(player: Dictionary) -> void:
-	_lantern.text = "Lanterne : Cendre %d/%d  Éclats %d/%d" % [player["cendre"], BA.LANTERN_CENDRE_CAP[0], player["shards"], BA.LANTERN_SHARD_BAG_CAP[0]]
+	_lantern.text = "Lanterne : Cendre %d/%d  Éclats %d/%d" % [player["cendre"], BA.LANTERN_CENDRE_CAP[0], player["shards"] + player["shards_elite"],
+		BA.LANTERN_SHARD_BAG_CAP[0]]
+	if player["shards_elite"] > 0:
+		_lantern.text += " (Élite %d)" % player["shards_elite"]
+
+# Une ligne par emplacement (affixes en retrait), puis les stats portées.
+func show_equipment(equipment: Array, stats: Dictionary) -> void:
+	if _equipment == null:
+		return
+	var lines: PackedStringArray = EqText.equipment_lines(equipment)
+	lines.append(EqText.stats_line(stats))
+	$Margin/VBox/Equipement/Box/Lines.text = "
+".join(lines)
+
+func set_purify_enabled(on: bool) -> void:
+	if _purify != null and _purify.disabled == on:
+		_purify.disabled = not on
+
+# Aperçu : nouvelle pièce, pièce équipée du même emplacement, écart de stats. Le panneau Équipement est masqué.
+func show_preview(piece: Dictionary, current: Variant, diff: String) -> void:
+	if _preview == null:
+		return
+	var lines: PackedStringArray = ["Nouvelle pièce"]
+	lines.append_array(EqText.piece_lines(piece["slot"], piece))
+	lines.append("Équipée")
+	lines.append_array(EqText.piece_lines(piece["slot"], current))
+	lines.append(diff)
+	$Margin/VBox/Apercu/Box/Lines.text = "
+".join(lines)
+	_preview.visible = true
+	_equipment.visible = false
+
+func hide_preview() -> void:
+	if _preview != null:
+		_preview.visible = false
+		_equipment.visible = true
 
 # Une nouvelle montée remplace le texte et relance la durée.
 func show_level_up(voc: String, level: int) -> void:
 	_toast.text = "%s niveau %d !" % [ProgressionS.VOCATION_NAMES[voc], level]
 	_toast.visible = true
-	_toast_until = Time.get_ticks_msec() + roundi(LEVEL_UP_TOAST_SEC * 1000.0)
-	get_tree().create_timer(LEVEL_UP_TOAST_SEC).timeout.connect(_hide_toast)
+	_toast_id += 1
+	get_tree().create_timer(LEVEL_UP_TOAST_SEC).timeout.connect(_hide_toast.bind(_toast_id))
 
-func _hide_toast() -> void:
-	if Time.get_ticks_msec() >= _toast_until:
+# Seul le dernier timer masque : comparer à ticks_msec ratait quand le timer (somme des delta) finissait quelques ms avant.
+func _hide_toast(id: int) -> void:
+	if id == _toast_id:
 		_toast.visible = false
 
 # Compteur d'expédition (volet E §3) : Cendre Vive sur le budget avant l'Élite, Éclats.

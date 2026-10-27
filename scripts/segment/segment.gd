@@ -16,6 +16,7 @@ const ExpeditionS = preload("res://scripts/segment/expedition.gd")
 const LisiereS = preload("res://scripts/combat/lisiere.gd")
 const BA = preload("res://balance/balance_a.gd")
 const ProgressionS = preload("res://scripts/progression.gd")
+const BF = preload("res://balance/balance_f.gd")
 
 var expedition: ExpeditionS = null
 var active: int = SG.VILLAGE
@@ -143,6 +144,19 @@ func _on_gathered(_index: int) -> void:
 		return
 	expedition.on_gather(_isolat)
 	_after_gain()
+
+# Purification d'Éclat (Volet F §1) : "VILLAGE" sans limite, "BRASERO" pendant une expédition dans la limite
+# SHARD_PURIFY_BRAZIER_MAX_PER_RUN, "" ailleurs.
+func purify_place(pos: Vector2) -> String:
+	if CombatS.in_village(pos):
+		return "VILLAGE"
+	if expedition != null and SG.in_brazier_zone(CombatS.cell_of(pos)) and expedition.brazier_purified < BF.SHARD_PURIFY_BRAZIER_MAX_PER_RUN:
+		return "BRASERO"
+	return ""
+
+func on_purified(place: String) -> void:
+	if place == "BRASERO" and expedition != null:
+		expedition.brazier_purified += 1
 
 # Saturation de Brume (volet E §3) : nœuds vitrifiés dès qu'un nœud ne tient plus dans le reste, normaux dissipés
 # dès qu'un kill ne tient plus ; l'Élite s'éveille alors et sa cellule est libérée.

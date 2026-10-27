@@ -8,6 +8,7 @@ const BA = preload("res://balance/balance_a.gd")
 const NpcS = preload("res://scripts/village/npc.gd")
 const CombatS = preload("res://scripts/combat/combat.gd")
 const VL = preload("res://scripts/village/village_layout.gd")
+const EquipmentS = preload("res://scripts/loot/equipment.gd")
 
 signal evacuation_started
 signal teleported # sous le noir, mort ou passage
@@ -35,6 +36,10 @@ var max_hp: int = 0
 var hp: int = 0
 var atk: int = 0
 var def: int = 0
+var period: float = 0.0 # secondes entre deux frappes (cadence de l'arme et PCT_ASPD)
+var crit_rate: float = 0.0
+var crit_mult: float = 0.0
+var _equipment: Array = EquipmentS.new_equipment() # copie : jamais une référence dans SaveManager.state
 var _spawn: Vector2
 var _last_strike: float = -1.0 # -1 = aucun coup encore
 var _hit_t: float = 0.0
@@ -62,22 +67,35 @@ func setup(pos: Vector2, texture: Texture2D, shadow: Texture2D, solid: Dictionar
 	_home_solid = solid
 	_home_bounds = VL.GROUND_RECT
 	_spawn = VL.cell_center(VL.PLAYER_SPAWN_CELL)
-	var stats: Dictionary = CombatS.player_stats(level, CombatS.starting_weapon_atk())
-	max_hp = stats["hp"]
-	atk = stats["atk"]
-	def = stats["def"]
+	_apply_stats()
 	_set_hp(max_hp)
 
-# Une montée de niveau ne soigne que le gain de PV max. PROPOSÉ, à valider (jalon 13)
 func set_level(value: int) -> void:
 	level = value
-	var stats: Dictionary = CombatS.player_stats(level, CombatS.starting_weapon_atk())
-	var gain: int = stats["hp"] - max_hp
+	_restat()
+	_log("niveau", {"niveau": level, "pv": hp, "pv_max": max_hp, "atk": atk, "def": def})
+
+func set_equipment(equipment: Array) -> void:
+	_equipment = equipment.duplicate(true)
+	_restat()
+	_log("equipement", {"pv": hp, "pv_max": max_hp, "atk": atk, "def": def, "cadence": snappedf(1.0 / period, 0.001),
+		"critique": snappedf(crit_rate, 0.0001), "mult_critique": snappedf(crit_mult, 0.0001)})
+
+# Un changement de niveau ou d'équipement ne soigne que le gain de PV max, et borne si le max baisse.
+# PROPOSÉ, à valider (jalon 13)
+func _restat() -> void:
+	var before: int = max_hp
+	_apply_stats()
+	_set_hp(mini(hp + max_hp - before, max_hp))
+
+func _apply_stats() -> void:
+	var stats: Dictionary = EquipmentS.player_stats(level, _equipment)
 	max_hp = stats["hp"]
 	atk = stats["atk"]
 	def = stats["def"]
-	_set_hp(mini(hp + gain, max_hp))
-	_log("niveau", {"niveau": level, "pv": hp, "pv_max": max_hp, "atk": atk, "def": def})
+	period = stats["period"]
+	crit_rate = stats["crit_rate"]
+	crit_mult = stats["crit_mult"]
 
 func set_move_dir(dir: Vector2) -> void:
 	var was_moving: bool = _dir != Vector2.ZERO
@@ -99,7 +117,7 @@ func dodge(dir: Vector2) -> bool:
 
 # Auto-attaque à l'arrêt et en marche (SOCLE §A3 modifié par Antho le 24/10), jamais en esquive ni en fondu.
 func can_strike() -> bool:
-	return not in_fade() and state != State.DODGE and (_last_strike < 0.0 or _clock - _last_strike >= CombatS.attack_period())
+	return not in_fade() and state != State.DODGE and (_last_strike < 0.0 or _clock - _last_strike >= period)
 
 func strike(target_pos: Vector2) -> void:
 	_last_strike = _clock

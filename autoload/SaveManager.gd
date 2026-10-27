@@ -2,7 +2,7 @@ extends Node
 # Autoload « SaveManager » : graine + delta, double fichier tournant, export/import Base64.
 # État : {"format": int, "seq": int, "world_seed": int, "village": Dictionary (format de OfflineDag.resume),
 # "player": {"voc_xp": {vocation: int}, "cendre": int, "shards": int}} (clés optionnelles, ajoutées au chargement :
-# player au jalon 13, cendre et shards de la Lanterne au jalon 14).
+# player au jalon 13, cendre et shards de la Lanterne au jalon 14 ; equipment, shards_elite et purify_n au jalon 15).
 # Le delta est l'état mutable complet ; rien de ce qui se régénère depuis world_seed n'y entre.
 # Fichier = SHA-256(payload) + payload, payload = var_to_bytes(état). Hash vérifié avant décodage, jamais d'objets.
 # seq impair -> save_a.dat, pair -> save_b.dat : une écriture n'écrase que l'emplacement le plus ancien.
@@ -14,6 +14,7 @@ const NewGameS = preload("res://scripts/new_game.gd")
 const BA = preload("res://balance/balance_a.gd")
 const BB = preload("res://balance/balance_b.gd")
 const ProgressionS = preload("res://scripts/progression.gd")
+const EquipmentS = preload("res://scripts/loot/equipment.gd")
 
 const SAVE_FORMAT_VERSION: int = 1
 const SLOT_FILES: Array[String] = ["save_a.dat", "save_b.dat"]
@@ -85,9 +86,11 @@ static func unpack(bytes: PackedByteArray) -> Dictionary:
 		return {}
 	if not v.has("player"):
 		v["player"] = ProgressionS.new_player()
-	for k: String in ["cendre", "shards"]:
+	for k: String in ["cendre", "shards", "shards_elite", "purify_n"]:
 		if not v["player"].has(k):
 			v["player"][k] = 0
+	if not v["player"].has("equipment"):
+		v["player"]["equipment"] = EquipmentS.new_equipment()
 	return v
 
 # Aucune migration : un autre format est refusé.
@@ -110,7 +113,12 @@ static func _is_valid_player(p: Variant) -> bool:
 		var xp: Variant = p["voc_xp"].get(voc)
 		if typeof(xp) != TYPE_INT or xp < 0:
 			return false
-	return _is_valid_count(p.get("cendre"), BA.LANTERN_CENDRE_CAP[0]) and _is_valid_count(p.get("shards"), BA.LANTERN_SHARD_BAG_CAP[0])
+	var bag: int = BA.LANTERN_SHARD_BAG_CAP[0]
+	if not _is_valid_count(p.get("cendre"), BA.LANTERN_CENDRE_CAP[0]) or not _is_valid_count(p.get("shards"), bag) 			or not _is_valid_count(p.get("shards_elite"), bag) or int(p.get("shards", 0)) + int(p.get("shards_elite", 0)) > bag:
+		return false
+	if p.has("purify_n") and (typeof(p["purify_n"]) != TYPE_INT or p["purify_n"] < 0):
+		return false
+	return not p.has("equipment") or EquipmentS.is_valid_equipment(p["equipment"])
 
 # Absent (sauvegarde du jalon 13) ou int dans [0, cap].
 static func _is_valid_count(n: Variant, cap: int) -> bool:

@@ -146,11 +146,11 @@ func _process(delta: float) -> void:
 # seuls les coups d'auto réduisent les recharges (Volet A §4, facteur de cycle 1,689).
 func _strike(target: Node2D) -> void:
 	var skill: int = _player.take_ready_skill()
-	var crit: bool = CombatS.is_crit(_rng)
+	var crit: bool = CombatS.is_crit(_rng, _player.crit_rate)
 	var m_comp: float = 1.0
 	if skill >= 0:
 		m_comp = [BA.SKILL_1_DMG_MULT, BA.SKILL_2_DMG_MULT][skill]
-	var dmg: int = CombatS.damage(_player.atk, target.def, _player.level, crit, m_comp)
+	var dmg: int = CombatS.damage(_player.atk, target.def, _player.level, crit, m_comp, 1.0, _player.crit_mult)
 	_player.strike(target.position)
 	var dead: bool = target.take_hit(dmg)
 	if skill >= 0:
