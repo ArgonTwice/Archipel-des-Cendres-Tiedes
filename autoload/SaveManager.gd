@@ -3,7 +3,8 @@ extends Node
 # État : {"format": int, "seq": int, "world_seed": int, "village": Dictionary (format de OfflineDag.resume),
 # "player": {"voc_xp": {vocation: int}, "cendre": int, "shard_bag": Array, ...}} (clés optionnelles, ajoutées au chargement :
 # player au jalon 13, cendre de la Lanterne au jalon 14 ; equipment et purify_n au jalon 15 ; shard_bag, qui remplace les
-# compteurs shards et shards_elite des jalons 14 et 15, et elite_kills au jalon 15 bis).
+# compteurs shards et shards_elite des jalons 14 et 15, et elite_kills au jalon 15 bis ; chest, crate, forge_n et
+# forge_pending au jalon 16).
 # Le delta est l'état mutable complet ; rien de ce qui se régénère depuis world_seed n'y entre.
 # Fichier = SHA-256(payload) + payload, payload = var_to_bytes(état). Hash vérifié avant décodage, jamais d'objets.
 # seq impair -> save_a.dat, pair -> save_b.dat : une écriture n'écrase que l'emplacement le plus ancien.
@@ -16,6 +17,7 @@ const BA = preload("res://balance/balance_a.gd")
 const BB = preload("res://balance/balance_b.gd")
 const ProgressionS = preload("res://scripts/progression.gd")
 const EquipmentS = preload("res://scripts/loot/equipment.gd")
+const BF = preload("res://balance/balance_f.gd")
 
 const SAVE_FORMAT_VERSION: int = 1
 const SLOT_FILES: Array[String] = ["save_a.dat", "save_b.dat"]
@@ -88,9 +90,14 @@ static func unpack(bytes: PackedByteArray) -> Dictionary:
 	if not v.has("player"):
 		v["player"] = ProgressionS.new_player()
 	var p: Dictionary = v["player"]
-	for k: String in ["cendre", "purify_n", "elite_kills"]:
+	for k: String in ["cendre", "purify_n", "elite_kills", "forge_n"]:
 		if not p.has(k):
 			p[k] = 0
+	if not p.has("chest"):
+		p["chest"] = {}
+	for k: String in ["crate", "forge_pending"]:
+		if not p.has(k):
+			p[k] = null
 	if not p.has("equipment"):
 		p["equipment"] = EquipmentS.new_equipment()
 	if not p.has("shard_bag"): # compteurs des jalons 14 et 15 : Éclats d'Élite puis normaux, ilvl 1
@@ -129,7 +136,15 @@ static func _is_valid_player(p: Variant) -> bool:
 		return false
 	if p.has("shard_bag") and not _is_valid_bag(p["shard_bag"], bag):
 		return false
-	if p.has("elite_kills") and (typeof(p["elite_kills"]) != TYPE_INT or p["elite_kills"] < 0):
+	for k: String in ["elite_kills", "forge_n"]:
+		if p.has(k) and (typeof(p[k]) != TYPE_INT or p[k] < 0):
+			return false
+	if p.has("chest") and not _is_valid_items(p["chest"]):
+		return false
+	if p.get("crate") != null and not _is_valid_crate(p["crate"]):
+		return false
+	var fp: Variant = p.get("forge_pending")
+	if fp != null and (typeof(fp) != TYPE_DICTIONARY or typeof(fp.get("slot")) != TYPE_INT or not EquipmentS.is_valid_piece(fp, fp["slot"])):
 		return false
 	if p.has("purify_n") and (typeof(p["purify_n"]) != TYPE_INT or p["purify_n"] < 0):
 		return false
@@ -144,6 +159,24 @@ static func _is_valid_bag(b: Variant, cap: int) -> bool:
 		if typeof(s) != TYPE_DICTIONARY or typeof(s.get("elite")) != TYPE_BOOL or typeof(s.get("ilvl")) != TYPE_INT or s["ilvl"] < r.x or s["ilvl"] > r.y:
 			return false
 	return true
+
+# Coffre ou contenu de caisse (jalon 16) : minerai de fer-braise seulement, int >= 0.
+static func _is_valid_items(items: Variant) -> bool:
+	if typeof(items) != TYPE_DICTIONARY:
+		return false
+	for k: Variant in items:
+		if k != BF.MIST_NODE_MINERAL_ITEM_ID or typeof(items[k]) != TYPE_INT or items[k] < 0:
+			return false
+	return true
+
+# Caisse : nœud du segment [0, 2], cellule [x, y] entière, contenu non vide.
+static func _is_valid_crate(c: Variant) -> bool:
+	if typeof(c) != TYPE_DICTIONARY or typeof(c.get("node")) != TYPE_INT or c["node"] < 0 or c["node"] > 2:
+		return false
+	var cell: Variant = c.get("cell")
+	if typeof(cell) != TYPE_ARRAY or cell.size() != 2 or typeof(cell[0]) != TYPE_INT or typeof(cell[1]) != TYPE_INT:
+		return false
+	return _is_valid_items(c.get("items")) and c["items"].get(BF.MIST_NODE_MINERAL_ITEM_ID, 0) > 0
 
 # Absent (sauvegarde du jalon 13) ou int dans [0, cap].
 static func _is_valid_count(n: Variant, cap: int) -> bool:

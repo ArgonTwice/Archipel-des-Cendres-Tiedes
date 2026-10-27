@@ -10,6 +10,7 @@ const ProgressionS = preload("res://scripts/progression.gd")
 const EquipmentS = preload("res://scripts/loot/equipment.gd")
 const PurifS = preload("res://scripts/loot/purification.gd")
 const EqText = preload("res://scripts/ui/equipment_text.gd")
+const ForgeS = preload("res://scripts/loot/forge.gd")
 
 @onready var _world: Node2D = $World # village.gd
 @onready var _camera: Camera2D = $Camera2D
@@ -41,7 +42,9 @@ func _ready() -> void:
 	_show_player()
 	var seg: Node2D = _world.segment() # segment.gd
 	seg.xp_changed.connect(_show_player)
-	seg.expedition_ended.connect(func(_reason: String) -> void: _sync())
+	seg.expedition_ended.connect(func(_reason: String) -> void:
+		_show_player() # coffre rempli au retour (jalon 16)
+		_sync())
 	_stick.direction_changed.connect(player.set_move_dir)
 	_stick.swiped.connect(player.dodge)
 	_stick.was_reset.connect(player.on_input_reset)
@@ -53,6 +56,8 @@ func _ready() -> void:
 		seg.leveled.connect(layer.show_level_up)
 	_ui_unfolded.purify_requested.connect(_on_purify_requested)
 	_ui_unfolded.purify_chosen.connect(_on_purify_chosen)
+	_ui_unfolded.forge_requested.connect(_on_forge_requested)
+	_show_forge_pending() # carte de craft laissée ouverte à la fermeture de l'appli
 	_black.color = CombatS.EVAC_COLOR
 	_black.color.a = 0.0
 	_set_camera_limits(VL.GROUND_RECT)
@@ -78,7 +83,8 @@ func _process(_delta: float) -> void:
 		_camera.position = camera_target(_folded, player.position)
 	_black.color.a = player.fade_alpha()
 	if not _folded:
-		_ui_unfolded.set_purify_enabled(_preview.is_empty() and _can_purify())
+		_ui_unfolded.set_purify_enabled(_preview.is_empty() and _player_state()["forge_pending"] == null and _can_purify())
+		_ui_unfolded.set_forge_enabled(_can_forge)
 
 # Plié : sur le joueur. Déplié hors du rayon de l'Âtre : le combat continue, caméra sur le joueur (n°25).
 # Déplié dans le rayon : Vision d'architecte centrée sur l'Âtre, tout le rayon visible.
@@ -188,6 +194,7 @@ func _show_player() -> void:
 		layer.show_vocations(p)
 		layer.show_lantern(p)
 	_ui_unfolded.show_equipment(p["equipment"], EquipmentS.player_stats(ProgressionS.combat_level(p), p["equipment"]))
+	_ui_unfolded.show_forge(ForgeS.ore(p))
 
 # Purification (Volet F §1, déplié) : au village sans limite, au Brasero 2 par expédition ; jamais sans sauvegarde.
 func _can_purify() -> bool:
@@ -199,22 +206,33 @@ func _on_purify_requested() -> void:
 	var p: Dictionary = _player_state()
 	_preview_place = _world.segment().purify_place(_world.player().position)
 	_preview = PurifS.preview(SaveManager.state["world_seed"], p)
+	_show_card(_preview)
+
+# Carte commune à la purification et au craft : nouvelle pièce, pièce équipée, écart de stats.
+func _show_card(piece: Dictionary) -> void:
+	var p: Dictionary = _player_state()
 	var level: int = ProgressionS.combat_level(p)
 	var after: Array = p["equipment"].duplicate(true)
-	after[_preview["slot"]] = _preview
-	_ui_unfolded.show_preview(_preview, p["equipment"][_preview["slot"]],
+	after[piece["slot"]] = piece
+	_ui_unfolded.show_preview(piece, p["equipment"][piece["slot"]],
 		EqText.diff_line(EquipmentS.player_stats(level, p["equipment"]), EquipmentS.player_stats(level, after)))
 
+# Équiper / Jeter : la carte de craft passe avant l'aperçu de purification (les deux ne coexistent jamais).
 func _on_purify_chosen(equip: bool) -> void:
+	var p: Dictionary = _player_state()
+	if p["forge_pending"] != null:
+		_log_json("[FORGE] ", ForgeS.choose(p, equip))
+		_after_choice(equip)
+		return
 	if _preview.is_empty():
 		return
-	var p: Dictionary = _player_state()
-	var entry: Dictionary = PurifS.commit(p, _preview, equip, _preview_place)
+	_log_json("[EQUIPEMENT] ", PurifS.commit(p, _preview, equip, _preview_place))
 	_world.segment().on_purified(_preview_place)
-	if OS.is_debug_build():
-		print("[EQUIPEMENT] " + JSON.stringify(entry))
+	_after_choice(equip)
+
+func _after_choice(equip: bool) -> void:
 	if equip:
-		_world.player().set_equipment(p["equipment"])
+		_world.player().set_equipment(_player_state()["equipment"])
 	_cancel_preview()
 	_show_player()
 	_sync()
@@ -223,3 +241,32 @@ func _cancel_preview() -> void:
 	_preview = {}
 	_preview_place = ""
 	_ui_unfolded.hide_preview()
+	_show_forge_pending()
+
+func _show_forge_pending() -> void:
+	var pending: Variant = _player_state()["forge_pending"]
+	if pending != null:
+		_show_card(pending)
+
+# Forge du village (Volet F §2, déplié) : dans le rayon de l'Âtre, jamais sans sauvegarde ni avec une carte ouverte.
+func _can_forge(cendre: bool) -> bool:
+	return not SaveManager.state.is_empty() and _preview.is_empty() 		and ForgeS.can_craft(_player_state(), cendre, CombatS.in_village(_world.player().position))
+
+func _on_forge_requested(slot: int, cendre: bool) -> void:
+	if not _can_forge(cendre):
+		return
+	var p: Dictionary = _player_state()
+	var r: Dictionary = ForgeS.craft(SaveManager.state["world_seed"], p, slot, cendre, SaveManager.state["village"].get("isolat", 0))
+	_log_json("[FORGE] ", r["log"])
+	if r["gain"]["level_after"] > r["gain"]["level_before"]:
+		_log_json("[FORGE] ", {"event": "niveau", "vocation": "FORGERON", "niveau": r["gain"]["level_after"], "xp": p["voc_xp"]["FORGERON"]})
+		for layer in [_ui_folded, _ui_unfolded]: # ui_layer.gd
+			layer.show_level_up("FORGERON", r["gain"]["level_after"])
+	_show_player()
+	_show_forge_pending()
+	_sync() # la pièce en attente est écrite : quitter sur la carte la fait revenir
+
+# Événements seulement ; build debug seulement.
+func _log_json(tag: String, d: Dictionary) -> void:
+	if OS.is_debug_build():
+		print(tag + JSON.stringify(d))

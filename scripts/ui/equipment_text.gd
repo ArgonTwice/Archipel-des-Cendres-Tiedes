@@ -7,6 +7,7 @@ const EquipmentS = preload("res://scripts/loot/equipment.gd")
 
 const SLOT_NAMES: Array[String] = ["Arme", "Casque", "Plastron", "Bottes"]
 const SLOT_GENDER: Array[String] = ["", "M", "M", "FP"] # l'arme lit son genre dans WEAPON_SPECS
+const SLOT_NOUN_GENDER: Array[String] = ["F", "M", "M", "FP"] # genre du nom d'emplacement (« l'Arme », « les Bottes »)
 const RARITY_FORMS: Array[Dictionary] = [
 	{"M": "Commun", "F": "Commune", "FP": "Communes"}, {"M": "Bon", "F": "Bonne", "FP": "Bonnes"}, {"M": "Rare", "F": "Rare", "FP": "Rares"}]
 const SCHOOL_NAMES: Dictionary = {BC.SchoolId.FOYER: "Enclume", BC.SchoolId.BRASIER: "Brasier"}
@@ -53,6 +54,15 @@ static func equipment_lines(equipment: Array) -> PackedStringArray:
 	for slot in equipment.size():
 		lines.append_array(piece_lines(slot, equipment[slot]))
 	return lines
+
+# Article défini par jetons de genre et de nombre, élidé devant une voyelle : « l'Arme », « le Casque », « les Bottes ».
+static func with_article(slot: int) -> String:
+	var g: String = SLOT_NOUN_GENDER[slot]
+	if g.ends_with("P"):
+		return "les " + SLOT_NAMES[slot]
+	if "AEIOUÉÈ".contains(SLOT_NAMES[slot].left(1)):
+		return "l'" + SLOT_NAMES[slot]
+	return ("la " if g == "F" else "le ") + SLOT_NAMES[slot]
 
 # « PV 154  ATK 30  DEF 13  Cadence 1,20/s  Critique 5 % ×1,5 »
 static func stats_line(st: Dictionary) -> String:

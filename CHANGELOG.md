@@ -42,3 +42,5 @@ Format : `AAAA-MM-JJ — type: description`. Une ligne par changement validé.
 - 2026-10-27 — chore: APK debug 0.15.0 (code 14) testé sur Z Fold 8
 - 2026-10-27 — feat: niveau des monstres dans l'isolat et Éclats à ilvl (jalon 15 bis)
 - 2026-10-27 — chore: APK debug 0.15.1 (code 15) testé sur Z Fold 8
+- 2026-10-27 — feat: minerais, cargaison, coffre et Forge du village (jalon 16)
+- 2026-10-27 — chore: APK debug 0.16.0 (code 16) testé sur Z Fold 8

@@ -121,7 +121,7 @@ func _setup_segment(world_seed: int, isolat: int, village_solid: Dictionary, sha
 	_brazier_light = brazier.get_node("Lumiere")
 	_brazier_light.texture_scale = BRAZIER_LIGHT_SCALE
 	_segment.setup(world_seed, isolat, _player, village_solid, _tile_texture(seg["mob_sprite"]), _tile_texture(seg["mist_sprite"]), shadow, player_ref, brazier,
-		_tile_texture(seg["elite_sprite"]))
+		_tile_texture(seg["elite_sprite"]), _tile_texture(seg["crate_sprite"]))
 
 func refresh(village: Dictionary, now_utc: int) -> void:
 	if _data.is_empty():

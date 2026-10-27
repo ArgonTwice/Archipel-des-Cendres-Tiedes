@@ -407,3 +407,29 @@ Export debug le 27/10 : 0 ERROR ; `aapt2` donne versionCode 15, versionName 0.15
 | X1 sauvegarde du jalon 15 | OK | avant : seq 276, Combattant 3 064 (niveau 6), shards 0, shards_elite 0, purify_n 13 ; après le boot 0.15.1 (pid 30217) : seq 277, shard_bag [], elite_kills 0, anciennes clés retirées ; segment attendu 6 ; « niveau » 6 : 245 / 40 / 23 ; 0 ERROR |
 | X2 deux expéditions | OK | expédition 0 : « debut » niveau_segment 6 ; 12 normaux, 7 nœuds, 0 Éclat (probabilité 0,95^12 × 0,80^7 = 0,11) ; Élite niveau 6 : stat 245 / 40 / 23 (« niveau » 6), 211 PV au 1er coup, 17,8 s du 1er coup à la mort du joueur, 8 coups reçus à 27 (10 ratés), Élite à 900 / 1800 ; coups portés : 36 (auto), 80 et 128 (aptitudes) ; 1 mort, fin « mort », Éclat garanti de l'Élite perdu ; expédition 1 : « debut » niveau_segment 6 (pas de recalcul, Combattant 6, elite_kills 0), 3 normaux, 4 nœuds, 1 Éclat normal ilvl 6, retour sans combat d'Élite ; 0 ERROR |
 | X3 purification d'Éclats ilvl 6 | OK | n 13 au village, source NORMAL, ilvl 6 : Arme Commune, Écoles 3/3/1, FLAT_HP 26,0, équipée -> 323 / 63 / 16 |
+
+## Jalon 16 (APK 0.16.0)
+
+Minerai de nœud dans la cargaison (Mineur), coffre au retour, caisse unique à la mort ; Forge du village (craft avec ou sans Cendre, emplacement choisi, Qualité Supérieure). Simulateur : 679 PASS, 0 FAIL (K0 à K5, C2, Cargaison, Caisse, Forge, Sauvegarde ; +1 compilation de forge.gd). Sprite de caisse : tuile 63 de Tiny Dungeon (« caisse », déjà au dépôt).
+
+Export debug le 27/10 : 0 ERROR ; `aapt2` donne versionCode 16, versionName 0.16.0 ; SHA-256 cb7a42fa5639093505c6e823da4ab99b806ae6cc4620ebf55923e28c6fd7217a.
+
+### Y1 à Y4 (PC, 416 × 657 plié et 1248 × 1300 déplié, --hour=14, partie neuve ; journal build/captures/jalon16-Y-sonde.txt)
+
+| Test | Résultat | Preuve |
+|---|---|---|
+| Y1 expédition, retour | OK | 7 nœuds récoltés, cargaison 14, compteur « Minerai 14/25,2 kg » (Mineur 2) ; retour : log « coffre » ajout 14, coffre 14 |
+| Y2 mort avec minerai, caisse | OK | 7 nœuds, cargaison 14, mort au nœud 0 cellule (8, 116) : « caisse_posee » 14, sprite visible sous Noeud0 en (128, 1856), fin « mort » ; nouvelle expédition à la caisse : « caisse_ramassee » pris 14 reste 0, caisse null, sprite masqué ; retour : coffre 28 |
+| Y3 deux crafts | OK | Arme avec Cendre : coffre 28 → 24, Cendre 150 → 125, Forgeron +126, Rare ilvl 1, équipée ; Bottes sans Cendre : coffre 20, Cendre 125, Forgeron +25, Communes, jetées (jalon16-Y3-forge.png, jalon16-Y3-apres.png) |
+| Y4 quitter sur la carte | OK | Casque sans Cendre laissé ouvert (forge_pending écrit), relance : carte visible, même pièce, 4 boutons Forge grisés (jalon16-Y4-carte.png, jalon16-Y4-relance.png) |
+
+Correctif pendant Y : le panneau Forge affichait le coffre d'avant le retour (14 au lieu de 28) ; main.gd rafraîchit le joueur à chaque fin d'expédition.
+
+### Z1 à Z4 (Fold 8, sauvegarde du jalon 15 bis conservée, copie dans build/backup-fold-jalon15b/ ; journal build/captures/jalon16-Z-logcat.txt)
+
+| Test | Résultat | Preuve |
+|---|---|---|
+| Z1 sauvegarde du jalon 15 bis | OK | capture déplié jalon16-Z-ecran-4630947004648141459.png : coffre 0, Forgeron 1 (0 / 200 XP), Cendre 150, 323 / 63 / 16, boutons Forge grisés ; avant : seq 293, Combattant 3 514, Mineur 3 528, Forgeron 0 (niveau 1), Cendre 150, Sacoche vide ; chargement PC de cette copie : chest {}, crate null, forge_n 0, forge_pending null |
+| Z2 deux expéditions | à faire | |
+| Z3 crafts à la Forge | à faire | |
+| Z4 lisibilité du panneau Forge | partiel | texte lisible ; colonne déplié trop chargée (Forge sous Équipement couvre le village) : mise en page dépliée à traiter dans un jalon dédié |

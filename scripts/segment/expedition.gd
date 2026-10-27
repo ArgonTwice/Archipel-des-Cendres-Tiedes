@@ -8,6 +8,8 @@ const BA = preload("res://balance/balance_a.gd")
 const RngS = preload("res://autoload/Rng.gd")
 const CombatS = preload("res://scripts/combat/combat.gd")
 const ProgressionS = preload("res://scripts/progression.gd")
+const BB = preload("res://balance/balance_b.gd")
+const BF = preload("res://balance/balance_f.gd")
 
 signal leveled(voc: String, level: int)
 
@@ -19,6 +21,7 @@ var xp: int = 0 # total de l'expédition, pour le log
 var shards_refused: int = 0 # Éclats tombés Sacoche pleine
 var brazier_purified: int = 0 # purifications au Brasero dans cette expédition (jalon 15)
 var mob_level: int = 1 # niveau du segment, figé au départ (n°37) : ilvl des Éclats ramassés
+var cargo: int = 0 # unités de minerai portées (jalon 16) : au coffre au retour, dans la caisse à la mort
 var _rng: RngS.Pcg32
 var _player_ref: Callable
 
@@ -52,7 +55,23 @@ func on_gather(isolat: int) -> bool:
 	gathers += 1
 	_gain("MINEUR", floori(BA.XP_GATHER_MIST_NODE * BA.ISOLAT_XP_MULTIPLIERS[isolat]))
 	_cendre(BA.CENDRE_GAIN_MIST_NODE)
-	return _shard(BA.SHARD_DROP_CHANCE_MIST_NODE, false)
+	var dropped: bool = _shard(BA.SHARD_DROP_CHANCE_MIST_NODE, false)
+	var added: int = mini(BF.MIST_NODE_MINERAL_YIELD, cargo_room())
+	cargo += added
+	if added < BF.MIST_NODE_MINERAL_YIELD: # validé sur Fold (jalon 16)
+		_log("cargaison_pleine", {"perdu": BF.MIST_NODE_MINERAL_YIELD - added})
+	return dropped
+
+# Cargaison max (Volet A §5) au niveau de Mineur courant, en kg.
+static func cargo_cap_kg(player: Dictionary) -> float:
+	return BA.PLAYER_BASE_CARGO_KG + BA.PLAYER_CARGO_KG_PER_MINER_LVL * (ProgressionS.level_of(player["voc_xp"]["MINEUR"]) - 1)
+
+static func ore_kg() -> float:
+	return BB.ITEM_WEIGHT_KG[BF.MIST_NODE_MINERAL_ITEM_ID]
+
+# Place restante en unités entières (1e-9 : 25 + 0,2 × 5 ne doit pas tomber à 25,999…).
+func cargo_room() -> int:
+	return maxi(0, floori((cargo_cap_kg(_player_ref.call()) - cargo * ore_kg()) / ore_kg() + 1e-9))
 
 # Élite porteur de braise : la Cendre ne dépasse jamais SEGMENT_STD_RUN_CENDRE_CAP ; Éclat garanti (chance 1,0).
 func on_elite(isolat: int) -> bool:

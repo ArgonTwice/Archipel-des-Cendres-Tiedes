@@ -19,7 +19,6 @@ const MASTERY_GRANTS_COMBAT_STATS: bool = false
 const ISOLAT_LEVEL_RANGES: Array[Vector2i] = [Vector2i(1, 10), Vector2i(11, 20), Vector2i(21, 30), Vector2i(31, 40), Vector2i(41, 50)]
 const ISOLAT_XP_MULTIPLIERS: Array[float] = [1.00, 1.12, 1.24, 1.36, 1.48]
 
-# Delta de balance_a.gd (n°37, validé le 27/10/2026) : a ajouter apres ISOLAT_LEVEL_RANGES / ISOLAT_XP_MULTIPLIERS.
 # Progression du niveau des monstres L_m dans un isolat (entre ISOLAT_LEVEL_RANGES[i].x et .y)
 const LOCK_SEGMENT_LEVEL_ON_RUN_START: bool = true
 const SEGMENT_SCALING_REQUIRES_FIRST_ELITE_KILL: bool = true

@@ -47,6 +47,22 @@ size_flags_horizontal = 0
 disabled = true
 text = "Purifier un Éclat"
 
+[node name="Forge" type="PanelContainer" parent="Margin/VBox"]
+layout_mode = 2
+
+[node name="Box" type="VBoxContainer" parent="Margin/VBox/Forge"]
+layout_mode = 2
+
+[node name="Coffre" type="Label" parent="Margin/VBox/Forge/Box"]
+layout_mode = 2
+text = "Coffre : 0 minerai de fer-braise"
+
+[node name="AvecCendre" type="CheckButton" parent="Margin/VBox/Forge/Box"]
+layout_mode = 2
+size_flags_horizontal = 0
+button_pressed = true
+text = "Avec Cendre (25)"
+
 [node name="Apercu" type="PanelContainer" parent="Margin/VBox"]
 visible = false
 layout_mode = 2
@@ -72,6 +88,7 @@ text = "Jeter"
 [node name="Expedition" type="Label" parent="Margin/VBox"]
 visible = false
 layout_mode = 2
+autowrap_mode = 3
 
 [node name="Toast" type="Label" parent="Margin/VBox"]
 visible = false

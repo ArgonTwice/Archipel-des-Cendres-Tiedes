@@ -26,6 +26,8 @@ const ProgressionS = preload("res://scripts/progression.gd")
 const EquipmentS = preload("res://scripts/loot/equipment.gd")
 const PurifS = preload("res://scripts/loot/purification.gd")
 const BF = preload("res://balance/balance_f.gd")
+const SG = preload("res://scripts/segment/segment_gen.gd")
+const ForgeS = preload("res://scripts/loot/forge.gd")
 const LISIERE_SPAWNS_10: Array = [[0, 16], [0, 20], [0, 24]] # banc d'essai du jalon 10, retiré du village au jalon 11
 const FONT_PATH: String = "res://assets/fonts/silkscreen/Silkscreen-Regular.ttf"
 const OFL_PATH: String = "res://assets/fonts/silkscreen/OFL.txt"
@@ -408,7 +410,8 @@ func _jalon_13(solid1: Dictionary) -> void:
 func _jalon_14(solid1: Dictionary) -> void:
 	_check("lanterne: new_player() == voc_xp à 0, cendre 0, Sacoche vide",
 		ProgressionS.new_player() == {"voc_xp": {"COMBATTANT": 0, "MINEUR": 0, "FORGERON": 0}, "cendre": 0, "shard_bag": [],
-		"equipment": EquipmentS.new_equipment(), "purify_n": 0, "elite_kills": 0}) # clés des jalons 15 et 15 bis
+		"equipment": EquipmentS.new_equipment(), "purify_n": 0, "elite_kills": 0, "chest": {}, "crate": null, "forge_n": 0,
+		"forge_pending": null}) # clés des jalons 15, 15 bis et 16
 	# 40 kills puis l'Élite, joueur neuf
 	var pa: Dictionary = ProgressionS.new_player()
 	var ex: ExpeditionS = ExpeditionS.new(1, 0, func() -> Dictionary: return pa)
@@ -545,6 +548,8 @@ func _jalon_15(solid1: Dictionary) -> void:
 		[0, 1, "EEE", [["PCT_ATK", 6.0], ["PCT_ASPD", 4.0]]], [0, 2, "EBE", [["FLAT_HP", 7.0020], ["FLAT_ATK", 4.7580], ["PCT_ASPD", 4.0]]],
 		[1, 1, "", [["PCT_ATK", 6.0], ["FLAT_ATK", 10.92]]], [1, 2, "", [["FLAT_HP", 6.9163], ["FLAT_DEF", 4.8437], ["PCT_ASPD", 4.0]]],
 		[2, 1, "", [["FLAT_DEF", 11.88], ["PCT_CRIT_DMG", 10.0]]], [0, 1, "EEE", [["PCT_ATK", 6.0], ["FLAT_ATK", 10.92]]]]
+	_t1_want = t1_want
+	_t2_want = t2_want
 	for t: Array in [["T1", false, t1_want], ["T2", true, t2_want]]:
 		var got: Array = []
 		var ok: bool = true
@@ -722,6 +727,7 @@ func _jalon_15b(solid1: Dictionary) -> void:
 	ex.on_elite(0)
 	var g5_want: Array = [[0, 0, "EEE", [["FLAT_ATK", 26.0]]], [0, 1, "EBE", [["FLAT_HP", 15.1762], ["FLAT_ATK", 14.4638]]],
 		[1, 0, "", [["FLAT_HP", 26.0]]], [1, 1, "", [["FLAT_HP", 13.5393], ["FLAT_DEF", 16.1007]]]]
+	_g5_want = g5_want
 	var got: Array = []
 	var g5_ok: bool = pg["shard_bag"] == _bag(0, 1, 6) and pg["elite_kills"] == 1
 	for n in g5_want.size():
@@ -774,6 +780,207 @@ func _jalon_15b(solid1: Dictionary) -> void:
 		bad.append(SaveS.unpack(SaveS.pack(b)).is_empty())
 	_check("G7: 7 Éclats, ilvl 0, ilvl 11, elite non booléen, elite_kills négatif -> refusé ; état témoin accepté",
 		bad == [true, true, true, true, true] and not SaveS.unpack(SaveS.pack(good)).is_empty(), str(bad))
+
+# Jalon 16 : minerais, cargaison, coffre, caisse et Forge du village (Volet F §1, §2, §5). Références : jumeau Python d'Antho.
+var _t1_want: Array = []
+var _t2_want: Array = []
+var _g5_want: Array = []
+
+func _craft_refs(tag: String, slot_of: Callable, level: int, cendre: bool, want: Array, ilvl: int) -> void:
+	var got: Array = []
+	var ok: bool = true
+	for n in want.size():
+		var piece: Dictionary = EquipmentS.craft(1, n, slot_of.call(n), level, cendre, 0)
+		got.append(_piece_str(n, piece) + (" SUP" if piece["superior"] else ""))
+		ok = ok and _piece_is(piece, want[n], ilvl) and not piece["superior"]
+	_check("%s: craft(1, n, %s, %d, %s) pour n = 0 à %d == références" % [tag, "n % 4", level, "true" if cendre else "false", want.size() - 1], ok, "\n" + "\n".join(got))
+
+func _jalon_16(solid1: Dictionary) -> void:
+	# K0 : découpage de roll()
+	var k0: bool = true
+	for t: Array in [[false, _t1_want, 1], [true, _t2_want, 1], [false, _g5_want, 6]]:
+		for n in t[1].size():
+			k0 = k0 and _piece_is(EquipmentS.roll(1, n, t[0], t[2]), t[1][n], t[2])
+	_check("K0: roll() après le découpage en build_piece == T1, T2 et G5", k0 and _t1_want.size() == 12 and _t2_want.size() == 6 and _g5_want.size() == 4)
+	# K1
+	var k1: Array = []
+	for lf: int in [1, 3, 5, 10]:
+		k1.append(BF.get_craft_with_cendre_rarity_weights(lf))
+	var caps: Array = []
+	for lm: int in [1, 5, 10]:
+		var pm: Dictionary = ProgressionS.new_player()
+		pm["voc_xp"]["MINEUR"] = BA.get_cumulative_xp(lm)
+		caps.append(ExpeditionS.cargo_cap_kg(pm))
+	_check("K1: poids de craft Forgeron 1 / 3 / 5 / 10 == [65,25,10] / [61,27,12] / [57,29,14] / [47,34,19]",
+		k1 == [[65, 25, 10], [61, 27, 12], [57, 29, 14], [47, 34, 19]], str(k1))
+	_check("K1: cargaison max Mineur 1 / 5 / 10 == 25,0 / 25,8 / 26,8 kg", _near_eps(caps, [25.0, 25.8, 26.8], 1e-9), str(caps))
+	# K2 à K4
+	var by4: Callable = func(n: int) -> int: return n % 4
+	_craft_refs("K2", by4, 1, true, [
+		[0, 2, "BEB", [["FLAT_ATK", 8.3480], ["PCT_ATK", 6.0], ["FLAT_DEF", 4.2520]]], [1, 1, "", [["FLAT_HP", 7.9151], ["FLAT_DEF", 5.7649]]],
+		[2, 0, "", [["FLAT_ATK", 12.0]]], [3, 0, "", [["FLAT_HP", 12.0]]], [0, 0, "EBE", [["FLAT_HP", 12.0]]],
+		[1, 2, "", [["FLAT_DEF", 6.4904], ["FLAT_HP", 5.2696], ["PCT_ASPD", 4.0]]]], 1)
+	_craft_refs("K3", by4, 5, true, [
+		[0, 2, "BEB", [["FLAT_ATK", 16.1394], ["PCT_ATK", 6.0], ["FLAT_DEF", 8.2206]]], [1, 2, "", [["FLAT_HP", 6.1620], ["FLAT_DEF", 8.9950], ["FLAT_ATK", 14.5390]]],
+		[2, 0, "", [["FLAT_ATK", 23.2]]], [3, 0, "", [["FLAT_HP", 23.2]]], [0, 0, "EBE", [["FLAT_HP", 23.2]]],
+		[1, 2, "", [["FLAT_DEF", 12.5482], ["FLAT_HP", 10.1878], ["PCT_ASPD", 4.0]]]], 5)
+	_craft_refs("K4", by4, 5, false, [
+		[0, 0, "BEE", [["FLAT_ATK", 23.2]]], [1, 0, "", [["FLAT_ATK", 23.2]]], [2, 0, "", [["FLAT_ATK", 23.2]]],
+		[3, 0, "", [["FLAT_ATK", 23.2]]], [0, 0, "EEE", [["FLAT_HP", 23.2]]], [1, 0, "", [["FLAT_ATK", 23.2]]]], 5)
+	# K5 : Qualité Supérieure
+	var sup: Array = []
+	var k5_got: Array = []
+	for n in 10:
+		var piece: Dictionary = EquipmentS.craft(1, n, 2, 1, true, 0)
+		sup.append(piece["superior"])
+		k5_got.append(_piece_str(n, piece) + (" SUP" if piece["superior"] else ""))
+	var p8: Dictionary = EquipmentS.craft(1, 8, 2, 1, true, 0)
+	var p9: Dictionary = EquipmentS.craft(1, 9, 2, 1, true, 0)
+	_check("K5: craft(1, n, 2, 1, true) : n = 0 à 7 non Supérieures ; n = 8 et 9 Supérieures, Plastron Bon ilvl 3 == références",
+		sup == [false, false, false, false, false, false, false, false, true, true]
+		and _piece_is(p8, [2, 1, "", [["FLAT_DEF", 10.3080], ["FLAT_ATK", 9.7560]]], 3) and _piece_is(p9, [2, 1, "", [["PCT_ATK", 6.0], ["FLAT_DEF", 16.0160]]], 3),
+		"\n" + "\n".join(k5_got))
+	# C2 : 20 000 crafts
+	var rar: Array[int] = [0, 0, 0]
+	var n_sup: int = 0
+	var n_draws: int = 20000
+	for n in n_draws:
+		var piece: Dictionary = EquipmentS.craft(7, n, 1, 5, true, 0)
+		rar[piece["rarity"]] += 1
+		n_sup += int(piece["superior"])
+	var fr: Array = [float(rar[0]) / n_draws, float(rar[1]) / n_draws, float(rar[2]) / n_draws, float(n_sup) / n_draws]
+	_check("C2: 20 000 craft(7, n, 1, 5, true) -> raretés 0,57 / 0,29 / 0,14, Supérieure 0,20 (±0,02)",
+		absf(fr[0] - 0.57) <= 0.02 and absf(fr[1] - 0.29) <= 0.02 and absf(fr[2] - 0.14) <= 0.02 and absf(fr[3] - 0.20) <= 0.02, str(fr))
+	# Cargaison : 13 nœuds, Mineur 1 ; jumeau B dont la cargaison est vidée avant chaque nœud
+	var pa: Dictionary = ProgressionS.new_player()
+	var pb: Dictionary = ProgressionS.new_player()
+	var ea: ExpeditionS = ExpeditionS.new(1, 0, func() -> Dictionary: return pa)
+	var eb: ExpeditionS = ExpeditionS.new(1, 0, func() -> Dictionary: return pb)
+	var cargo12: int = -1
+	for k in 13:
+		ea.cendre = 0 # budget de saturation hors sujet ici : 13 nœuds dépassent les 80 d'une expédition
+		eb.cendre = 0
+		eb.cargo = 0
+		ea.on_gather(0)
+		eb.on_gather(0)
+		if k == 11:
+			cargo12 = ea.cargo
+	_check("cargaison: Mineur 1, 12 nœuds -> 24, le 13e +1 (1 perdu) ; XP, Cendre et Éclats == jumeau sans plafond",
+		cargo12 == 24 and ea.cargo == 25 and ea.xp == eb.xp and pa["cendre"] == pb["cendre"] and pa["shard_bag"] == pb["shard_bag"]
+		and pa["voc_xp"] == pb["voc_xp"], "%d %d %d %d %d %d" % [cargo12, ea.cargo, ea.xp, eb.xp, pa["cendre"], pb["cendre"]])
+	# Retour : coffre
+	var pr: Dictionary = ProgressionS.new_player()
+	var ctx: Array = _seg_ctx(solid1, Vector2(0, 6240), func() -> Dictionary: return pr)
+	var sp: Node2D = ctx[0]
+	var seg: Node2D = ctx[1]
+	_seg_frame(sp, seg)
+	seg.expedition.cargo = 24
+	sp.position = Vector2(0, 32)
+	_seg_frame(sp, seg)
+	sp.position = Vector2(0, 6240)
+	_seg_frame(sp, seg)
+	_check("cargaison: retour au village -> coffre 24, cargaison de l'expédition suivante 0, aucune caisse",
+		pr["chest"] == {"MINERAI_FER_BRAISE": 24} and seg.expedition.cargo == 0 and pr["crate"] == null, "%s %d" % [str(pr["chest"]), seg.expedition.cargo])
+	_seg_free(ctx)
+	# Caisse
+	var pc: Dictionary = ProgressionS.new_player()
+	var r1: Rect2i = SG.node_rect(1)
+	var at1: Vector2 = VL.cell_center(r1.position + Vector2i(r1.size.x / 2, r1.size.y / 2))
+	ctx = _seg_ctx(solid1, at1, func() -> Dictionary: return pc)
+	sp = ctx[0]
+	seg = ctx[1]
+	_seg_frame(sp, seg)
+	var active1: int = seg.active
+	seg.expedition.cargo = 6
+	var cell1: Vector2i = CombatS.cell_of(sp.position)
+	sp.hp = 5
+	sp.take_hit(9)
+	var crate1: Variant = pc["crate"].duplicate(true) if pc["crate"] != null else null
+	for f in 90:
+		_seg_frame(sp, seg)
+	var after_death1: String = seg.last_end
+	sp.position = Vector2(0, 6240)
+	_seg_frame(sp, seg)
+	seg.expedition.cargo = 4
+	var cell2: Vector2i = CombatS.cell_of(sp.position)
+	sp.hp = 5
+	sp.take_hit(9)
+	var crate2: Variant = pc["crate"].duplicate(true) if pc["crate"] != null else null
+	for f in 90:
+		_seg_frame(sp, seg)
+	_check("caisse: mort avec cargo 6 au nœud 1 -> {node 1, cellule de la mort, 6} ; fin « mort »",
+		active1 == 1 and crate1 == {"node": 1, "cell": [cell1.x, cell1.y], "items": {"MINERAI_FER_BRAISE": 6}} and after_death1 == "mort", str(crate1))
+	_check("caisse: nouvelle mort avec cargo 4 au nœud 2 -> {node 2, cellule de la mort, 10}, caisse visible au nœud 2",
+		crate2 == {"node": 2, "cell": [cell2.x, cell2.y], "items": {"MINERAI_FER_BRAISE": 10}} and seg._crate.visible and seg._crate.get_parent() == seg.nodes()[2],
+		str(crate2))
+	sp.position = VL.cell_center(cell2)
+	sp.hp = sp.max_hp
+	_seg_frame(sp, seg)
+	seg.expedition.cargo = 5 # place 20
+	_seg_frame(sp, seg)
+	var took_all: Array = [seg.expedition.cargo, pc["crate"], seg._crate.visible]
+	pc["crate"] = {"node": 2, "cell": [cell2.x, cell2.y], "items": {"MINERAI_FER_BRAISE": 10}}
+	seg._place_crate()
+	seg.expedition.cargo = 22 # place 3
+	_seg_frame(sp, seg)
+	_check("caisse: ramassage avec 20 de place -> prend 10, caisse null ; avec 3 de place -> prend 3, reste 7",
+		took_all == [15, null, false] and seg.expedition.cargo == 25 and pc["crate"] != null and pc["crate"]["items"]["MINERAI_FER_BRAISE"] == 7,
+		"%s %d %s" % [str(took_all), seg.expedition.cargo, str(pc["crate"])])
+	_seg_free(ctx)
+	# Forge
+	var pf: Dictionary = ProgressionS.new_player()
+	pf["chest"] = {"MINERAI_FER_BRAISE": 8}
+	pf["cendre"] = 30
+	pf["voc_xp"]["COMBATTANT"] = BA.get_cumulative_xp(6)
+	var ok1: bool = ForgeS.can_craft(pf, true, true)
+	var r: Dictionary = ForgeS.craft(1, pf, 0, true, 0)
+	var xp1: int = pf["voc_xp"]["FORGERON"]
+	var pending_ok: bool = pf["forge_pending"] == EquipmentS.craft(1, 0, 0, 1, true, 0) \
+		and _piece_is(pf["forge_pending"], [0, 2, "BEB", [["FLAT_ATK", 8.3480], ["PCT_ATK", 6.0], ["FLAT_DEF", 4.2520]]], 1)
+	_check("forge: chest 8, cendre 30, Forgeron 1, Combattant 6 -> chest 4, cendre 5, forge_n 1, Forgeron +252 (126 × 2), pièce K2 n = 0 en attente",
+		ok1 and pf["chest"]["MINERAI_FER_BRAISE"] == 4 and pf["cendre"] == 5 and pf["forge_n"] == 1 and xp1 == 252 and r["gain"]["gained"] == 252 and pending_ok
+		and r["log"]["n"] == 0 and r["log"]["forgeron"] == 1, "%s %d" % [str(pf["chest"]), xp1])
+	var busy: bool = ForgeS.can_craft(pf, false, true)
+	ForgeS.choose(pf, true)
+	var equipped: bool = pf["forge_pending"] == null and pf["equipment"][0]["rarity"] == 2 and pf["equipment"][0]["superior"] == false
+	var refused_cendre: bool = not ForgeS.can_craft(pf, true, true)
+	var refused_out: bool = not ForgeS.can_craft(pf, false, false)
+	var ok2: bool = ForgeS.can_craft(pf, false, true)
+	var r2: Dictionary = ForgeS.craft(1, pf, 1, false, 0)
+	_check("forge: carte en attente -> refusé ; Équiper vide forge_pending ; 2e craft avec Cendre refusé (cendre 5), hors du village refusé, sans Cendre accepté -> +50 XP",
+		not busy and equipped and refused_cendre and refused_out and ok2 and r2["gain"]["gained"] == 50 and pf["chest"]["MINERAI_FER_BRAISE"] == 0 and pf["cendre"] == 5
+		and pf["forge_pending"]["rarity"] == 0 and not pf["forge_pending"]["superior"], "%d %s" % [r2["gain"]["gained"], str(pf["chest"])])
+	# Sauvegarde
+	_clean_saves()
+	var ns: Dictionary = SaveS.new_state(7, D0, 0)
+	ns["player"]["chest"] = {"MINERAI_FER_BRAISE": 12}
+	ns["player"]["crate"] = {"node": 1, "cell": [3, 210], "items": {"MINERAI_FER_BRAISE": 6}}
+	ns["player"]["forge_n"] = 4
+	ns["player"]["forge_pending"] = EquipmentS.craft(1, 8, 2, 1, true, 0)
+	SaveS.save(ns, D0, TEST_SAVE_DIR)
+	var back: Dictionary = SaveS.load_latest(TEST_SAVE_DIR)
+	_check("save: save puis load_latest rendent chest, crate, forge_n et forge_pending (Supérieure)",
+		not back.is_empty() and back["player"]["chest"] == ns["player"]["chest"] and back["player"]["crate"] == ns["player"]["crate"] and back["player"]["forge_n"] == 4
+		and back["player"]["forge_pending"] == ns["player"]["forge_pending"], str(back.get("player", {}).get("crate")))
+	var old: Dictionary = back.duplicate(true)
+	for k: String in ["chest", "crate", "forge_n", "forge_pending"]:
+		old["player"].erase(k)
+	var old_back: Dictionary = SaveS.unpack(SaveS.pack(old))
+	_check("save: player du jalon 15 bis -> chest {}, crate null, forge_n 0, forge_pending null",
+		not old_back.is_empty() and old_back["player"]["chest"] == {} and old_back["player"]["crate"] == null and old_back["player"]["forge_n"] == 0
+		and old_back["player"]["forge_pending"] == null)
+	var bad: Array = []
+	var muts: Array[Callable] = [
+		func(p: Dictionary) -> void: p["chest"] = {"MINERAI_FER_BRAISE": -1},
+		func(p: Dictionary) -> void: p["crate"]["node"] = 3,
+		func(p: Dictionary) -> void: p["crate"]["items"] = {"MINERAI_FER_BRAISE": 0},
+		func(p: Dictionary) -> void: p["forge_pending"]["rarity"] = 5]
+	for m: Callable in muts:
+		var b: Dictionary = back.duplicate(true)
+		m.call(b["player"])
+		bad.append(SaveS.unpack(SaveS.pack(b)).is_empty())
+	_check("save: chest négatif, crate de node 3, crate vide, forge_pending invalide -> refusé", bad == [true, true, true, true], str(bad))
+	_clean_saves()
 
 # Sacoche : e Éclats d'Élite puis n normaux, à l'ilvl donné (ordre de la conversion de SaveManager).
 func _bag(n: int, e: int, ilvl: int = 1) -> Array:
@@ -1205,7 +1412,7 @@ func _jalon_11(vd: Dictionary, solid1: Dictionary) -> void:
 	var tp: Array[int] = [0]
 	var changes: Array = []
 	pl.teleported.connect(func() -> void: tp[0] += 1)
-	seg.expedition_changed.connect(func(s: bool, c: int, e: int) -> void: changes.append([s, c, e]))
+	seg.expedition_changed.connect(func(s: bool, c: int, e: int, _kg: float, _cap: float) -> void: changes.append([s, c, e]))
 	_seg_frame(pl, seg)
 	var fade1: bool = pl.in_fade()
 	var still: bool = true
@@ -1297,6 +1504,7 @@ func _jalon_11(vd: Dictionary, solid1: Dictionary) -> void:
 	_jalon_14(solid1)
 	_jalon_15(solid1)
 	_jalon_15b(solid1)
+	_jalon_16(solid1)
 	# Scènes et données
 	var vil: Node = load("res://scenes/village/village.tscn").instantiate()
 	var sg: Node2D = vil.get_node_or_null("Entites/Segment")

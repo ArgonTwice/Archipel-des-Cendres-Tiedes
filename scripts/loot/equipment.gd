@@ -1,7 +1,9 @@
 extends RefCounted
-# Pièces d'équipement (Volet F §1 à §4) : tirage déterministe d'un Éclat purifié, partage du budget B, stats portées.
+# Pièces d'équipement (Volet F §1 à §4) : tirage déterministe d'un Éclat purifié ou d'un craft de Forge (jalon 16),
+# partage du budget B, stats portées.
 # Pièce = {"slot": int (BalanceF.EquipmentSlot), "rarity": int (0..2), "ilvl": int, "schools": Array (3 SchoolId pour
-# l'arme, vide pour une armure), "affixes": Array de {"id": String, "units": float}}. L'arme est une Épée & Écu. Statiques pures.
+# l'arme, vide pour une armure), "affixes": Array de {"id": String, "units": float}, "superior": bool (craft seulement)}.
+# L'arme est une Épée & Écu. Statiques pures.
 
 const BA = preload("res://balance/balance_a.gd")
 const BC = preload("res://balance/balance_c.gd")
@@ -41,6 +43,22 @@ static func roll(world_seed: int, n: int, elite: bool, ilvl: int) -> Dictionary:
 	var rng: RefCounted = RngS.make_rng(world_seed, "loot/purif/%d" % n)
 	var slot: int = weighted_index(rng, BF.SLOT_DROP_WEIGHTS)
 	var rarity: int = weighted_index(rng, BF.SHARD_ELITE_RARITY_WEIGHTS if elite else BF.SHARD_NORMAL_RARITY_WEIGHTS)
+	return build_piece(rng, slot, rarity, ilvl)
+
+# Forge du village (Volet F §2) : tirages rareté (avec Cendre seulement), Supérieure (idem), puis build_piece.
+# Supérieure sans plafond d'ilvl (n°35 : ilvl 12 au plus en tranche).
+static func craft(world_seed: int, n: int, slot: int, forgeron_level: int, cendre: bool, isolat: int) -> Dictionary:
+	var rng: RefCounted = RngS.make_rng(world_seed, "loot/forge/%d" % n)
+	var r: Vector2i = BA.ISOLAT_LEVEL_RANGES[isolat]
+	var lf: int = clampi(forgeron_level, r.x, r.y)
+	var rarity: int = weighted_index(rng, BF.get_craft_with_cendre_rarity_weights(lf)) if cendre else 0
+	var superior: bool = cendre and rng.next_float() < BA.SUPERIOR_CHANCE_BASE
+	var piece: Dictionary = build_piece(rng, slot, rarity, lf + (BA.SUPERIOR_QUALITY_ILVL_BONUS if superior else 0))
+	piece["superior"] = superior
+	return piece
+
+# Tirages c à e (jalon 15) : Écoles de l'arme, affixes, parts du budget.
+static func build_piece(rng: RefCounted, slot: int, rarity: int, ilvl: int) -> Dictionary:
 	var schools: Array = []
 	if slot == BF.EquipmentSlot.WEAPON:
 		var blade: int = weighted_key(rng, BC.VERTICAL_SLICE_DROP_WEIGHTS)
@@ -144,6 +162,8 @@ static func is_valid_piece(p: Variant, slot: int) -> bool:
 	if typeof(p["slot"]) != TYPE_INT or p["slot"] != slot or typeof(p["rarity"]) != TYPE_INT or p["rarity"] < 0 or p["rarity"] > BC.VERTICAL_SLICE_MAX_RARITY_INDEX:
 		return false
 	if typeof(p["ilvl"]) != TYPE_INT or p["ilvl"] < 1 or p["ilvl"] > MAX_ILVL or typeof(p["schools"]) != TYPE_ARRAY or typeof(p["affixes"]) != TYPE_ARRAY:
+		return false
+	if p.has("superior") and typeof(p["superior"]) != TYPE_BOOL:
 		return false
 	if slot == BF.EquipmentSlot.WEAPON:
 		if p["schools"].size() != 3:

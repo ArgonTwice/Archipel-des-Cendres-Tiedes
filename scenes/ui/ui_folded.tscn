@@ -35,6 +35,7 @@ autowrap_mode = 3
 [node name="Expedition" type="Label" parent="Margin/VBox"]
 visible = false
 layout_mode = 2
+autowrap_mode = 3
 
 [node name="Toast" type="Label" parent="Margin/VBox"]
 visible = false
