@@ -34,9 +34,13 @@ static func top_level(player: Dictionary) -> int:
 # base_xp : XP de l'action après M_isolat. Rattrapage ×2 face à la plus haute vocation. Modifie player en place.
 static func gain(player: Dictionary, voc: String, base_xp: int) -> Dictionary:
 	var before: int = level_of(player["voc_xp"][voc])
-	var gained: int = floori(base_xp * BA.get_action_xp_catchup_mult(before, top_level(player))) # floor : Volet F
+	var gained: int = gain_preview(player, voc, base_xp)
 	player["voc_xp"][voc] += gained
 	return {"gained": gained, "level_before": before, "level_after": level_of(player["voc_xp"][voc])}
+
+# XP que gain() ajouterait, rattrapage compris, sans rien modifier.
+static func gain_preview(player: Dictionary, voc: String, base_xp: int) -> int:
+	return floori(base_xp * BA.get_action_xp_catchup_mult(level_of(player["voc_xp"][voc]), top_level(player))) # floor : Volet F
 
 # XP dans le niveau et XP requise pour le passer.
 static func level_progress(xp: int) -> Vector2i:

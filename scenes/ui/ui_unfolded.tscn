@@ -32,10 +32,15 @@ layout_mode = 2
 autowrap_mode = 3
 
 [node name="Equipement" type="PanelContainer" parent="Margin/VBox"]
+visible = false
 layout_mode = 2
 
 [node name="Box" type="VBoxContainer" parent="Margin/VBox/Equipement"]
 layout_mode = 2
+
+[node name="Titre" type="Label" parent="Margin/VBox/Equipement/Box"]
+layout_mode = 2
+text = "Équipement"
 
 [node name="Lines" type="Label" parent="Margin/VBox/Equipement/Box"]
 layout_mode = 2
@@ -48,20 +53,37 @@ disabled = true
 text = "Purifier un Éclat"
 
 [node name="Forge" type="PanelContainer" parent="Margin/VBox"]
+visible = false
 layout_mode = 2
 
 [node name="Box" type="VBoxContainer" parent="Margin/VBox/Forge"]
 layout_mode = 2
 
-[node name="Coffre" type="Label" parent="Margin/VBox/Forge/Box"]
+[node name="Titre" type="Label" parent="Margin/VBox/Forge/Box"]
 layout_mode = 2
-text = "Coffre : 0 minerai de fer-braise"
+text = "Forge"
+
+[node name="Reserve" type="Label" parent="Margin/VBox/Forge/Box"]
+layout_mode = 2
+autowrap_mode = 3
 
 [node name="AvecCendre" type="CheckButton" parent="Margin/VBox/Forge/Box"]
 layout_mode = 2
 size_flags_horizontal = 0
 button_pressed = true
-text = "Avec Cendre (25)"
+text = "Avec Cendre"
+
+[node name="Aide" type="Label" parent="Margin/VBox/Forge/Box"]
+layout_mode = 2
+autowrap_mode = 3
+
+[node name="Boutons" type="VBoxContainer" parent="Margin/VBox/Forge/Box"]
+layout_mode = 2
+
+[node name="Raison" type="Label" parent="Margin/VBox/Forge/Box"]
+visible = false
+layout_mode = 2
+autowrap_mode = 3
 
 [node name="Apercu" type="PanelContainer" parent="Margin/VBox"]
 visible = false
@@ -69,6 +91,15 @@ layout_mode = 2
 
 [node name="Box" type="VBoxContainer" parent="Margin/VBox/Apercu"]
 layout_mode = 2
+
+[node name="Superieure" type="Label" parent="Margin/VBox/Apercu/Box"]
+visible = false
+layout_mode = 2
+autowrap_mode = 3
+
+[node name="Verdict" type="Label" parent="Margin/VBox/Apercu/Box"]
+layout_mode = 2
+autowrap_mode = 3
 
 [node name="Lines" type="Label" parent="Margin/VBox/Apercu/Box"]
 layout_mode = 2
@@ -108,9 +139,27 @@ visible = false
 layout_mode = 2
 autowrap_mode = 3
 
-[node name="CreditsButton" type="Button" parent="Margin/VBox"]
+[node name="Espace" type="Control" parent="Margin/VBox"]
 layout_mode = 2
-size_flags_horizontal = 0
+size_flags_vertical = 3
+mouse_filter = 2
+
+[node name="Menu" type="HBoxContainer" parent="Margin/VBox"]
+layout_mode = 2
+mouse_filter = 2
+
+[node name="OngletEquipement" type="Button" parent="Margin/VBox/Menu"]
+layout_mode = 2
+toggle_mode = true
+text = "Équipement"
+
+[node name="OngletForge" type="Button" parent="Margin/VBox/Menu"]
+layout_mode = 2
+toggle_mode = true
+text = "Forge"
+
+[node name="CreditsButton" type="Button" parent="Margin/VBox/Menu"]
+layout_mode = 2
 text = "Crédits"
 
 [node name="Credits" parent="." instance=ExtResource("2")]

@@ -17,6 +17,17 @@ static func can_craft(player: Dictionary, cendre: bool, at_village: bool) -> boo
 	return at_village and player["forge_pending"] == null and ore(player) >= BB.CRAFT_MINERAL_COST_EQUIPMENT \
 		and (not cendre or player["cendre"] >= BA.CENDRE_COST_STANDARD_CRAFT)
 
+static func xp_base(cendre: bool, isolat: int) -> int:
+	return floori((BA.XP_CRAFT_WITH_CENDRE if cendre else BA.XP_CRAFT_NO_CENDRE) * BA.ISOLAT_XP_MULTIPLIERS[isolat])
+
+# Aide de la Forge (jalon 16 bis) : XP du prochain craft et ilvl de la pièce (niveau de Forgeron borné comme dans Equipment.craft).
+static func xp_preview(player: Dictionary, cendre: bool, isolat: int) -> int:
+	return ProgressionS.gain_preview(player, "FORGERON", xp_base(cendre, isolat))
+
+static func piece_level(player: Dictionary, isolat: int) -> int:
+	var r: Vector2i = BA.ISOLAT_LEVEL_RANGES[isolat]
+	return clampi(ProgressionS.level_of(player["voc_xp"]["FORGERON"]), r.x, r.y)
+
 # Tirage au niveau de Forgeron avant le gain, paiement, XP (rattrapage), pièce en attente. Rend le log « craft » et
 # le gain de Progression.gain (toast de niveau).
 static func craft(world_seed: int, player: Dictionary, slot: int, cendre: bool, isolat: int) -> Dictionary:
@@ -27,8 +38,7 @@ static func craft(world_seed: int, player: Dictionary, slot: int, cendre: bool, 
 	if cendre:
 		player["cendre"] -= BA.CENDRE_COST_STANDARD_CRAFT
 	player["forge_n"] = n + 1
-	var base: int = BA.XP_CRAFT_WITH_CENDRE if cendre else BA.XP_CRAFT_NO_CENDRE
-	var g: Dictionary = ProgressionS.gain(player, "FORGERON", floori(base * BA.ISOLAT_XP_MULTIPLIERS[isolat]))
+	var g: Dictionary = ProgressionS.gain(player, "FORGERON", xp_base(cendre, isolat))
 	player["forge_pending"] = piece
 	var affixes: Array = []
 	for a: Dictionary in piece["affixes"]:

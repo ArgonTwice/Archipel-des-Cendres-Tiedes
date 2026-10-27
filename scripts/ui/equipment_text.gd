@@ -2,7 +2,9 @@ extends RefCounted
 # Textes du panneau Équipement (Volet F, jalon 15) : jetons de genre FR, une décimale à la virgule. Statiques pures.
 
 const BA = preload("res://balance/balance_a.gd")
+const BB = preload("res://balance/balance_b.gd")
 const BC = preload("res://balance/balance_c.gd")
+const BF = preload("res://balance/balance_f.gd")
 const EquipmentS = preload("res://scripts/loot/equipment.gd")
 
 const SLOT_NAMES: Array[String] = ["Arme", "Casque", "Plastron", "Bottes"]
@@ -76,3 +78,61 @@ static func diff_line(before: Dictionary, after: Dictionary) -> String:
 		var d: int = after[k[1]] - before[k[1]]
 		parts.append("%s %s%d" % [k[0], "+" if d >= 0 else "", d])
 	return "  ".join(parts)
+
+# Forge (jalon 16 bis) : aide avant de forger. forgeron_level déjà borné à l'isolat, xp_gain = gain réel (Forge.xp_preview) ;
+# sans isolat, le rattrapage est le seul facteur qui atteint CATCHUP_ACTION_XP_MULT (isolat ≤ ×1,48).
+static func forge_help(cendre: bool, forgeron_level: int, xp_gain: int) -> PackedStringArray:
+	var lines: PackedStringArray = []
+	var ore: String = "Coût : %s" % plural(BB.CRAFT_MINERAL_COST_EQUIPMENT, "minerai")
+	var base: int = BA.XP_CRAFT_WITH_CENDRE if cendre else BA.XP_CRAFT_NO_CENDRE
+	if cendre:
+		var w: Array[int] = BF.get_craft_with_cendre_rarity_weights(forgeron_level) # somme 100 : poids = %
+		var parts: PackedStringArray = []
+		for r in w.size():
+			parts.append("%s %d %%" % [RARITY_FORMS[r]["M"], w[r]])
+		lines.append("%s + %d Cendre" % [ore, BA.CENDRE_COST_STANDARD_CRAFT])
+		lines.append("Rareté : " + ", ".join(parts))
+		lines.append("Qualité Supérieure : %d %% de chance, +%d ilvl" % [roundi(BA.SUPERIOR_CHANCE_BASE * 100.0), BA.SUPERIOR_QUALITY_ILVL_BONUS])
+	else:
+		lines.append(ore)
+		lines.append("Rareté : toujours " + RARITY_FORMS[0]["M"])
+		lines.append("Qualité Supérieure : jamais")
+	lines.append("Pièce d'ilvl %d (niveau de ton Forgeron)" % forgeron_level)
+	var xp: String = "+%d XP de Forgeron" % xp_gain
+	if xp_gain >= floori(base * BA.CATCHUP_ACTION_XP_MULT):
+		xp += " (rattrapage ×%d)" % roundi(BA.CATCHUP_ACTION_XP_MULT)
+	lines.append(xp)
+	return lines
+
+# Première raison qui grise les boutons de la Forge, "" si le craft est possible.
+static func forge_block_reason(in_village: bool, ore: int, cendre_have: int, cendre: bool, pending: bool) -> String:
+	if not in_village:
+		return "Forge au village seulement"
+	if ore < BB.CRAFT_MINERAL_COST_EQUIPMENT:
+		return "Il manque " + plural(BB.CRAFT_MINERAL_COST_EQUIPMENT - ore, "minerai")
+	if cendre and cendre_have < BA.CENDRE_COST_STANDARD_CRAFT:
+		return "Il manque %d Cendre" % (BA.CENDRE_COST_STANDARD_CRAFT - cendre_have)
+	if pending:
+		return "Choisis d'abord : Équiper ou Jeter"
+	return ""
+
+# « Tu as : 12 minerais, 100 Cendre »
+static func forge_reserve(ore: int, cendre_have: int) -> String:
+	return "Tu as : %s, %d Cendre" % [plural(ore, "minerai"), cendre_have]
+
+# « 1 minerai », « 0 minerai », « 2 minerais »
+static func plural(n: int, noun: String) -> String:
+	return "%d %s%s" % [n, noun, "s" if n > 1 else ""]
+
+# Verdict de la carte (jalon 16 bis) : 1 si aucune stat ne baisse et une monte, -1 si aucune ne monte et une baisse,
+# 0 sinon (mixte ou identique). Pas de score pondéré : aucune formule d'équilibrage côté interface. Cadence : période plus courte = mieux.
+static func compare(before: Dictionary, after: Dictionary) -> int:
+	var up: bool = false
+	var down: bool = false
+	for k: String in ["hp", "atk", "def", "period", "crit_rate", "crit_mult"]:
+		var d: float = (before[k] - after[k]) if k == "period" else (after[k] - before[k])
+		up = up or d > 1e-9
+		down = down or d < -1e-9
+	return 0 if up == down else (1 if up else -1)
+
+const VERDICTS: Dictionary = {1: "Meilleure que l'équipée", -1: "Moins bonne que l'équipée", 0: "Ni meilleure ni moins bonne : compare les stats"}

@@ -12,6 +12,10 @@ signal purify_chosen(equip: bool)
 signal forge_requested(slot: int, cendre: bool)
 
 const LEVEL_UP_TOAST_SEC: float = 2.5 # PROPOSÉ, à valider (jalon 13)
+const SUPERIOR_COLOR: Color = Color("#E69F00") # couleur de l'École Enclume ; PROPOSÉ, à valider (jalon 16 bis)
+# Verdict de la carte : vert meilleure, vermillon moins bonne, blanc mixte (palette Okabe-Ito, comme #E69F00) ; PROPOSÉ, à valider (jalon 16 bis)
+const VERDICT_COLORS: Dictionary = {1: Color("#009E73"), -1: Color("#D55E00"), 0: Color(1, 1, 1)}
+const FORGE_REASON_COLOR: Color = Color(1, 1, 1, 0.6) # raison d'un bouton grisé, atténuée ; PROPOSÉ, à valider (jalon 16 bis)
 
 @export var compact: bool = true
 
@@ -33,7 +37,14 @@ var _toast_id: int = 0 # numéro du dernier toast affiché
 @onready var _purify: Button = get_node_or_null("Margin/VBox/Equipement/Box/Purifier")
 @onready var _forge: PanelContainer = get_node_or_null("Margin/VBox/Forge")
 @onready var _forge_cendre: CheckButton = get_node_or_null("Margin/VBox/Forge/Box/AvecCendre")
+@onready var _forge_help: Label = get_node_or_null("Margin/VBox/Forge/Box/Aide")
+@onready var _forge_reason: Label = get_node_or_null("Margin/VBox/Forge/Box/Raison")
+@onready var _superior: Label = get_node_or_null("Margin/VBox/Apercu/Box/Superieure")
+@onready var _verdict: Label = get_node_or_null("Margin/VBox/Apercu/Box/Verdict")
 var _forge_buttons: Array[Button] = []
+# Menu du bas (jalon 16 bis, à la Kairosoft) : un seul panneau ouvert à la fois, aucun au lancement ; un 2e appui referme.
+@onready var _tabs: Array[Button] = [get_node_or_null("Margin/VBox/Menu/OngletEquipement"), get_node_or_null("Margin/VBox/Menu/OngletForge")]
+var _forge_help_of: Callable # (cendre: bool) -> PackedStringArray, fourni par main.gd
 
 func _ready() -> void:
 	_report.gui_input.connect(_on_report_input)
@@ -41,17 +52,27 @@ func _ready() -> void:
 		_purify.pressed.connect(purify_requested.emit)
 		$Margin/VBox/Apercu/Box/Choix/Equiper.pressed.connect(purify_chosen.emit.bind(true))
 		$Margin/VBox/Apercu/Box/Choix/Jeter.pressed.connect(purify_chosen.emit.bind(false))
+	if _equipment != null:
+		var group: ButtonGroup = ButtonGroup.new()
+		group.allow_unpress = true
+		for t: Button in _tabs:
+			t.button_group = group
+			t.toggled.connect(func(_on: bool) -> void: _apply_tabs())
 	if _forge != null:
 		_forge_cendre.text = "Avec Cendre (%d)" % BA.CENDRE_COST_STANDARD_CRAFT
+		_forge_cendre.toggled.connect(func(_on: bool) -> void: refresh_forge_help())
+		_forge_reason.add_theme_color_override("font_color", FORGE_REASON_COLOR)
+		_superior.add_theme_color_override("font_color", SUPERIOR_COLOR)
+		_superior.text = "QUALITÉ SUPÉRIEURE : +%d ilvl" % BA.SUPERIOR_QUALITY_ILVL_BONUS
 		for slot in EqText.SLOT_NAMES.size():
 			var b: Button = Button.new()
 			b.text = "Forger " + EqText.with_article(slot)
 			b.disabled = true
 			b.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
 			b.pressed.connect(func() -> void: forge_requested.emit(slot, _forge_cendre.button_pressed))
-			$Margin/VBox/Forge/Box.add_child(b)
+			$Margin/VBox/Forge/Box/Boutons.add_child(b)
 			_forge_buttons.append(b)
-	var credits_button: Button = get_node_or_null("Margin/VBox/CreditsButton")
+	var credits_button: Button = get_node_or_null("Margin/VBox/Menu/CreditsButton")
 	if credits_button != null:
 		credits_button.pressed.connect($Credits.show)
 
@@ -95,27 +116,42 @@ func set_purify_enabled(on: bool) -> void:
 	if _purify != null and _purify.disabled == on:
 		_purify.disabled = not on
 
-# Forge (jalon 16) : coffre, puis 4 boutons actifs selon can(cendre), relu à chaque image par main.gd.
-func show_forge(ore: int) -> void:
-	if _forge != null:
-		$Margin/VBox/Forge/Box/Coffre.text = "Coffre : %d minerai%s de fer-braise" % [ore, "s" if ore > 1 else ""]
+# Forge (jalons 16 et 16 bis) : réserve et aide, mises à jour par main.gd (_show_player) et à chaque bascule ; textes seulement.
+func set_forge_help_source(help_of: Callable) -> void:
+	_forge_help_of = help_of
 
-func set_forge_enabled(can: Callable) -> void:
+func show_forge(ore: int, cendre_have: int) -> void:
+	if _forge != null:
+		$Margin/VBox/Forge/Box/Reserve.text = EqText.forge_reserve(ore, cendre_have)
+		refresh_forge_help()
+
+func refresh_forge_help() -> void:
+	if _forge != null and _forge_help_of.is_valid():
+		_forge_help.text = "
+".join(_forge_help_of.call(_forge_cendre.button_pressed))
+
+# 4 boutons actifs si reason_of(cendre) est vide, sinon grisés avec la raison ; relu à chaque image par main.gd
+# (la sortie du rayon de l'Âtre n'a pas d'événement). Label.text ne redessine rien si le texte est identique.
+func set_forge_enabled(reason_of: Callable) -> void:
 	if _forge == null:
 		return
-	var on: bool = can.call(_forge_cendre.button_pressed)
+	var reason: String = reason_of.call(_forge_cendre.button_pressed)
+	var on: bool = reason == ""
 	for b: Button in _forge_buttons:
 		if b.disabled == on:
 			b.disabled = not on
+	_forge_reason.text = reason
+	_forge_reason.visible = not on
 
 # Aperçu (purification) ou carte de résultat (craft) : nouvelle pièce, pièce équipée du même emplacement, écart de stats.
-# Les panneaux Équipement et Forge sont masqués.
-func show_preview(piece: Dictionary, current: Variant, diff: String) -> void:
+# Qualité Supérieure et verdict en tête, en couleur (jalon 16 bis). Les panneaux Équipement et Forge sont masqués.
+func show_preview(piece: Dictionary, current: Variant, diff: String, forged: bool, verdict: int) -> void:
 	if _preview == null:
 		return
-	var lines: PackedStringArray = ["Nouvelle pièce"]
-	if piece.get("superior", false):
-		lines.append("Qualité Supérieure")
+	_superior.visible = piece.get("superior", false)
+	_verdict.text = EqText.VERDICTS[verdict]
+	_verdict.add_theme_color_override("font_color", VERDICT_COLORS[verdict])
+	var lines: PackedStringArray = ["Pièce forgée" if forged else "Pièce purifiée"]
 	lines.append_array(EqText.piece_lines(piece["slot"], piece))
 	lines.append("Équipée")
 	lines.append_array(EqText.piece_lines(piece["slot"], current))
@@ -123,14 +159,20 @@ func show_preview(piece: Dictionary, current: Variant, diff: String) -> void:
 	$Margin/VBox/Apercu/Box/Lines.text = "
 ".join(lines)
 	_preview.visible = true
-	_equipment.visible = false
-	_forge.visible = false
+	_apply_tabs()
 
 func hide_preview() -> void:
 	if _preview != null:
 		_preview.visible = false
-		_equipment.visible = true
-		_forge.visible = true
+		_apply_tabs()
+
+# Panneau de l'onglet enfoncé ; la carte passe devant et grise les onglets jusqu'au choix.
+func _apply_tabs() -> void:
+	var card: bool = _preview.visible
+	_equipment.visible = _tabs[0].button_pressed and not card
+	_forge.visible = _tabs[1].button_pressed and not card
+	for t: Button in _tabs:
+		t.disabled = card
 
 # Une nouvelle montée remplace le texte et relance la durée.
 func show_level_up(voc: String, level: int) -> void:

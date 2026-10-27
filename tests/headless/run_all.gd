@@ -28,6 +28,7 @@ const PurifS = preload("res://scripts/loot/purification.gd")
 const BF = preload("res://balance/balance_f.gd")
 const SG = preload("res://scripts/segment/segment_gen.gd")
 const ForgeS = preload("res://scripts/loot/forge.gd")
+const EqText = preload("res://scripts/ui/equipment_text.gd")
 const LISIERE_SPAWNS_10: Array = [[0, 16], [0, 20], [0, 24]] # banc d'essai du jalon 10, retiré du village au jalon 11
 const FONT_PATH: String = "res://assets/fonts/silkscreen/Silkscreen-Regular.ttf"
 const OFL_PATH: String = "res://assets/fonts/silkscreen/OFL.txt"
@@ -982,6 +983,87 @@ func _jalon_16(solid1: Dictionary) -> void:
 	_check("save: chest négatif, crate de node 3, crate vide, forge_pending invalide -> refusé", bad == [true, true, true, true], str(bad))
 	_clean_saves()
 
+# Jalon 16 bis : Forge lisible (textes de forge_help et forge_block_reason, carte de résultat). Références : prompt d'Antho.
+func _jalon_16b() -> void:
+	var help: Array = [EqText.forge_help(true, 1, 126), EqText.forge_help(false, 1, 25), EqText.forge_help(true, 5, 252)]
+	for h: PackedStringArray in help:
+		print("      " + " | ".join(h))
+	_check("forge_help(true, 1, 126) == 5 lignes de référence", help[0] == PackedStringArray(["Coût : 4 minerais + 25 Cendre",
+		"Rareté : Commun 65 %, Bon 25 %, Rare 10 %", "Qualité Supérieure : 20 % de chance, +2 ilvl", "Pièce d'ilvl 1 (niveau de ton Forgeron)",
+		"+126 XP de Forgeron"]))
+	_check("forge_help(false, 1, 25) == 5 lignes de référence", help[1] == PackedStringArray(["Coût : 4 minerais", "Rareté : toujours Commun",
+		"Qualité Supérieure : jamais", "Pièce d'ilvl 1 (niveau de ton Forgeron)", "+25 XP de Forgeron"]))
+	_check("forge_help(true, 5, 252) : Commun 57 %, Bon 29 %, Rare 14 %, ilvl 5, +252 XP (rattrapage ×2)",
+		help[2][1] == "Rareté : Commun 57 %, Bon 29 %, Rare 14 %" and help[2][3] == "Pièce d'ilvl 5 (niveau de ton Forgeron)"
+		and help[2][4] == "+252 XP de Forgeron (rattrapage ×2)")
+	var reasons: Array = [EqText.forge_block_reason(false, 8, 30, true, false), EqText.forge_block_reason(true, 2, 30, true, false),
+		EqText.forge_block_reason(true, 3, 30, false, false), EqText.forge_block_reason(true, 8, 15, true, false),
+		EqText.forge_block_reason(true, 8, 15, false, false), EqText.forge_block_reason(true, 8, 30, true, true)]
+	print("      " + str(reasons))
+	_check("forge_block_reason : village, 2 minerais, 1 minerai, 10 Cendre, \"\", choix en attente", reasons == ["Forge au village seulement",
+		"Il manque 2 minerais", "Il manque 1 minerai", "Il manque 10 Cendre", "", "Choisis d'abord : Équiper ou Jeter"], str(reasons))
+	_check("forge_reserve(12, 100) et (1, 0)", EqText.forge_reserve(12, 100) == "Tu as : 12 minerais, 100 Cendre"
+		and EqText.forge_reserve(1, 0) == "Tu as : 1 minerai, 0 Cendre")
+	# Aperçu : même rattrapage que craft (Forgeron 1, Combattant 6 : +252 au test « forge » du jalon 16)
+	var pf: Dictionary = ProgressionS.new_player()
+	pf["voc_xp"]["COMBATTANT"] = BA.get_cumulative_xp(6)
+	var prev: Array = [ForgeS.xp_preview(pf, true, 0), ForgeS.xp_preview(pf, false, 0), ForgeS.piece_level(pf, 0), ForgeS.piece_level(pf, 1)]
+	pf["chest"] = {"MINERAI_FER_BRAISE": 4}
+	pf["cendre"] = 25
+	var xp_before: Dictionary = pf["voc_xp"].duplicate()
+	var got: int = ForgeS.craft(1, pf, 0, true, 0)["gain"]["gained"]
+	_check("forge: xp_preview 252 / 50 == gain du craft, sans rien modifier ; piece_level 1, borné à 11 en isolat 1",
+		prev == [252, 50, 1, 11] and got == 252 and xp_before["FORGERON"] == 0, str(prev))
+	# Carte de résultat (scène dépliée réelle)
+	var ui: CanvasLayer = load("res://scenes/ui/ui_unfolded.tscn").instantiate()
+	root.add_child(ui)
+	ui.notification(Node.NOTIFICATION_READY) # root hors de l'arbre pendant _initialize : ni @onready ni _ready sans cette notification
+	var lines: Label = ui.get_node("Margin/VBox/Apercu/Box/Lines")
+	var sup: Label = ui.get_node("Margin/VBox/Apercu/Box/Superieure")
+	var verdict: Label = ui.get_node("Margin/VBox/Apercu/Box/Verdict")
+	ui.show_preview(EquipmentS.craft(1, 8, 2, 1, true, 0), null, "PV +0", true, 1)
+	var card1: Array = [lines.text.get_slice("
+", 0), sup.visible, sup.text, verdict.text, verdict.get_theme_color("font_color")]
+	ui.show_preview(EquipmentS.craft(1, 0, 2, 1, true, 0), null, "PV +0", false, -1)
+	var card2: Array = [lines.text.get_slice("
+", 0), sup.visible, verdict.text, verdict.get_theme_color("font_color")]
+	_check("carte: K5 n = 8 forgée -> « Pièce forgée », QUALITÉ SUPÉRIEURE : +2 ilvl ambrée, taille des lignes, verdict vert ; n = 0 purifiée -> masquée, verdict vermillon",
+		card1 == ["Pièce forgée", true, "QUALITÉ SUPÉRIEURE : +2 ilvl", "Meilleure que l'équipée", Color("#009E73")]
+		and card2 == ["Pièce purifiée", false, "Moins bonne que l'équipée", Color("#D55E00")]
+		and sup.get_theme_color("font_color") == Color("#E69F00") and sup.get_theme_font_size("font_size") == lines.get_theme_font_size("font_size"), str(card1) + str(card2))
+	var st: Dictionary = {"hp": 100, "atk": 22, "def": 5, "period": 1.0 / 1.2, "crit_rate": 0.05, "crit_mult": 1.5}
+	var cmp: Array = []
+	for m: Dictionary in [{"atk": 30}, {"hp": 90}, {"atk": 30, "def": 4}, {}, {"period": 1.0 / 1.3}, {"crit_rate": 0.04}]:
+		var after_st: Dictionary = st.duplicate()
+		after_st.merge(m, true)
+		cmp.append(EqText.compare(st, after_st))
+	_check("compare: ATK +8 -> 1 ; PV -10 -> -1 ; ATK +8 DEF -1 -> 0 ; identique -> 0 ; cadence plus rapide -> 1 ; critique -1 % -> -1", cmp == [1, -1, 0, 0, 1, -1], str(cmp))
+	var eq: Control = ui.get_node("Margin/VBox/Equipement")
+	var fo: Control = ui.get_node("Margin/VBox/Forge")
+	var tab_eq: Button = ui.get_node("Margin/VBox/Menu/OngletEquipement")
+	var tab_fo: Button = ui.get_node("Margin/VBox/Menu/OngletForge")
+	ui.hide_preview()
+	var tabs: Array = [[eq.visible, fo.visible]]
+	tab_fo.button_pressed = true
+	tabs.append([eq.visible, fo.visible])
+	tab_eq.button_pressed = true
+	tabs.append([eq.visible, fo.visible])
+	ui.show_preview(EquipmentS.craft(1, 8, 2, 1, true, 0), null, "PV +0", true, 0)
+	tabs.append([eq.visible, fo.visible, tab_eq.disabled])
+	ui.hide_preview()
+	tabs.append([eq.visible, fo.visible, tab_eq.disabled])
+	tab_eq.button_pressed = false
+	tabs.append([eq.visible, fo.visible])
+	_check("menu: aucun panneau, Forge, Équipement (un seul à la fois), carte -> masqués et onglets grisés, retour à Équipement, 2e appui -> aucun",
+		tabs == [[false, false], [false, true], [true, false], [false, false, true], [true, false, false], [false, false]], str(tabs))
+	ui.set_forge_enabled(func(_c: bool) -> String: return "Il manque 2 minerais")
+	var reason: Label = ui.get_node("Margin/VBox/Forge/Box/Raison")
+	var grey: bool = reason.visible and reason.text == "Il manque 2 minerais" and ui.get_node("Margin/VBox/Forge/Box/Boutons").get_child(0).disabled
+	ui.set_forge_enabled(func(_c: bool) -> String: return "")
+	_check("panneau: raison visible sous les boutons grisés, masquée quand le craft est possible",
+		grey and not reason.visible and not ui.get_node("Margin/VBox/Forge/Box/Boutons").get_child(0).disabled)
+	ui.free()
+
 # Sacoche : e Éclats d'Élite puis n normaux, à l'ilvl donné (ordre de la conversion de SaveManager).
 func _bag(n: int, e: int, ilvl: int = 1) -> Array:
 	var bag: Array = []
@@ -1505,6 +1587,7 @@ func _jalon_11(vd: Dictionary, solid1: Dictionary) -> void:
 	_jalon_15(solid1)
 	_jalon_15b(solid1)
 	_jalon_16(solid1)
+	_jalon_16b()
 	# Scènes et données
 	var vil: Node = load("res://scenes/village/village.tscn").instantiate()
 	var sg: Node2D = vil.get_node_or_null("Entites/Segment")
@@ -2675,7 +2758,7 @@ func _initialize() -> void:
 	var uf = load("res://scenes/ui/ui_folded.tscn").instantiate()
 	var uu = load("res://scenes/ui/ui_unfolded.tscn").instantiate()
 	_check("scenes: ui_folded / ui_unfolded en CanvasLayer, compact true / false", uf is CanvasLayer and uu is CanvasLayer and uf.compact and not uu.compact)
-	_check("scenes: bouton Credits dans ui_unfolded seulement", uu.get_node_or_null("Margin/VBox/CreditsButton") is Button and uf.get_node_or_null("Margin/VBox/CreditsButton") == null)
+	_check("scenes: bouton Credits dans ui_unfolded seulement", uu.get_node_or_null("Margin/VBox/Menu/CreditsButton") is Button and uf.find_child("CreditsButton", true, false) == null)
 	uf.free()
 	uu.free()
 	var cr: Node = load("res://scenes/ui/credits.tscn").instantiate()

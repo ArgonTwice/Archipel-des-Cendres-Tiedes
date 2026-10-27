@@ -430,6 +430,49 @@ Correctif pendant Y : le panneau Forge affichait le coffre d'avant le retour (14
 | Test | Résultat | Preuve |
 |---|---|---|
 | Z1 sauvegarde du jalon 15 bis | OK | capture déplié jalon16-Z-ecran-4630947004648141459.png : coffre 0, Forgeron 1 (0 / 200 XP), Cendre 150, 323 / 63 / 16, boutons Forge grisés ; avant : seq 293, Combattant 3 514, Mineur 3 528, Forgeron 0 (niveau 1), Cendre 150, Sacoche vide ; chargement PC de cette copie : chest {}, crate null, forge_n 0, forge_pending null |
-| Z2 deux expéditions | à faire | |
-| Z3 crafts à la Forge | à faire | |
-| Z4 lisibilité du panneau Forge | partiel | texte lisible ; colonne déplié trop chargée (Forge sous Équipement couvre le village) : mise en page dépliée à traiter dans un jalon dédié |
+| Z2 deux expéditions | OK | jalon16-Z-logcat.txt (0 ERROR) : mort, « caisse_posee » 16 au nœud 1 ; expédition suivante « caisse_ramassee » 16 reste 0, « cargaison_pleine » ×3 (2 perdus) ; Élite (niveau de segment 7, Combattant 7) éveillé à la saturation, tué ; retour : minerai 26, coffre 32 |
+| Z3 crafts à la Forge | OK | 4 crafts [FORGE] : sans Cendre +50 XP Commun ilvl 2 ; avec Cendre +252 XP, n 3 Supérieure ilvl 4, n 4 Bon ; coffre −4 par craft (Antho) ; Antho : intérêt de « Avec Cendre » et Qualité Supérieure non compris → jalon 16 bis |
+| Z4 lisibilité du panneau Forge | NON (3 non) | sans forger : effet de « Avec Cendre » incompris, coût invisible, Qualité Supérieure non remarquée sur la carte → jalon 16 bis |
+
+Correctif pendant Z (plié) : la ligne d'expédition « Cendre … Éclats … Minerai … kg » dépassait 208 px et décalait toute la colonne à gauche ; Label à retour à la ligne (deux scènes) et minerai sur sa propre ligne en plié.
+
+## Jalon 16 bis (APK 0.16.1)
+
+Forge lisible, interface seulement (aucune règle ni valeur). Panneau Forge déplié : titre « Forge », réserve « Tu as : N minerais, N Cendre », interrupteur, aide (EqText.forge_help : coût, raretés lues dans BalanceF, Qualité Supérieure, ilvl, XP réelle avec rattrapage), 4 boutons, raison du grisé (EqText.forge_block_reason). Carte : « Pièce forgée » / « Pièce purifiée », « QUALITÉ SUPÉRIEURE : +2 ilvl » en tête, 16 px, #E69F00 (PROPOSÉ). Après le premier Z4 (colonne qui déborde) : menu du bas à la Kairosoft « Équipement | Forge | Crédits », un seul panneau à la fois, aucun au lancement (village visible), 2e appui referme, la carte de résultat masque les panneaux et grise les onglets. Après Z4 ter (Antho : Supérieure trop grosse) : taille des lignes, couleur gardée ; verdict coloré en tête de carte (EqText.compare : meilleure si aucune stat ne baisse et une monte, moins bonne à l'inverse, sinon neutre ; vert #009E73, vermillon #D55E00, PROPOSÉ). Simulateur : 689 PASS, 0 FAIL (+10).
+
+Export debug le 27/10 : 0 ERROR ; `aapt2` donne versionCode 17, versionName 0.16.1 ; SHA-256 093d536c44b89131a6ba8f783c7d329cd778e87962acc393e3b0823bea5f23f6 (sans menu), puis 30fd7f44dc6a13a4739f9dc33036988a51a12d1f22c2a922a118c4117850fedf (avec menu), puis 3f157ee9ce2c9d883628776eceacf1978a1e4bc43c7ad3531efcf46bc703f589 (verdict, même version). Installé par `adb install -r` ; sauvegarde du Fold conservée, copie dans build/backup-fold-jalon16/.
+
+### AA0 à AA4 (PC, 924 × 1224 déplié, échelle 3 = 308 × 408 comme le Fold déplié, --hour=14, partie neuve, coffre 12 et Cendre 100 posés par une sonde temporaire ; sauvegarde PC restaurée ensuite)
+
+416 × 657 donne le mode plié (rapport 1,58 > 1,45).
+
+| Test | Résultat | Preuve |
+|---|---|---|
+| AA0 menu fermé | OK | Or, 3 Vocations, Lanterne en haut, village dégagé, menu « Équipement | Forge | Crédits » en bas (jalon16b-AA0-menu-ferme.png) |
+| AA1 Forge sans craft | OK | avec Cendre : coût 4 minerais + 25 Cendre, Commun 65 %, Bon 25 %, Rare 10 %, Supérieure 20 % +2 ilvl, ilvl 1, +126 XP ; sans : 4 minerais, toujours Commun, jamais, ilvl 1, +25 XP (jalon16b-AA1-avec-cendre.png, jalon16b-AA1-sans-cendre.png) |
+| AA2 bouton grisé | OK | coffre 2 : 4 boutons grisés, « Il manque 2 minerais » atténuée sous les boutons (jalon16b-AA2-grise.png) |
+| AA3 carte Supérieure | OK | fixture K5 (graine 1, n 8, Plastron, Forgeron 1) : « QUALITÉ SUPÉRIEURE : +2 ILVL » ambrée à la taille des lignes, « MEILLEURE QUE L'ÉQUIPÉE » en vert, « Pièce forgée », Plastron Bon ilvl 3 (jalon16b-AA3-superieure.png, copiée dans Téléchargements du Fold) ; onglets grisés |
+| AA4 onglet Équipement | OK | panneau Équipement seul, titre « Équipement » (jalon16b-AA4-equipement.png) |
+
+### Z4 bis, premier passage (Fold 8, APK 0.16.1 sans menu, sauvegarde du jalon 16 conservée ; journal build/captures/jalon16b-Z4-logcat.txt, 0 ERROR)
+
+| Test | Résultat | Preuve |
+|---|---|---|
+| Sans forger, effet de « Avec Cendre » compris | OUI | Antho |
+| Coût visible | OUI | Antho |
+| Qualité Supérieure saute aux yeux | PARTIEL | Antho : ne saute pas aux yeux, mais écrite et compréhensible |
+| Lisibilité à 48 px par tuile | NON | capture déplié : colonne plus haute que l'écran, débordement des deux côtés ; Or et Vocations coupés en haut, rapport coupé en bas ; sous-menus demandés |
+
+### Z4 ter (Fold 8, APK 0.16.1 avec menu, sauvegarde conservée)
+
+| Test | Résultat | Preuve |
+|---|---|---|
+| Lisibilité, rien de coupé | OK | Antho : « bien mieux » |
+| Qualité Supérieure saute aux yeux | PARTIEL | 1 craft avec Cendre sur le Fold, non Supérieure (log) ; sur capture AA3 : « pas mal, mais trop gros » → taille des lignes ; Antho demande un repère « meilleure que l'équipée » → verdict coloré |
+
+### Z4 quater (Fold 8, APK 0.16.1 avec verdict)
+
+| Test | Résultat | Preuve |
+|---|---|---|
+| Qualité Supérieure visible sans être trop grosse | OK | Antho : « C'est parfait » |
+| Verdict meilleure / moins bonne lisible sur la carte | OK | Antho : « C'est parfait » |
