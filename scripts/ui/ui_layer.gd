@@ -10,18 +10,26 @@ const VText = preload("res://scripts/ui/village_text.gd")
 const NewGameS = preload("res://scripts/new_game.gd")
 const Dag = preload("res://scripts/offline_dag.gd")
 const VL = preload("res://scripts/village/village_layout.gd")
+const AssignS = preload("res://scripts/village/assignment.gd")
 
 signal purify_requested
 signal purify_chosen(equip: bool)
 signal forge_requested(slot: int, cendre: bool)
 signal cadence_chosen(index: int, cadence: String)
 signal posture_chosen(key: String, posture: String)
+signal post_chosen(index: int, post: String)
+signal npc_freed(index: int)
 
 const LEVEL_UP_TOAST_SEC: float = 2.5 # PROPOSÉ, à valider (jalon 13)
 const SUPERIOR_COLOR: Color = Color("#E69F00") # couleur de l'École Enclume ; PROPOSÉ, à valider (jalon 16 bis)
 # Verdict de la carte : vert meilleure, vermillon moins bonne, blanc mixte (palette Okabe-Ito, comme #E69F00) ; PROPOSÉ, à valider (jalon 16 bis)
 const VERDICT_COLORS: Dictionary = {1: Color("#009E73"), -1: Color("#D55E00"), 0: Color(1, 1, 1)}
 const FORGE_REASON_COLOR: Color = Color(1, 1, 1, 0.6) # raison d'un bouton grisé, atténuée ; PROPOSÉ, à valider (jalon 16 bis)
+# Fiche PNJ (jalon 19, Z8) : intertitres bleu ciel, attente verte (Okabe-Ito), fond de fiche ; PROPOSÉ, à valider
+const SECTION_COLOR: Color = Color("#56B4E9")
+const NEXT_COLOR: Color = Color("#009E73")
+const DETAIL_BG: Color = Color(1, 1, 1, 0.06)
+const DETAIL_MARGIN_PX: int = 4
 const WINDOW_HEIGHT_RATIO: float = 0.5 # hauteur de la fenêtre / hauteur de la zone ; validé sur Fold (jalon 17)
 # Icônes (jalon 17), déclarées une seule fois : [planche, région en taille native]. Tuiles d'onglet : validé sur Fold (jalon 17).
 const HUD_ICONS: Dictionary = {
@@ -80,7 +88,10 @@ var _forge_help_of: Callable # (cendre: bool) -> PackedStringArray, fourni par m
 # Onglets PNJ et Village (jalon 18) : cartes et blocs créés une fois dans _ready ; show_village ne change que textes et boutons.
 var _names: Dictionary = {}
 var _npc_sprites: Array = [] # village.json : le sprite fixe le genre du nom (VText.npc_identities)
-var _npc_cards: Array[Dictionary] = [] # {"lines": Label, "buttons": Array[Button] (vide pour un garde), "help": Label}
+# {"head" (ligne de liste), "lines" (Profil), "hint", "posts" (4 boutons de poste), "pending", "free" (Libérer),
+#  "cad_title", "row" et "buttons" (cadence), "help"}
+var _npc_cards: Array[Dictionary] = []
+var _world_seed: int = 0
 var _shop_blocks: Dictionary = {} # clé de boutique -> {"lines", "buttons", "help"}
 var _atre: Label
 
@@ -157,22 +168,96 @@ func _ready() -> void:
 			b.pressed.connect(func() -> void: forge_requested.emit(slot, _forge_cendre.button_pressed))
 			_forge.get_node("Boutons").add_child(b)
 			_forge_buttons.append(b)
+	if _scroll != null:
+		touch_scroll(_scroll)
 
-# Une carte par PNJ (poste de départ : pas de changement de poste au jalon 18), un bloc par boutique.
+# Défilement tactile (Z8) : boutons et panneaux en PASS, le glissé remonte au ScrollContainer (défilement et inertie) ;
+# un appui simple reste un appui. À appeler une fois, après la création des pages.
+static func touch_scroll(scroll: ScrollContainer) -> void:
+	for c: Control in scroll.find_children("*", "Control", true, false):
+		if c.mouse_filter == Control.MOUSE_FILTER_STOP:
+			c.mouse_filter = Control.MOUSE_FILTER_PASS
+
+# Page PNJ (jalon 19, façon Kairosoft) : une ligne par PNJ (sprite, nom, poste) ; un appui ouvre sa fiche dessous,
+# une seule à la fois : Profil, Poste (aptitude sur chaque bouton), Cadence. Un bloc par boutique dans Village.
 func _build_village_pages() -> void:
-	_npc_sprites = VL.load_data()["npc_sprites"]
+	var data: Dictionary = VL.load_data()
+	_npc_sprites = data["npc_sprites"]
 	_names = VText.with_identities(VText.load_names(), 0, _npc_sprites) # remplacé par set_world_seed
 	var pnj: Node = get_node(PAGES + "PNJ")
 	var village: Node = get_node(PAGES + "Village")
 	get_node(PAGES + "PNJ/Raison").add_theme_color_override("font_color", FORGE_REASON_COLOR)
 	get_node(PAGES + "Village/Raison").add_theme_color_override("font_color", FORGE_REASON_COLOR)
+	var tip: Label = Label.new()
+	tip.text = "Astuce : fais glisser un PNJ sur un bâtiment"
+	pnj.add_child(tip)
+	var post_names: Dictionary = {}
+	for p: String in AssignS.active_posts():
+		post_names[p] = _names["posts"][p]
+	var group: ButtonGroup = ButtonGroup.new()
+	group.allow_unpress = true
+	var style: StyleBoxFlat = StyleBoxFlat.new()
+	style.bg_color = DETAIL_BG
+	style.set_content_margin_all(DETAIL_MARGIN_PX)
 	for i in NewGameS.START_POSTS.size():
+		var card: VBoxContainer = VBoxContainer.new()
+		card.add_theme_constant_override("separation", 0)
+		pnj.add_child(card)
+		var head: Button = Button.new()
+		head.name = "Tete"
+		head.toggle_mode = true
+		head.button_group = group
+		head.focus_mode = Control.FOCUS_NONE
+		head.alignment = HORIZONTAL_ALIGNMENT_LEFT
+		head.icon = atlas(TD, tile_region(int(data["tiles"][_npc_sprites[i]][1])))
+		card.add_child(head)
+		var detail: PanelContainer = PanelContainer.new()
+		detail.name = "Detail"
+		detail.visible = false
+		detail.add_theme_stylebox_override("panel", style)
+		card.add_child(detail)
+		head.toggled.connect(func(on: bool) -> void: detail.visible = on)
+		var box: VBoxContainer = VBoxContainer.new()
+		box.add_theme_constant_override("separation", 2)
+		detail.add_child(box)
+		_section(box, "Profil")
+		var lines: Label = Label.new()
+		box.add_child(lines)
+		_section(box, "Poste (chiffre = aptitude)")
+		var posts: Dictionary = _block(box, post_names, func(post: String) -> void: post_chosen.emit(i, post))
+		posts["row"].name = "Postes"
+		posts["help"].name = "Demain"
+		posts["help"].add_theme_color_override("font_color", NEXT_COLOR)
+		posts["lines"].add_theme_color_override("font_color", FORGE_REASON_COLOR)
+		var free: Button = Button.new()
+		free.name = "Liberer"
+		free.text = "Libérer"
+		free.focus_mode = Control.FOCUS_NONE
+		free.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+		free.visible = false
+		free.pressed.connect(func() -> void: npc_freed.emit(i))
+		posts["row"].get_parent().add_child(free)
+		var cad_title: Label = _section(box, "Cadence")
+		var cad: Dictionary = _block(box, _names["cadences"], func(value: String) -> void: cadence_chosen.emit(i, value))
+		cad["lines"].free()
+		cad["row"].name = "Cadence"
+		cad["help"].name = "AideCadence"
 		var producer: bool = Dag.POST_SHOP.has(NewGameS.START_POSTS[i][0])
-		_npc_cards.append(_block(pnj, _names["cadences"] if producer else {}, func(value: String) -> void: cadence_chosen.emit(i, value)))
+		for c: Control in [cad_title, cad["row"], cad["help"]]:
+			c.visible = producer
+		_npc_cards.append({"head": head, "lines": lines, "hint": posts["lines"], "posts": posts["buttons"], "pending": posts["help"], "free": free,
+			"cad_title": cad_title, "row": cad["row"], "buttons": cad["buttons"], "help": cad["help"]})
 	_atre = Label.new()
 	village.add_child(_atre)
 	for key: String in Dag.SHOP_ITEM:
 		_shop_blocks[key] = _block(village, _names["postures"], func(value: String) -> void: posture_chosen.emit(key, value))
+
+func _section(parent: Node, text: String) -> Label:
+	var title: Label = Label.new()
+	title.text = text
+	title.add_theme_color_override("font_color", SECTION_COLOR)
+	parent.add_child(title)
+	return title
 
 # Lignes, rangée de boutons à bascule (un ButtonGroup) si choices n'est pas vide, aide atténuée.
 func _block(parent: Node, choices: Dictionary, on_choice: Callable) -> Dictionary:
@@ -182,8 +267,10 @@ func _block(parent: Node, choices: Dictionary, on_choice: Callable) -> Dictionar
 	var lines: Label = Label.new()
 	box.add_child(lines)
 	var buttons: Array[Button] = []
+	var row: HBoxContainer = null
 	if not choices.is_empty():
-		var row: HBoxContainer = HBoxContainer.new()
+		row = HBoxContainer.new()
+		row.name = "Choix"
 		row.add_theme_constant_override("separation", 2)
 		box.add_child(row)
 		var group: ButtonGroup = ButtonGroup.new()
@@ -200,10 +287,11 @@ func _block(parent: Node, choices: Dictionary, on_choice: Callable) -> Dictionar
 	help.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	help.add_theme_color_override("font_color", FORGE_REASON_COLOR)
 	box.add_child(help)
-	return {"lines": lines, "buttons": buttons, "help": help}
+	return {"lines": lines, "buttons": buttons, "help": help, "row": row}
 
 # Noms des PNJ tirés de la graine du monde ; main.gd appelle ensuite show_village.
 func set_world_seed(world_seed: int) -> void:
+	_world_seed = world_seed
 	if not _npc_cards.is_empty():
 		_names = VText.with_identities(_names, world_seed, _npc_sprites)
 
@@ -223,12 +311,28 @@ func show_village(village: Dictionary, hour: int, can_set: bool, reason: String)
 		if npc["manages"] != "":
 			managers[npc["manages"]] = i
 		var card: Dictionary = _npc_cards[i]
-		card["lines"].text = "\n".join(VText.npc_lines(npc, i, hour, _names))
-		if not card["buttons"].is_empty():
+		var lines: PackedStringArray = VText.npc_lines(npc, i, hour, _names)
+		var head: PackedStringArray = lines[0].split(" : ", true, 1) # nom, puis poste, étoiles et gérance
+		card["head"].text = head[0] + "\n" + head[1]
+		card["lines"].text = "\n".join(lines.slice(1))
+		var apt: Dictionary = AssignS.aptitudes(_world_seed, i)
+		card["hint"].text = VText.apt_lines(apt, AssignS.favorite(i), _names)[1]
+		var active: Array[String] = AssignS.active_posts()
+		for k in active.size():
+			card["posts"][k].text = "%s %d" % [_names["posts"][active[k]], apt[active[k]]]
+		_set_choice(card["posts"], active.find(AssignS.effective_post(npc)), can_set)
+		card["pending"].text = "\n".join(VText.post_lines(npc, _names))
+		card["free"].visible = npc.get("locked", false)
+		card["free"].disabled = not can_set
+		var producer: bool = Dag.POST_SHOP.has(npc["post"]) # la cadence suit le poste du jour
+		for c: Control in [card["cad_title"], card["row"], card["help"]]:
+			c.visible = producer
+		if producer:
 			var pending: String = npc.get("cadence_next", "")
 			_set_choice(card["buttons"], _names["cadences"].keys().find(pending if pending != "" else npc["cadence"]), can_set)
 			card["help"].text = VText.cadence_help(npc["cadence"], pending, _names)
-	_atre.text = "\n".join(VText.atre_lines(village.get("atre_lvl", 1), village["npcs"].size()))
+	var lvl: int = village.get("atre_lvl", 1)
+	_atre.text = "\n".join(VText.atre_lines(lvl, village["npcs"].size())) + "\n" + VText.slots_line(village, lvl, _names)
 	for key: String in _shop_blocks:
 		var shop: Dictionary = village["shops"][key]
 		var block: Dictionary = _shop_blocks[key]
@@ -364,9 +468,16 @@ func _apply_tabs() -> void:
 	if open >= 0:
 		_title.text = TAB_TITLES[open]
 
-# Une nouvelle montée remplace le texte et relance la durée.
 func show_level_up(voc: String, level: int) -> void:
-	_toast.text = "%s niveau %d !" % [ProgressionS.VOCATION_NAMES[voc], level]
+	show_toast("%s niveau %d !" % [ProgressionS.VOCATION_NAMES[voc], level])
+
+# Changement de poste (jalon 19) : result = sortie de Assignment.move.
+func show_move(index: int, post: String, result: Dictionary) -> void:
+	show_toast(VText.move_toast(index, post, result, _names))
+
+# Un nouveau toast (montée, poste) remplace le texte et relance la durée.
+func show_toast(text: String) -> void:
+	_toast.text = text
 	_toast.visible = true
 	_toast_id += 1
 	get_tree().create_timer(LEVEL_UP_TOAST_SEC).timeout.connect(_hide_toast.bind(_toast_id))

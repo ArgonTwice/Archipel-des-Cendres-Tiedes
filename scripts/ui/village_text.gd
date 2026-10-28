@@ -9,6 +9,7 @@ const Eco = preload("res://scripts/economy.gd")
 const VL = preload("res://scripts/village/village_layout.gd")
 const Dag = preload("res://scripts/offline_dag.gd")
 const RngS = preload("res://autoload/Rng.gd")
+const AssignS = preload("res://scripts/village/assignment.gd")
 
 const NAMES_PATH: String = "res://data/village/npcs.json"
 const ACTIVITY: Dictionary = {"WORK": "au travail", "MEAL": "au repas", "VEILLEE": "à la veillée", "STRIKE": "se réchauffe à l'Âtre"}
@@ -44,6 +45,9 @@ static func dec2(x: float) -> String:
 static func _gendered(pair: Array, g: String) -> String:
 	return pair[0] if g == "M" else pair[1]
 
+static func stars_text(s: int) -> String:
+	return "%d %s" % [s, "étoile" if s <= 1 else "étoiles"]
+
 static func _manager(g: String) -> String:
 	return "gérant" if g == "M" else "gérante"
 
@@ -71,8 +75,7 @@ static func npc_lines(npc: Dictionary, index: int, hour: int, names: Dictionary)
 	var who: Dictionary = names["npcs"][index]
 	var g: String = who["g"]
 	var producer: bool = Dag.POST_SHOP.has(npc["post"])
-	var stars: int = npc["stars"]
-	var head: String = "%s : %s, %d %s" % [who["name"], names["posts"][npc["post"]], stars, "étoile" if stars <= 1 else "étoiles"]
+	var head: String = "%s : %s, %s" % [who["name"], names["posts"][npc["post"]], stars_text(npc["stars"])]
 	if npc["manages"] != "":
 		head += ", " + _manager(g)
 	var traits: PackedStringArray = []
@@ -124,3 +127,38 @@ static func shop_lines(key: String, shop: Dictionary, isolat: int, manager_index
 static func atre_lines(lvl: int, npc_count: int) -> PackedStringArray:
 	return PackedStringArray(["Grand Âtre niveau %d : rayon %d tuiles" % [lvl, BD.ATRE_RADIUS_TILES[lvl - 1]],
 		"PNJ %d/%d, postes occupés %d/%d" % [npc_count, BD.ATRE_NPC_CAP[lvl - 1], npc_count, BD.ATRE_WORK_POSTS_CAP[lvl - 1]]])
+
+# Postes (jalon 19) : aptitudes des 4 postes ouverts, puis Collecte, Négoce (fermés) et favori.
+static func apt_lines(apt: Dictionary, favorite: String, names: Dictionary) -> PackedStringArray:
+	var open: PackedStringArray = []
+	for p: String in AssignS.active_posts():
+		open.append("%s %d" % [names["posts"][p], apt[p]])
+	return PackedStringArray(["Aptitudes : " + ", ".join(open),
+		"%s %d, %s %d (fermés) ; favori : %s" % [names["posts"]["GATHER"], apt["GATHER"], names["posts"]["MERCHANT"], apt["MERCHANT"], names["posts"][favorite]]])
+
+# « Demain : … » si un poste est en attente, « (auto) » s'il vient de l'auto-assignation ; puis le verrou.
+static func post_lines(npc: Dictionary, names: Dictionary) -> PackedStringArray:
+	var locked: bool = npc.get("locked", false)
+	var out: PackedStringArray = []
+	if npc.has("post_next"):
+		out.append("Demain : %s, %s%s" % [names["posts"][npc["post_next"]], stars_text(npc["stars_next"]), "" if locked else " (auto)"])
+	out.append("Poste : verrouillé" if locked else "Poste : libre (auto)")
+	return out
+
+# « Extraction 1/2, Forge 1/1, Taverne 1/1, Garde 2/2 » d'après les postes effectifs.
+static func slots_line(village: Dictionary, lvl: int, names: Dictionary) -> String:
+	var occ: Dictionary = AssignS.occupancy(village)
+	var parts: PackedStringArray = []
+	for p: String in AssignS.active_posts():
+		parts.append("%s %d/%d" % [names["posts"][p], occ[p], AssignS.slots(lvl, p)])
+	return ", ".join(parts)
+
+# Toast après un changement de poste ; result : sortie de Assignment.move.
+static func move_toast(index: int, post: String, result: Dictionary, names: Dictionary) -> String:
+	var who: String = names["npcs"][index]["name"]
+	match result["kind"]:
+		"swap":
+			return "%s et %s échangent demain" % [who, names["npcs"][result["other"]]["name"]]
+		"same":
+			return "%s : poste verrouillé" % who
+	return "%s : %s demain" % [who, names["posts"][post]]

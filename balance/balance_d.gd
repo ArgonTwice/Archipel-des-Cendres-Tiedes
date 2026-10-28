@@ -220,6 +220,45 @@ const TRAIT_FAVORED_POSTS: Dictionary = {
 	TraitId.BOUT_EN_TRAIN: [JobPostType.TAVERN, JobPostType.MERCHANT]
 }
 
+# Delta du n°38 (Argon, validé par Claude le 28/10/2026, audit-n38.md) : à ajouter tel quel à balance_d.gd, § 6.
+# Aptitudes secondaires des 5 PNJ de depart (principale = BalanceB.STARTING_NPC_MAIN_APTITUDE_STARS = 2)
+const APTITUDE_STARS_MIN: int = 0
+const APTITUDE_STARS_MAX: int = 5
+const SECONDARY_APTITUDE_MAX_OFFSET_FROM_MAIN: int = -1
+const STARTING_NPC_SECONDARY_MAX_STARS: int = _BalanceB.STARTING_NPC_MAIN_APTITUDE_STARS + SECONDARY_APTITUDE_MAX_OFFSET_FROM_MAIN # 1 etoile max
+const STARTING_NPC_SECONDARY_STAR_WEIGHTS: Dictionary = {0: 60, 1: 40} # somme = 100
+
+# Metier favori : poste de depart du PNJ (coincide avec son aptitude principale a 2 etoiles)
+const FAVORITE_JOB_FROM_STARTING_POST: bool = true
+
+# Postes ouverts en tranche verticale (GATHER et MERCHANT sont grises : ni flux ni boutique en tranche)
+const VERTICAL_SLICE_ACTIVE_JOB_POSTS: Array[int] = [
+	JobPostType.EXTRACTION,
+	JobPostType.FORGE,
+	JobPostType.TAVERN,
+	JobPostType.GUARD
+]
+
+# Plafond de postes par type selon le niveau de l'Atre en tranche (sommes = 6 au Nv1, 10 au Nv2 = ATRE_WORK_POSTS_CAP)
+const VERTICAL_SLICE_POST_SLOTS_BY_ATRE_LVL: Dictionary = {
+	1: {JobPostType.EXTRACTION: 2, JobPostType.FORGE: 1, JobPostType.TAVERN: 1, JobPostType.GUARD: 2, JobPostType.GATHER: 0, JobPostType.MERCHANT: 0},
+	2: {JobPostType.EXTRACTION: 3, JobPostType.FORGE: 2, JobPostType.TAVERN: 2, JobPostType.GUARD: 3, JobPostType.GATHER: 0, JobPostType.MERCHANT: 0}
+}
+
+# Gerance, cout de changement de poste et garde-fous d'auto-assignation / tick quotidien (jalons 18-19)
+const MANAGER_RETAINS_OWNERSHIP_ON_MOVE: bool = true
+const STOCK_OVERFLOW_KEEP_ON_MAX_DROP: bool = true
+const POST_CHANGE_GOLD_COST: int = 0
+const POST_CHANGE_MORAL_COST: float = 0.0
+const POST_CHANGE_PROD_PENALTY: float = 0.0
+const POST_CHANGE_EXTRA_TOOL_WEAR: float = 0.0
+
+const AUTO_ASSIGN_DEFERRED_TO_NEXT_TICK: bool = true
+const AUTO_ASSIGN_MIN_SCORE_GAIN: float = 0.25
+const AUTO_ASSIGN_MAX_CHANGES_PER_DAY_INDEX: int = 1
+const DEFER_CADENCE_AND_POSTURE_TO_NEXT_TICK: bool = true
+const GUARD_USES_NORMAL_CADENCE_DRAIN: bool = true
+
 # ==============================================================================
 # 7. FONCTIONS (les prix avec Griffe passent par scripts/economy.gd et price_mult_max_override)
 # ==============================================================================

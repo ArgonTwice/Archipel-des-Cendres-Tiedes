@@ -74,7 +74,9 @@
 		"EXTRACTION": "Extraction",
 		"TAVERN": "Taverne",
 		"FORGE": "Forge",
-		"GUARD": "Garde"
+		"GUARD": "Garde",
+		"GATHER": "Collecte",
+		"MERCHANT": "Négoce"
 	},
 	"shops": {
 		"MAT": "Matériaux",

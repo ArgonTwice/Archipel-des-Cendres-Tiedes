@@ -19,6 +19,7 @@ const FLAT_SORT_ORIGIN: int = -8 # haut de la tuile : touffes toujours sous un P
 const SHADOW_SIZE: Vector2i = Vector2i(12, 4)
 const SHADOW_ALPHA: float = 0.35
 const BRAZIER_LIGHT_SCALE: float = 1.5 # Brasero = copie réduite de l'Âtre. validé sur Fold (jalon 11)
+const NPC_PICK_RADIUS_PX: float = 10.0 # saisie d'un PNJ au doigt (jalon 19) ; technique, PROPOSÉ
 
 @onready var _day: CanvasModulate = $Jour
 @onready var _ground: TileMapLayer = $Sol
@@ -147,6 +148,28 @@ func _process(delta: float) -> void:
 	_light.energy = _base_energy * k
 	if _brazier_light != null:
 		_brazier_light.energy = _light.energy
+
+# Saisir-déposer (jalon 19) : PNJ visible le plus proche de pos (centre du sprite), -1 sinon. Un PNJ endormi est caché.
+func npc_at(pos: Vector2, radius: float = NPC_PICK_RADIUS_PX) -> int:
+	var best: int = -1
+	var best_d: float = radius
+	for i in _npcs.size():
+		var d: float = (_npcs[i].position + _npcs[i].BODY_OFFSET).distance_to(pos)
+		if _npcs[i].visible and d <= best_d:
+			best = i
+			best_d = d
+	return best
+
+func drag_npc(i: int, pos: Vector2) -> void:
+	_npcs[i].hold_at(pos)
+
+func release_npc(i: int) -> void:
+	_npcs[i].release()
+
+# Site sous pos (cellule comptée comme rect_at : tuile (0, 0) centrée sur l'origine) ; "" hors de tout site.
+func site_at(pos: Vector2) -> String:
+	var half: float = VL.CELL / 2.0
+	return VL.site_at(Vector2i(floori((pos.x + half) / VL.CELL), floori((pos.y + half) / VL.CELL)), _data["sites"], _data["patterns"])
 
 func hour_at(now_utc: int) -> int:
 	return hour_override if hour_override >= 0 else VL.local_hour(now_utc, _village.get("tz_offset_sec", 0))

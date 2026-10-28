@@ -18,6 +18,8 @@ const BB = preload("res://balance/balance_b.gd")
 const ProgressionS = preload("res://scripts/progression.gd")
 const EquipmentS = preload("res://scripts/loot/equipment.gd")
 const BF = preload("res://balance/balance_f.gd")
+const BD = preload("res://balance/balance_d.gd")
+const AssignS = preload("res://scripts/village/assignment.gd")
 
 const SAVE_FORMAT_VERSION: int = 1
 const SLOT_FILES: Array[String] = ["save_a.dat", "save_b.dat"]
@@ -113,6 +115,16 @@ static func unpack(bytes: PackedByteArray) -> Dictionary:
 	for npc: Dictionary in v["village"]["npcs"]:
 		if npc.has("cadence_next") and not BB.CADENCE_PROD_MULT.has(npc["cadence_next"]):
 			npc.erase("cadence_next")
+		# Postes (jalon 19) : post_next et stars_next vont ensemble ; locked bool, assign_day int.
+		var post_ok: bool = typeof(npc.get("post_next")) == TYPE_STRING and npc["post_next"] in AssignS.active_posts()
+		var stars_ok: bool = typeof(npc.get("stars_next")) == TYPE_INT and npc["stars_next"] >= BD.APTITUDE_STARS_MIN and npc["stars_next"] <= BD.APTITUDE_STARS_MAX
+		if not (post_ok and stars_ok):
+			npc.erase("post_next")
+			npc.erase("stars_next")
+		if npc.has("locked") and typeof(npc["locked"]) != TYPE_BOOL:
+			npc.erase("locked")
+		if npc.has("assign_day") and typeof(npc["assign_day"]) != TYPE_INT:
+			npc.erase("assign_day")
 	for shop: Dictionary in v["village"]["shops"].values():
 		if shop.has("posture_next") and not BB.POSTURE_TARGET_STOCK_RATIO.has(shop["posture_next"]):
 			shop.erase("posture_next")

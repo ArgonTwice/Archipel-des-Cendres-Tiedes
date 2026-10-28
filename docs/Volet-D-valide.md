@@ -82,3 +82,11 @@ Validé le 23/10/2026 après les échanges n°22 à n°24 (Claude ↔ Argon, ré
 - Prix avec Griffe : ajouter un paramètre price_mult_max à sell_price de scripts/economy.gd (défaut BalanceB.PRICE_MULT_MAX). Le test d'anti-arbitrage couvre aussi 1,15.
 - Le jalon 2 (DAG hors-ligne + grève) lit M_trait par get_npc_trait_prod_mult et le Moral des traits et de la Griffe dans le tick unique.
 - Noms affichés (paliers, traits, enseignes) dans data/ avec leurs jetons grammaticaux.
+
+## 8. Complément n°38 (28/10/2026)
+
+- Aptitudes secondaires des 5 PNJ de départ plafonnées à 1 étoile, poids {0 : 60, 1 : 40} ; principale = 2 étoiles.
+- Métier favori = poste de départ.
+- Postes Nv1 : EXTRACTION 2, FORGE 1, TAVERN 1, GUARD 2 (Nv2 : 3, 2, 2, 3) ; GATHER et MERCHANT fermés en tranche.
+- Le gérant garde sa gérance et sa Griffe quand il change de poste ; changement gratuit.
+- Auto-assignation en session, différée au prochain tick, 1 changement par PNJ et par jour au plus, gain minimal 0,25.

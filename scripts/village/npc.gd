@@ -9,6 +9,7 @@ const PAUSE_SEC: Vector2 = Vector2(2.0, 5.0)
 const WANDER_PX: int = 6
 const BOB_PX: int = 1
 const BOB_PERIOD_SEC: float = 0.3
+const BODY_OFFSET: Vector2 = Vector2(0, -8) # centre du sprite (offset de npc.tscn)
 
 @onready var _sprite: Sprite2D = $Sprite
 @onready var _shadow: Sprite2D = $Ombre
@@ -34,6 +35,15 @@ func set_anchor(anchor: Vector2, shown: bool) -> void:
 		return
 	_anchor = anchor
 	_walk_to(anchor)
+
+# Saisi au doigt (jalon 19) : le centre du sprite suit le doigt, sans Tween.
+func hold_at(pos: Vector2) -> void:
+	_kill()
+	position = pos - BODY_OFFSET
+
+# Relâché : rejoint son ancre à pied.
+func release() -> void:
+	_walk_to(_anchor)
 
 # Sautillement (sprites Kenney à une image) : en marche, BOB_PX vers le haut une demi-période sur deux ; au repos, 0.
 static func bob_offset(t: float, moving: bool) -> int:

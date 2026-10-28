@@ -12,6 +12,9 @@ const PurifS = preload("res://scripts/loot/purification.gd")
 const EqText = preload("res://scripts/ui/equipment_text.gd")
 const ForgeS = preload("res://scripts/loot/forge.gd")
 const Dag = preload("res://scripts/offline_dag.gd")
+const AssignS = preload("res://scripts/village/assignment.gd")
+
+const DRAG_MIN_PX: float = 4.0 # en deçà, un lâcher est un appui : annulé (jalon 19) ; technique, PROPOSÉ
 
 @onready var _world: Node2D = $World # village.gd
 @onready var _camera: Camera2D = $Camera2D
@@ -26,11 +29,14 @@ var _fallback_player: Dictionary = {} # boot en erreur : XP en mémoire seulemen
 var _preview: Dictionary = {} # pièce en aperçu de purification, {} sinon
 var _preview_place: String = ""
 var _village_key: Vector2i = Vector2i(-1, -1) # (heure locale, joueur au village) du dernier show_village
+var _drag: int = -1 # PNJ saisi sur la carte (déplié), -1 sinon
+var _drag_from: Vector2
 
 func _ready() -> void:
 	var now: int = ClockS.now_utc()
 	var r: Dictionary = SaveManager.start(now)
 	var capture: String = _debug_args()
+	_ui_unfolded.set_world_seed(0 if r.is_empty() else r["state"]["world_seed"]) # avant le premier _show : noms et aptitudes
 	if r.is_empty(): # state reste vide : plus aucune sauvegarde
 		_world.setup(0, {}, now, _player_state)
 		for layer in [_ui_folded, _ui_unfolded]: # ui_layer.gd
@@ -38,11 +44,11 @@ func _ready() -> void:
 	else:
 		_world.setup(r["state"]["world_seed"], r["state"]["village"], now, _player_state)
 		_show(r)
+		_auto_assign()
 	var player: Node2D = _world.player() # player.gd
 	player.set_equipment(_player_state()["equipment"])
 	player.set_level(ProgressionS.combat_level(_player_state()))
 	_ui_unfolded.set_forge_help_source(_forge_help)
-	_ui_unfolded.set_world_seed(0 if r.is_empty() else r["state"]["world_seed"])
 	_show_player()
 	var seg: Node2D = _world.segment() # segment.gd
 	seg.xp_changed.connect(_show_player)
@@ -63,6 +69,8 @@ func _ready() -> void:
 	_ui_unfolded.forge_requested.connect(_on_forge_requested)
 	_ui_unfolded.cadence_chosen.connect(_on_village_set.bind("cadence"))
 	_ui_unfolded.posture_chosen.connect(_on_village_set.bind("posture"))
+	_ui_unfolded.post_chosen.connect(_on_post_chosen.bind("bouton"))
+	_ui_unfolded.npc_freed.connect(_on_npc_freed)
 	_show_forge_pending() # carte de craft laissée ouverte à la fermeture de l'appli
 	_black.color = CombatS.EVAC_COLOR
 	_black.color.a = 0.0
@@ -176,12 +184,14 @@ func _on_size_changed() -> void:
 	_folded = folded
 	FoldModeS.apply(_folded, _ui_folded, _ui_unfolded)
 	_stick.reset()
+	_release_drag()
 	_cancel_preview() # rien n'est consommé : le même tirage reviendra
 	if _tween != null:
 		_tween.kill()
 	_tween = create_tween().set_parallel()
 	_tween.tween_property(_camera, "zoom", FoldModeS.zoom_for(_folded), FoldModeS.TWEEN_SEC)
 	_tween.tween_property(_camera, "position", camera_target(_folded, _world.player().position), FoldModeS.TWEEN_SEC)
+	_auto_assign()
 	_sync()
 
 # Pliage, dépliage et fin d'expédition (jalon 13) : même écriture.
@@ -324,6 +334,73 @@ func _on_village_set(id: Variant, value: String, field: String) -> void:
 	var cadence: bool = field == "cadence"
 	Dag.set_next(village["npcs"][id] if cadence else village["shops"][id], field, value)
 	_log_json("[VILLAGE] ", {"event": "reglage", ("pnj" if cadence else "boutique"): id, "valeur": value, "effet": "demain"})
+	_sync()
+	_show_village()
+
+# Postes (jalon 19) : auto-assignation en session seulement (AUTO_ASSIGN_SESSION_ONLY), au lancement et à chaque
+# bascule ; effet au prochain tick. Au lancement, l'attente est écrite à la bascule suivante (même calcul si l'appli est tuée).
+func _auto_assign() -> void:
+	if SaveManager.state.is_empty():
+		return
+	var village: Dictionary = SaveManager.state["village"]
+	var today: int = ClockS.day_index(ClockS.now_utc(), village["tz_offset_sec"])
+	var moves: Array = AssignS.auto_assign(village, SaveManager.state["world_seed"], today, village.get("atre_lvl", 1))
+	for m: Dictionary in moves:
+		_log_json("[VILLAGE] ", {"event": "poste", "pnj": m["pnj"], "de": m["de"], "vers": m["vers"], "kind": "move", "source": "auto"})
+	if not moves.is_empty():
+		_show_village()
+
+# Saisir-déposer sur la carte (Vision d'architecte, SOCLE §A3) : déplié, au village, doigt 0 seulement.
+# L'émulation tactile à la souris couvre le PC. Le PNJ retourne à son poste du jour : le changement vaut demain.
+# Le posé arrive ici : un posé sur la fenêtre est consommé par l'UI et ne saisit rien.
+func _unhandled_input(event: InputEvent) -> void:
+	if _folded or not (event is InputEventScreenTouch and event.pressed) or event.index != 0 or _village_block_reason() != "":
+		return
+	_drag_from = _to_world(event.position)
+	_drag = _world.npc_at(_drag_from)
+	if _drag >= 0:
+		get_viewport().set_input_as_handled()
+
+# Glissé et lâcher du PNJ saisi, lus avant l'UI (comme touch_stick.gd) : passer sur la fenêtre ne les perd pas.
+func _input(event: InputEvent) -> void:
+	if _drag < 0 or not (event is InputEventScreenDrag or (event is InputEventScreenTouch and not event.pressed)) or event.index != 0:
+		return
+	get_viewport().set_input_as_handled()
+	var pos: Vector2 = _to_world(event.position)
+	if event is InputEventScreenDrag:
+		_world.drag_npc(_drag, pos)
+		return
+	var i: int = _drag
+	_release_drag()
+	var post: String = VL.SITE_POST.get(_world.site_at(pos), "")
+	if pos.distance_to(_drag_from) >= DRAG_MIN_PX and post != "":
+		_on_post_chosen(i, post, "carte")
+
+func _to_world(screen: Vector2) -> Vector2:
+	return get_viewport().get_canvas_transform().affine_inverse() * screen
+
+func _release_drag() -> void:
+	if _drag >= 0:
+		_world.release_npc(_drag)
+	_drag = -1
+
+# Bouton de poste ou lâcher sur un bâtiment : verrouille ; poste plein = échange (Assignment.move).
+func _on_post_chosen(index: int, post: String, source: String) -> void:
+	if _village_block_reason() != "":
+		return
+	var village: Dictionary = SaveManager.state["village"]
+	var from: String = AssignS.effective_post(village["npcs"][index])
+	var r: Dictionary = AssignS.move(village, SaveManager.state["world_seed"], index, post, village.get("atre_lvl", 1))
+	_log_json("[VILLAGE] ", {"event": "poste", "pnj": index, "de": from, "vers": post, "kind": r["kind"], "source": source})
+	_ui_unfolded.show_move(index, post, r)
+	_sync()
+	_show_village()
+
+# « Libérer » : rend le PNJ à l'auto-assignation ; l'attente reste en place.
+func _on_npc_freed(index: int) -> void:
+	if _village_block_reason() != "":
+		return
+	SaveManager.state["village"]["npcs"][index]["locked"] = false
 	_sync()
 	_show_village()
 

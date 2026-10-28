@@ -17,6 +17,8 @@ const ROAD_Y: Vector2i = Vector2i(11, 26) # route vers l'isolat, bornes incluses
 const VEILLEE_RADIUS_PX: float = 28.0
 const SHARED_SPACING_PX: float = 12.0
 const WORK_SITE: Dictionary = {"EXTRACTION": "GISEMENT", "TAVERN": "TAVERN", "FORGE": "FORGE", "GUARD": "GATE"}
+# Poste d'un site où l'on dépose un PNJ (jalon 19) ; maisons, Âtre et herbe : aucun.
+const SITE_POST: Dictionary = {"MAT": "EXTRACTION", "GISEMENT": "EXTRACTION", "FORGE": "FORGE", "TAVERN": "TAVERN", "GATE": "GUARD"}
 const PLAYER_SPAWN_CELL: Vector2i = Vector2i(0, 2) # devant l'Âtre, au sud du dallage ; à valider (jalon 9)
 const NEIGHBORS: Array[Vector2i] = [Vector2i(0, -1), Vector2i(0, 1), Vector2i(-1, 0), Vector2i(1, 0)] # haut, bas, gauche, droite
 
@@ -47,6 +49,13 @@ static func site_tiles(site: Dictionary, patterns: Dictionary) -> Dictionary:
 			if rows[y][x] != "":
 				out[o + Vector2i(x, y)] = rows[y][x]
 	return out
+
+# Site dont une tuile bâtie ou la cellule d'accès est cell, dans l'ordre des sites ; "" sinon.
+static func site_at(cell: Vector2i, sites: Dictionary, patterns: Dictionary) -> String:
+	for key: String in sites:
+		if site_tiles(sites[key], patterns).has(cell) or (sites[key].has("access") and v2i(sites[key]["access"]) == cell):
+			return key
+	return ""
 
 static func built_cells(sites: Dictionary, patterns: Dictionary) -> Dictionary:
 	var out: Dictionary = {}

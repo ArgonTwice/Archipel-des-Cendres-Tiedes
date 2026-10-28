@@ -565,3 +565,38 @@ Aucun Label visible ne passe à la ligne à 308 px.
 | (5) noms des PNJ | OUI (après correctifs) | Antho : non sur les noms fixes, puis noms procéduraux, fantasy mêlés aux vrais prénoms, genre par sprite ; oui sur 0.18.0 1a7414a8 |
 | Lisibilité à 48 px par tuile | OUI | Antho |
 
+
+## Jalon 19 (APK 0.19.0)
+
+Postes des PNJ : aptitudes déduites de la graine (scripts/village/assignment.gd, RNG npc/apt/i, rien de sauvegardé), saisir-déposer sur la carte en déplié au village (pose en _unhandled_input, glissé et lâcher en _input comme le joystick : passer sur la fenêtre ne perd pas le PNJ), 4 boutons de poste et « Libérer » dans chaque carte, occupation des postes dans l'onglet Village. Changement de poste et auto-assignation : clés optionnelles post_next / stars_next appliquées au tick avec cadence_next (OfflineDag, étape g'' ; passage en Garde : cadence NORMAL, cadence_next effacée, n°38 Q7b), locked, assign_day ; unpack efface toute valeur invalide. Auto-assignation au lancement et à chaque bascule, juste avant la sauvegarde. Cellule du lâcher comptée comme rect_at (tuile (0, 0) centrée sur l'origine). Constantes techniques PROPOSÉ : NPC_PICK_RADIUS_PX 10, DRAG_MIN_PX 4.
+
+Export debug le 28/10 : 0 ERROR ; versionCode 21, versionName 0.19.0 ; SHA-256 cf67ce954fcd97477bf93b1f244b2b63fa0de62ec43f923a1b8bbe04da12b09d, puis 6682894b16959207f53dcfecdc81abbbd9e42e9b072c528394ab4e5f60c29d9f (cadence NORMAL au passage en Garde, racine nettoyée, même version), puis 726431fa437a15eec3cf67085ef2b1568ccaa234c119eda6c007020f66712565 (page PNJ façon Kairosoft, même version), puis 66db1e1713c6f3f3a10b4bcef5fdb4813242e2814fef1fe62a022d8e664fbe38 (défilement tactile, même version). Aucun appareil branché à l'export : installation par Antho (`adb install -r build/archipel-debug.apk`), sauvegarde du Fold conservée (clés optionnelles, aptitudes déduites de sa graine).
+
+### AD1 à AD5 (PC 924 × 1224, zone 308 × 408, --hour=10 ; script de capture hors dépôt ; sauvegarde PC restaurée ensuite)
+
+Le prompt indiquait « 416 × 657 déplié » : c'est le format plié, le déplié a été pris à 924 × 1224 comme au jalon 18.
+
+| Test | Résultat | Preuve |
+|---|---|---|
+| AD1 PNJ saisi au doigt au-dessus de la Forge | OK | garde 3 tenu sur la tuile (-5, 0) (jalon19-AD1-saisie-forge.png) |
+| AD2 toast après un échange, cartes « Demain : … » | OK | « Kaelys et Lambert échangent demain », « Demain : Garde, 0 étoile », « Poste : verrouillé » ; journal [VILLAGE] poste swap carte (jalon19-AD2-echange-toast.png) |
+| AD3 onglet Village, occupation des postes | OK | « Extraction 1/2, Forge 1/1, Taverne 1/1, Garde 2/2 » (jalon19-AD3-village-postes.png) |
+| AD4 bouton « Libérer » | OK | visible sous la carte verrouillée (jalon19-AD4-liberer.png) |
+| AD5 en Brume | OK | « Réglages au village seulement » en tête, boutons de poste, cadence et « Libérer » grisés, bouton choisi visible (jalon19-AD5-brume-raison.png, jalon19-AD5-brume-grise.png) |
+
+Aucun Label visible ne passe à la ligne à 308 px (ligne la plus large : 277 px).
+
+### Z8 (Fold 8, APK 0.19.0, sauvegarde conservée)
+
+| Test | Résultat | Preuve |
+|---|---|---|
+| (1) saisir un PNJ sur la carte et le lâcher sur un bâtiment est naturel | OUI | Antho |
+| (2) l'échange sur un poste plein est compréhensible | OUI | Antho |
+| (3) « Libérer » rend le PNJ à l'auto-assignation | OUI | Antho |
+| (4) le lendemain, les PNJ travaillent à leur nouveau poste | OUI | Antho |
+| (5) lignes d'aptitudes lisibles | NON puis OUI | Antho : « brouillon, entassé » -> page PNJ façon Kairosoft (726431fa) |
+| Lisibilité à 48 px par tuile | NON puis OUI | idem ; Antho demande un vrai défilement tactile |
+
+Refonte de la page PNJ (Z8 5 et 6) : une ligne par PNJ (sprite Tiny Dungeon de village.json, nom, poste) ; un appui ouvre sa fiche dessous, une seule à la fois (ButtonGroup) ; fiche sur fond léger, intertitres bleu ciel Profil / Poste / Cadence, aptitude sur chaque bouton de poste (« Forge 1 »), Collecte et Négoce fermés en ligne atténuée, attente en vert. Couleurs Okabe-Ito et fond : PROPOSÉ. Correctif : la graine du monde est posée avant le premier affichage (noms et aptitudes faux jusqu'au rafraîchissement suivant). Captures jalon19-AE1-liste.png, jalon19-AE2-fiche-producteur.png, jalon19-AE3-fiche-garde.png.
+
+Défilement tactile (66db1e17) : les boutons et panneaux de la fenêtre défilante passent de STOP à PASS (UiLayer.touch_scroll), le glissé remonte au ScrollContainer. Mesure PC (émulation tactile, fiche ouverte, max 187 px) : glissé de 80 px -> 87 px, inertie jusqu'à 187 ; la ligne glissée ne s'ouvre pas, un appui simple l'ouvre. Vaut pour toutes les pages (Sacoche, Forge, PNJ, Village). Fold : OUI (Antho).

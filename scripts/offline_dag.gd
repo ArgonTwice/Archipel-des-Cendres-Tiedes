@@ -21,6 +21,8 @@ extends RefCounted
 #   g. last_save_utc = max(last_save_utc, now). Sans tick : ni remplacement, ni usure, ni frais.
 #   g'. (fin de f, jalon 18) si tick : cadence_next / posture_next (clés optionnelles) deviennent cadence / posture, puis
 #       sont effacées ; sans tick, elles restent. La journée écoulée est produite et fatiguée avec la cadence d'avant.
+#   g''. (jalon 19) même boucle : post_next / stars_next deviennent post / stars. La gérance (manages) ne bouge jamais.
+#       Passage en GUARD : cadence = NORMAL, cadence_next effacée (n°38 Q7b, GUARD_USES_NORMAL_CADENCE_DRAIN).
 
 const BB = preload("res://balance/balance_b.gd")
 const Eco = preload("res://scripts/economy.gd")
@@ -175,7 +177,12 @@ static func resume(village: Dictionary, now_utc: int) -> Dictionary:
 		v["player_gold"] -= fixed_cost_paid
 		v["last_tick_day"] = today
 		for npc: Dictionary in v["npcs"]:
+			var to_guard: bool = npc.get("post_next", "") == "GUARD"
 			_apply_next(npc, "cadence")
+			_apply_next(npc, "post")
+			_apply_next(npc, "stars")
+			if to_guard:
+				npc["cadence"] = "NORMAL"
 		for key: String in SHOP_BUDGET_KEY:
 			_apply_next(v["shops"][key], "posture")
 	v["last_save_utc"] = maxi(v["last_save_utc"], now_utc)
