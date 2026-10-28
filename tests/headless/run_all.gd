@@ -29,6 +29,7 @@ const BF = preload("res://balance/balance_f.gd")
 const SG = preload("res://scripts/segment/segment_gen.gd")
 const ForgeS = preload("res://scripts/loot/forge.gd")
 const EqText = preload("res://scripts/ui/equipment_text.gd")
+const UiS = preload("res://scripts/ui/ui_layer.gd")
 const LISIERE_SPAWNS_10: Array = [[0, 16], [0, 20], [0, 24]] # banc d'essai du jalon 10, retiré du village au jalon 11
 const FONT_PATH: String = "res://assets/fonts/silkscreen/Silkscreen-Regular.ttf"
 const OFL_PATH: String = "res://assets/fonts/silkscreen/OFL.txt"
@@ -1018,9 +1019,9 @@ func _jalon_16b() -> void:
 	var ui: CanvasLayer = load("res://scenes/ui/ui_unfolded.tscn").instantiate()
 	root.add_child(ui)
 	ui.notification(Node.NOTIFICATION_READY) # root hors de l'arbre pendant _initialize : ni @onready ni _ready sans cette notification
-	var lines: Label = ui.get_node("Margin/VBox/Apercu/Box/Lines")
-	var sup: Label = ui.get_node("Margin/VBox/Apercu/Box/Superieure")
-	var verdict: Label = ui.get_node("Margin/VBox/Apercu/Box/Verdict")
+	var lines: Label = ui.get_node("Margin/VBox/Monde/Apercu/Box/Lines")
+	var sup: Label = ui.get_node("Margin/VBox/Monde/Apercu/Box/Superieure")
+	var verdict: Label = ui.get_node("Margin/VBox/Monde/Apercu/Box/Verdict")
 	ui.show_preview(EquipmentS.craft(1, 8, 2, 1, true, 0), null, "PV +0", true, 1)
 	var card1: Array = [lines.text.get_slice("
 ", 0), sup.visible, sup.text, verdict.text, verdict.get_theme_color("font_color")]
@@ -1038,31 +1039,148 @@ func _jalon_16b() -> void:
 		after_st.merge(m, true)
 		cmp.append(EqText.compare(st, after_st))
 	_check("compare: ATK +8 -> 1 ; PV -10 -> -1 ; ATK +8 DEF -1 -> 0 ; identique -> 0 ; cadence plus rapide -> 1 ; critique -1 % -> -1", cmp == [1, -1, 0, 0, 1, -1], str(cmp))
-	var eq: Control = ui.get_node("Margin/VBox/Equipement")
-	var fo: Control = ui.get_node("Margin/VBox/Forge")
-	var tab_eq: Button = ui.get_node("Margin/VBox/Menu/OngletEquipement")
-	var tab_fo: Button = ui.get_node("Margin/VBox/Menu/OngletForge")
-	ui.hide_preview()
-	var tabs: Array = [[eq.visible, fo.visible]]
-	tab_fo.button_pressed = true
-	tabs.append([eq.visible, fo.visible])
-	tab_eq.button_pressed = true
-	tabs.append([eq.visible, fo.visible])
-	ui.show_preview(EquipmentS.craft(1, 8, 2, 1, true, 0), null, "PV +0", true, 0)
-	tabs.append([eq.visible, fo.visible, tab_eq.disabled])
-	ui.hide_preview()
-	tabs.append([eq.visible, fo.visible, tab_eq.disabled])
-	tab_eq.button_pressed = false
-	tabs.append([eq.visible, fo.visible])
-	_check("menu: aucun panneau, Forge, Équipement (un seul à la fois), carte -> masqués et onglets grisés, retour à Équipement, 2e appui -> aucun",
-		tabs == [[false, false], [false, true], [true, false], [false, false, true], [true, false, false], [false, false]], str(tabs))
 	ui.set_forge_enabled(func(_c: bool) -> String: return "Il manque 2 minerais")
-	var reason: Label = ui.get_node("Margin/VBox/Forge/Box/Raison")
-	var grey: bool = reason.visible and reason.text == "Il manque 2 minerais" and ui.get_node("Margin/VBox/Forge/Box/Boutons").get_child(0).disabled
+	var reason: Label = ui.get_node(UiS.PAGES + "Forge/Raison")
+	var grey: bool = reason.visible and reason.text == "Il manque 2 minerais" and ui.get_node(UiS.PAGES + "Forge/Boutons").get_child(0).disabled
 	ui.set_forge_enabled(func(_c: bool) -> String: return "")
 	_check("panneau: raison visible sous les boutons grisés, masquée quand le craft est possible",
-		grey and not reason.visible and not ui.get_node("Margin/VBox/Forge/Box/Boutons").get_child(0).disabled)
+		grey and not reason.visible and not ui.get_node(UiS.PAGES + "Forge/Boutons").get_child(0).disabled)
 	ui.free()
+
+func _ui_ready(path: String) -> CanvasLayer:
+	var ui: CanvasLayer = load(path).instantiate()
+	root.add_child(ui)
+	ui.notification(Node.NOTIFICATION_READY) # root hors de l'arbre pendant _initialize (voir _jalon_16b)
+	# Hors arbre, un Button garde le style lu à sa construction : sa variation de thème (Onglet) n'est lue qu'au THEME_CHANGED.
+	ui.propagate_notification(Control.NOTIFICATION_THEME_CHANGED)
+	return ui
+
+# Atlas de l'icône : [chemin de la planche, région].
+func _icon_of(tex: Texture2D) -> Array:
+	return [tex.atlas.resource_path, tex.region] if tex is AtlasTexture else []
+
+# Jalon 17 : bandeau à icônes, fenêtre unique et 4 onglets. Références : prompt d'Antho (maquette-jalon17.png, prep_jalon_17.py).
+func _jalon_17() -> void:
+	var p: Dictionary = ProgressionS.new_player()
+	p["cendre"] = 75
+	p["shard_bag"] = _bag(1, 1)
+	var hud: Array = [EqText.hud_values(0, p, 12, null, true), EqText.hud_values(0, p, 12, [8.0, 30.0], true),
+		EqText.hud_values(0, p, 12, null, false), EqText.hud_values(0, p, 12, [8.0, 30.0], false)]
+	for h: Array in hud:
+		print("      " + str(h))
+	_check("hud_values: plié village, plié Brume, déplié village, déplié Brume (1 Éclat d'Élite sans effet)", hud == [
+		[["cendre", "75/150"], ["eclats", "2/6"]],
+		[["cendre", "75/150"], ["eclats", "2/6"], ["minerai", "8/30"]],
+		[["or", "0"], ["cendre", "75/150"], ["eclats", "2/6"], ["minerai", "12"]],
+		[["or", "0"], ["cendre", "75/150"], ["eclats", "2/6"], ["minerai", "8/30"]]], str(hud))
+	var weapon: PackedStringArray = EqText.piece_lines(0, p["equipment"][0])
+	print("      " + " | ".join(weapon))
+	_check("piece_lines(arme): « Arme : Épée & Écu Commune, ilvl 1 » puis « Enclume 3/3, ATK d'arme 10,4 » en retrait",
+		weapon[0] == "Arme : Épée & Écu Commune, ilvl 1" and weapon[1] == "    Enclume 3/3, ATK d'arme 10,4", str(weapon))
+	var st: PackedStringArray = EqText.stats_lines({"hp": 154, "atk": 30, "def": 13, "period": 1.0 / 1.2, "crit_rate": 0.05, "crit_mult": 1.5})
+	_check("stats_lines: 2 lignes", st == PackedStringArray(["PV 154  ATK 30  DEF 13", "Cadence 1,20/s  Critique 5 % ×1,5"]), str(st))
+	var p0: Dictionary = p.duplicate(true)
+	p0["shard_bag"] = []
+	var sac: Array = [EqText.sacoche_lines(p, 12), EqText.sacoche_lines(p0, 1)]
+	print("      " + str(sac))
+	_check("sacoche_lines: (2 Éclats dont 1 d'Élite, 12 minerais) et (0 Éclat, 1 minerai)", sac == [
+		PackedStringArray(["Lanterne : Cendre 75/150", "Éclats : 2/6, dont 1 d'Élite", "Coffre : 12 minerais"]),
+		PackedStringArray(["Lanterne : Cendre 75/150", "Éclats : 0/6", "Coffre : 1 minerai"])], str(sac))
+	var why: Array = [EqText.purify_block_reason(false, false, 0, 2, false), EqText.purify_block_reason(false, true, 2, 2, false),
+		EqText.purify_block_reason(true, false, 0, 0, false), EqText.purify_block_reason(false, true, 1, 2, false),
+		EqText.purify_block_reason(true, false, 0, 2, true)]
+	print("      " + str(why))
+	_check("purify_block_reason: village ou Brasero, quota, Sacoche vide, \"\", choix en attente", why == ["Purification au village ou au Brasero",
+		"Déjà 2 purifications au Brasero cette expédition", "Sacoche vide", "", "Choisis d'abord : Équiper ou Jeter"], str(why))
+	# Scènes réelles
+	var uf: CanvasLayer = _ui_ready("res://scenes/ui/ui_folded.tscn")
+	var uu: CanvasLayer = _ui_ready("res://scenes/ui/ui_unfolded.tscn")
+	var hud_want: Dictionary = {"Or": ["res://assets/icons/hud/coin_05d.png", Rect2(1, 1, 14, 15)],
+		"Cendre": ["res://assets/icons/hud/campfire_16x16.png", Rect2(2, 0, 12, 16)],
+		"Eclats": ["res://assets/icons/hud/item_gem_quartz.png", Rect2(1, 1, 14, 14)],
+		"Minerai": ["res://assets/icons/hud/Stones_ores_gems_without_grass.png", Rect2(0, 22, 15, 10)]}
+	var bad: String = ""
+	for k: String in hud_want:
+		if _icon_of(uu.get_node("Margin/VBox/Hud/Ligne/%s/Icone" % k).texture) != hud_want[k]:
+			bad += "déplié " + k + " "
+		if k != "Or" and _icon_of(uf.get_node("Margin/VBox/Hud/Ligne/%s/Icone" % k).texture) != hud_want[k]:
+			bad += "plié " + k + " "
+	var td: String = "res://assets/tiles/kenney_tiny_dungeon/tilemap_packed.png"
+	var tt: String = "res://assets/tiles/kenney_tiny_town/tilemap_packed.png"
+	var tab_want: Dictionary = {"Perso": [td, Rect2(64, 144, 16, 16)], "Sacoche": [tt, Rect2(176, 128, 16, 16)],
+		"Forge": [td, Rect2(32, 96, 16, 16)], "Options": [tt, Rect2(176, 96, 16, 16)]}
+	var tabs: Array[Button] = []
+	for k: String in tab_want:
+		var b: Button = uu.get_node("Margin/VBox/Onglets/" + k)
+		tabs.append(b)
+		if _icon_of(b.icon) != tab_want[k] or b.text != "" or b.expand_icon:
+			bad += "onglet " + k + " "
+	_check("icônes: 4 du bandeau (fichier et région, Or absent du plié) et 4 onglets (TD 112, TT 107, TD 74, TT 83), sans texte", bad == "", bad)
+	var kyrise: Label = uu.get_node("Credits").get_node_or_null("Margin/VBox/Kyrise")
+	_check("credits: ligne Kyrise", kyrise != null and kyrise.text
+		== "Icône de l'Or : Kyrise's Free 16x16 RPG Icon Pack, par Kyrise, CC BY 4.0 (creativecommons.org/licenses/by/4.0)")
+	var gone: String = ""
+	for n: String in ["Gold", "Vocations", "Lanterne", "Expedition"]:
+		if uf.find_child(n, true, false) != null or uu.find_child(n, true, false) != null:
+			gone += n + " "
+	_check("scenes: plié sans couple Or ni onglet ; Gold, Vocations, Lanterne, Expedition absents des deux couches",
+		uf.find_child("Or", true, false) == null and uf.find_child("Onglets", true, false) == null and gone == "", gone)
+	_check("scenes: déplié, 4 onglets et une seule Fenetre", uu.get_node("Margin/VBox/Onglets").get_child_count() == 4
+		and uu.find_children("Fenetre", "", true, false).size() == 1)
+	# Jauge de saturation et bandeau en expédition
+	var gauge: ProgressBar = uf.get_node("Margin/VBox/Jauge")
+	uf.show_player(p, 12)
+	var g: Array = [gauge.visible]
+	uf.show_expedition(true, 40, 1, 8.0, 30.0)
+	g.append_array([gauge.visible, gauge.ratio, uf.get_node("Margin/VBox/Hud/Ligne/Minerai").visible, uf.get_node("Margin/VBox/Hud/Ligne/Minerai/Valeur").text])
+	uf.show_expedition(false, 0, 0, 0.0, 0.0)
+	g.append_array([gauge.visible, uf.get_node("Margin/VBox/Hud/Ligne/Minerai").visible])
+	print("      jauge " + str(g) + " ; max_value %d" % gauge.max_value)
+	_check("jauge: masquée hors expédition, 40 / SEGMENT_PRE_ELITE_CENDRE_BUDGET en expédition, minerai 8/30 au bandeau plié",
+		g == [false, true, 40.0 / BA.SEGMENT_PRE_ELITE_CENDRE_BUDGET, true, "8/30", false, false], str(g))
+	# Menu
+	var win: Control = uu.get_node("Margin/VBox/Monde/Fenetre")
+	var title: Label = uu.get_node("Margin/VBox/Monde/Fenetre/Box/Barre/Ligne/Titre")
+	var page: Callable = func() -> String:
+		for c: Control in uu.get_node(UiS.PAGES).get_children():
+			if c.visible:
+				return c.name
+		return ""
+	var m: Array = [[win.visible, page.call()]]
+	tabs[2].button_pressed = true
+	m.append([win.visible, page.call(), title.text])
+	tabs[0].button_pressed = true
+	m.append([win.visible, page.call(), title.text, tabs[2].button_pressed])
+	uu.show_preview(EquipmentS.craft(1, 8, 2, 1, true, 0), null, "PV +0", true, 0)
+	m.append([win.visible, tabs[0].disabled, tabs[3].disabled])
+	uu.hide_preview()
+	m.append([win.visible, page.call(), tabs[0].disabled])
+	uu.get_node("Margin/VBox/Monde/Fenetre/Box/Barre/Ligne/Fermer").pressed.emit()
+	m.append([win.visible, tabs[0].button_pressed])
+	tabs[3].button_pressed = true
+	uu.get_node(UiS.PAGES + "Options/CreditsButton").pressed.emit()
+	m.append([win.visible, title.text, uu.get_node("Credits").visible])
+	tabs[3].button_pressed = false
+	m.append([win.visible])
+	print("      menu " + str(m))
+	_check("menu: aucun onglet, Forge, Perso (un seul), carte -> fenêtre masquée et onglets grisés, retour à Perso, « × » referme, Options -> Crédits, 2e appui referme",
+		m == [[false, ""], [true, "Forge", "Forge"], [true, "Perso", "Perso", false], [false, true, true], [true, "Perso", false],
+		[false, false], [true, "Options", true], [false]], str(m))
+	# Gabarit, zone 308 × 408
+	uu.fit_window(408.0)
+	var bandeau: float = uu.get_node("Margin/VBox/Hud").get_combined_minimum_size().y
+	var jauge: float = uu.get_node("Margin/VBox/Jauge").get_combined_minimum_size().y
+	var onglets: float = 0.0 # hauteur de l'HBox = bouton le plus haut ; get_minimum_size : le cache combiné reste périmé hors arbre
+	for b: Button in tabs:
+		onglets = maxf(onglets, b.get_minimum_size().y)
+	var win_h: float = -win.offset_top
+	var win_top: float = 408.0 - onglets - win_h # bas de Monde = haut des onglets
+	print("      gabarit bandeau %d, jauge %d, onglets %d, fenêtre %d (y %d à %d)" % [bandeau, jauge, onglets, win_h, win_top, win_top + win_h])
+	_check("gabarit 308 × 408: bandeau 20, onglets 20, fenêtre 204 au-dessus des onglets, sans recouvrir bandeau ni jauge",
+		bandeau == 20.0 and onglets == 20.0 and win_h == 204.0 and win.anchor_top == 1.0 and win.offset_bottom == 0.0
+		and win_top >= bandeau + jauge, "%d %d %d" % [bandeau, onglets, win_h])
+	uf.free()
+	uu.free()
 
 # Sacoche : e Éclats d'Élite puis n normaux, à l'ilvl donné (ordre de la conversion de SaveManager).
 func _bag(n: int, e: int, ilvl: int = 1) -> Array:
@@ -1588,6 +1706,7 @@ func _jalon_11(vd: Dictionary, solid1: Dictionary) -> void:
 	_jalon_15b(solid1)
 	_jalon_16(solid1)
 	_jalon_16b()
+	_jalon_17()
 	# Scènes et données
 	var vil: Node = load("res://scenes/village/village.tscn").instantiate()
 	var sg: Node2D = vil.get_node_or_null("Entites/Segment")
@@ -2758,7 +2877,7 @@ func _initialize() -> void:
 	var uf = load("res://scenes/ui/ui_folded.tscn").instantiate()
 	var uu = load("res://scenes/ui/ui_unfolded.tscn").instantiate()
 	_check("scenes: ui_folded / ui_unfolded en CanvasLayer, compact true / false", uf is CanvasLayer and uu is CanvasLayer and uf.compact and not uu.compact)
-	_check("scenes: bouton Credits dans ui_unfolded seulement", uu.get_node_or_null("Margin/VBox/Menu/CreditsButton") is Button and uf.find_child("CreditsButton", true, false) == null)
+	_check("scenes: bouton Credits dans ui_unfolded seulement", uu.get_node_or_null(UiS.PAGES + "Options/CreditsButton") is Button and uf.find_child("CreditsButton", true, false) == null)
 	uf.free()
 	uu.free()
 	var cr: Node = load("res://scenes/ui/credits.tscn").instantiate()

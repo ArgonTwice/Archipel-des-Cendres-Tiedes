@@ -38,15 +38,15 @@ static func schools(piece: Dictionary) -> String:
 		return "%s 3/3" % SCHOOL_NAMES[s[0]]
 	return " / ".join(s.map(func(x: int) -> String: return SCHOOL_NAMES[x]))
 
-# « Arme : Épée & Écu Commune, ilvl 1, Enclume 3/3, ATK d'arme 10,4 », puis un affixe par ligne en retrait.
+# « Arme : Épée & Écu Commune, ilvl 1 », « Enclume 3/3, ATK d'arme 10,4 » en retrait (jalon 17), puis un affixe par ligne en retrait.
 static func piece_lines(slot: int, piece: Variant) -> PackedStringArray:
 	if piece == null:
 		return PackedStringArray(["%s : vide" % SLOT_NAMES[slot]])
 	var rarity: String = RARITY_FORMS[piece["rarity"]][gender(slot)]
-	var head: String = "%s : %s, ilvl %d" % [SLOT_NAMES[slot], rarity, piece["ilvl"]]
+	var lines: PackedStringArray = ["%s : %s, ilvl %d" % [SLOT_NAMES[slot], rarity, piece["ilvl"]]]
 	if slot == 0:
-		head = "Arme : Épée & Écu %s, ilvl %d, %s, ATK d'arme %s" % [rarity, piece["ilvl"], schools(piece), dec1(EquipmentS.weapon_atk(piece))]
-	var lines: PackedStringArray = [head]
+		lines[0] = "Arme : Épée & Écu %s, ilvl %d" % [rarity, piece["ilvl"]]
+		lines.append("    %s, ATK d'arme %s" % [schools(piece), dec1(EquipmentS.weapon_atk(piece))])
 	for a: Dictionary in piece["affixes"]:
 		lines.append("    " + affix(a))
 	return lines
@@ -66,10 +66,10 @@ static func with_article(slot: int) -> String:
 		return "l'" + SLOT_NAMES[slot]
 	return ("la " if g == "F" else "le ") + SLOT_NAMES[slot]
 
-# « PV 154  ATK 30  DEF 13  Cadence 1,20/s  Critique 5 % ×1,5 »
-static func stats_line(st: Dictionary) -> String:
-	return "PV %d  ATK %d  DEF %d  Cadence %s/s  Critique %d %% ×%s" % [st["hp"], st["atk"], st["def"], ("%.2f" % (1.0 / st["period"])).replace(".", ","),
-		roundi(st["crit_rate"] * 100.0), dec1(st["crit_mult"])]
+# « PV 154  ATK 30  DEF 13 », « Cadence 1,20/s  Critique 5 % ×1,5 »
+static func stats_lines(st: Dictionary) -> PackedStringArray:
+	return PackedStringArray(["PV %d  ATK %d  DEF %d" % [st["hp"], st["atk"], st["def"]],
+		"Cadence %s/s  Critique %d %% ×%s" % [("%.2f" % (1.0 / st["period"])).replace(".", ","), roundi(st["crit_rate"] * 100.0), dec1(st["crit_mult"])]])
 
 # « PV +36  ATK +0  DEF +0 »
 static func diff_line(before: Dictionary, after: Dictionary) -> String:
@@ -119,6 +119,48 @@ static func forge_block_reason(in_village: bool, ore: int, cendre_have: int, cen
 # « Tu as : 12 minerais, 100 Cendre »
 static func forge_reserve(ore: int, cendre_have: int) -> String:
 	return "Tu as : %s, %d Cendre" % [plural(ore, "minerai"), cendre_have]
+
+# Bandeau (jalon 17) : paires [clé, texte] dans l'ordre d'affichage. cargo : [kg portés, capacité] en expédition, null sinon.
+# Plié : sans Or, minerai seulement en expédition. Déplié : minerai du coffre au village, cargaison en Brume.
+static func hud_values(gold: int, player: Dictionary, ore: int, cargo: Variant, compact: bool) -> Array:
+	var out: Array = []
+	if not compact:
+		out.append(["or", str(gold)])
+	out.append(["cendre", "%d/%d" % [player["cendre"], BA.LANTERN_CENDRE_CAP[0]]])
+	out.append(["eclats", "%d/%d" % [player["shard_bag"].size(), BA.LANTERN_SHARD_BAG_CAP[0]]])
+	if cargo != null:
+		out.append(["minerai", "%s/%s" % [kg(cargo[0]), kg(cargo[1])]])
+	elif not compact:
+		out.append(["minerai", str(ore)])
+	return out
+
+# À l'unité, ou à 0,1 près si non entier : « 25 », « 25,8 ».
+static func kg(x: float) -> String:
+	var r: float = snappedf(x, 0.1)
+	return str(roundi(r)) if is_equal_approx(r, roundf(r)) else dec1(r)
+
+# Onglet Sacoche (jalon 17) : Lanterne, Éclats (dont d'Élite), coffre.
+static func sacoche_lines(player: Dictionary, ore: int) -> PackedStringArray:
+	var elite: int = 0
+	for s: Dictionary in player["shard_bag"]:
+		elite += int(s["elite"])
+	var shards: String = "Éclats : %d/%d" % [player["shard_bag"].size(), BA.LANTERN_SHARD_BAG_CAP[0]]
+	if elite > 0:
+		shards += ", dont %d d'Élite" % elite
+	return PackedStringArray(["Lanterne : Cendre %d/%d" % [player["cendre"], BA.LANTERN_CENDRE_CAP[0]], shards, "Coffre : " + plural(ore, "minerai")])
+
+# Première raison qui grise « Purifier un Éclat », "" si la purification est possible. at_brazier : Brasero sous le
+# joueur pendant une expédition ; brazier_used : purifications déjà faites au Brasero dans cette expédition.
+static func purify_block_reason(in_village: bool, at_brazier: bool, brazier_used: int, shards: int, pending: bool) -> String:
+	if not in_village and not at_brazier:
+		return "Purification au village ou au Brasero"
+	if not in_village and brazier_used >= BF.SHARD_PURIFY_BRAZIER_MAX_PER_RUN:
+		return "Déjà %d purifications au Brasero cette expédition" % BF.SHARD_PURIFY_BRAZIER_MAX_PER_RUN
+	if shards < BF.SHARD_PURIFY_COST_SHARDS:
+		return "Sacoche vide"
+	if pending:
+		return "Choisis d'abord : Équiper ou Jeter"
+	return ""
 
 # « 1 minerai », « 0 minerai », « 2 minerais »
 static func plural(n: int, noun: String) -> String:

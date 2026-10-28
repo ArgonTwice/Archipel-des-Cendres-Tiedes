@@ -1,8 +1,67 @@
-[gd_resource type="Theme" format=3]
+[gd_resource type="Theme" load_steps=8 format=3]
 
 [ext_resource type="FontFile" path="res://assets/fonts/silkscreen/Silkscreen-Regular.ttf" id="1_6cha6"]
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_fenetre"]
+content_margin_left = 2.0
+content_margin_top = 2.0
+content_margin_right = 2.0
+content_margin_bottom = 2.0
+bg_color = Color(0.0784314, 0.0705882, 0.0862745, 0.92)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.588235, 0.517647, 0.431373, 1)
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_enfonce"]
+content_margin_left = 2.0
+content_margin_top = 2.0
+content_margin_right = 2.0
+content_margin_bottom = 2.0
+bg_color = Color(0.27451, 0.188235, 0.141176, 1)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.588235, 0.517647, 0.431373, 1)
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_barre"]
+content_margin_left = 2.0
+content_margin_right = 2.0
+bg_color = Color(0.27451, 0.188235, 0.141176, 1)
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_bandeau"]
+content_margin_left = 2.0
+content_margin_top = 2.0
+content_margin_right = 2.0
+content_margin_bottom = 2.0
+bg_color = Color(0.054902, 0.0470588, 0.0627451, 0.47)
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_jauge_fond"]
+bg_color = Color(0.054902, 0.0470588, 0.0627451, 0.63)
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_jauge_plein"]
+bg_color = Color(0.666667, 0.705882, 0.784314, 1)
+
+[sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_focus"]
 
 [resource]
 default_font = ExtResource("1_6cha6")
 default_font_size = 8
+Bandeau/base_type = &"PanelContainer"
+Bandeau/styles/panel = SubResource("StyleBoxFlat_bandeau")
+BarreTitre/base_type = &"PanelContainer"
+BarreTitre/styles/panel = SubResource("StyleBoxFlat_barre")
+Jauge/base_type = &"ProgressBar"
+Jauge/styles/background = SubResource("StyleBoxFlat_jauge_fond")
+Jauge/styles/fill = SubResource("StyleBoxFlat_jauge_plein")
 Label/constants/line_spacing = 0
+Onglet/base_type = &"Button"
+Onglet/styles/disabled = SubResource("StyleBoxFlat_fenetre")
+Onglet/styles/focus = SubResource("StyleBoxEmpty_focus")
+Onglet/styles/hover = SubResource("StyleBoxFlat_fenetre")
+Onglet/styles/hover_pressed = SubResource("StyleBoxFlat_enfonce")
+Onglet/styles/normal = SubResource("StyleBoxFlat_fenetre")
+Onglet/styles/pressed = SubResource("StyleBoxFlat_enfonce")
+PanelContainer/styles/panel = SubResource("StyleBoxFlat_fenetre")

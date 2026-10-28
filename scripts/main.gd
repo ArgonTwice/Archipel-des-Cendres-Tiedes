@@ -84,7 +84,7 @@ func _process(_delta: float) -> void:
 		_camera.position = camera_target(_folded, player.position)
 	_black.color.a = player.fade_alpha()
 	if not _folded:
-		_ui_unfolded.set_purify_enabled(_preview.is_empty() and _player_state()["forge_pending"] == null and _can_purify())
+		_ui_unfolded.set_purify_reason(_purify_block_reason())
 		_ui_unfolded.set_forge_enabled(_forge_block_reason)
 
 # Plié : sur le joueur. Déplié hors du rayon de l'Âtre : le combat continue, caméra sur le joueur (n°25).
@@ -192,17 +192,28 @@ func _player_state() -> Dictionary:
 func _show_player() -> void:
 	var p: Dictionary = _player_state()
 	for layer in [_ui_folded, _ui_unfolded]: # ui_layer.gd
-		layer.show_vocations(p)
-		layer.show_lantern(p)
-	_ui_unfolded.show_equipment(p["equipment"], EquipmentS.player_stats(ProgressionS.combat_level(p), p["equipment"]))
+		layer.show_player(p, ForgeS.ore(p))
+	_ui_unfolded.show_perso(p, EquipmentS.player_stats(ProgressionS.combat_level(p), p["equipment"]))
 	_ui_unfolded.show_forge(ForgeS.ore(p), p["cendre"])
 
-# Purification (Volet F §1, déplié) : au village sans limite, au Brasero 2 par expédition ; jamais sans sauvegarde.
+# Purification (Volet F §1, déplié) : au village sans limite, au Brasero 2 par expédition ; jamais sans sauvegarde
+# ni avec une carte ouverte.
 func _can_purify() -> bool:
-	return not SaveManager.state.is_empty() and PurifS.has_shard(_player_state()) and _world.segment().purify_place(_world.player().position) != ""
+	return not SaveManager.state.is_empty() and _preview.is_empty() and _player_state()["forge_pending"] == null \
+		and PurifS.has_shard(_player_state()) and _world.segment().purify_place(_world.player().position) != ""
+
+# Raison affichée sous « Purifier un Éclat » grisé (jalon 17) ; vide exactement quand _can_purify est vrai.
+func _purify_block_reason() -> String:
+	if SaveManager.state.is_empty():
+		return "Sauvegarde illisible. Rien n'a été écrit."
+	var p: Dictionary = _player_state()
+	var pos: Vector2 = _world.player().position
+	var seg: Node2D = _world.segment() # segment.gd
+	return EqText.purify_block_reason(CombatS.in_village(pos), seg.at_brazier(pos), seg.brazier_used(), p["shard_bag"].size(),
+		p["forge_pending"] != null or not _preview.is_empty())
 
 func _on_purify_requested() -> void:
-	if not _preview.is_empty() or not _can_purify():
+	if not _can_purify():
 		return
 	var p: Dictionary = _player_state()
 	_preview_place = _world.segment().purify_place(_world.player().position)

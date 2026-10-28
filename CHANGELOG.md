@@ -46,3 +46,5 @@ Format : `AAAA-MM-JJ — type: description`. Une ligne par changement validé.
 - 2026-10-27 — chore: APK debug 0.16.0 (code 16) testé sur Z Fold 8
 - 2026-10-27 — fix: Forge lisible, coût, raretés et Qualité Supérieure affichés (jalon 16 bis)
 - 2026-10-27 — chore: APK debug 0.16.1 (code 17) testé sur Z Fold 8
+- 2026-10-28 — feat: HUD à icônes, onglets et fenêtre unique façon Kairosoft (jalon 17)
+- 2026-10-28 — chore: APK debug 0.17.0 (code 18) testé sur Z Fold 8

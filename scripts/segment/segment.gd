@@ -220,9 +220,16 @@ func _on_gathered(_index: int) -> void:
 func purify_place(pos: Vector2) -> String:
 	if CombatS.in_village(pos):
 		return "VILLAGE"
-	if expedition != null and SG.in_brazier_zone(CombatS.cell_of(pos)) and expedition.brazier_purified < BF.SHARD_PURIFY_BRAZIER_MAX_PER_RUN:
+	if at_brazier(pos) and brazier_used() < BF.SHARD_PURIFY_BRAZIER_MAX_PER_RUN:
 		return "BRASERO"
 	return ""
+
+# Brasero sous le joueur pendant une expédition, et purifications déjà faites au Brasero (raison du grisé, jalon 17).
+func at_brazier(pos: Vector2) -> bool:
+	return expedition != null and SG.in_brazier_zone(CombatS.cell_of(pos))
+
+func brazier_used() -> int:
+	return 0 if expedition == null else expedition.brazier_purified
 
 func on_purified(place: String) -> void:
 	if place == "BRASERO" and expedition != null:

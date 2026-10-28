@@ -476,3 +476,36 @@ Export debug le 27/10 : 0 ERROR ; `aapt2` donne versionCode 17, versionName 0.16
 |---|---|---|
 | Qualité Supérieure visible sans être trop grosse | OK | Antho : « C'est parfait » |
 | Verdict meilleure / moins bonne lisible sur la carte | OK | Antho : « C'est parfait » |
+
+## Jalon 17 (APK 0.17.0)
+
+Menus rangés façon Kairosoft, interface seulement (aucune règle ni valeur). Bandeau Hud identique plié / déplié : fond #0E0C10 alpha 0,47 sans bord, couples icône + nombre (1 px, 6 px entre couples, marge 2 px), 20 px de haut ; plié sans Or, minerai seulement en Brume (kg portés / capacité) ; déplié : Or, Cendre, Éclats, minerai du coffre ou cargaison. Jauge de saturation 2 px sous le bandeau en Brume (Cendre de l'expédition / SEGMENT_PRE_ELITE_CENDRE_BUDGET, #AAB4C8 sur #0E0C10 alpha 0,63). Déplié : 4 onglets à icône seule (Perso TD 112, Sacoche TT 107, Forge TD 74, Options TT 83), fenêtre unique de 0,5 × la zone ancrée au-dessus des onglets (barre de titre #463024 + « × », défilement vertical), carte Équiper / Jeter et Rapport de veillée centrés. Thème : fond #141216 alpha 0,92, bord 1 px #96846E, marge 2 px ; valeurs validé sur Fold (jalon 17), Z5 : 5 oui. Icônes du HUD : 4 PNG OpenGameArt vérifiés au sha256, AtlasTexture en taille native. Simulateur : 700 PASS, 0 FAIL (+11).
+
+Export debug le 28/10 : 0 ERROR ; `aapt2` donne versionCode 18, versionName 0.17.0 ; SHA-256 5a3d352162552fb7160dbbd7c68878fb8d31b278446db4a5b59569eb9d596a4c. Installé par `adb install -r` (versionCode 18, versionName 0.17.0 relus sur l'appareil).
+
+### BB1 à BB7 (PC, --hour=14, sauvegarde PC restaurée ensuite ; Cendre 75, 2 Éclats dont 1 d'Élite, coffre 12 posés par une sonde temporaire)
+
+Plié 416 × 657 (zone 208 × 328), déplié 924 × 1224 (zone 308 × 408). Mesures du jeu réel (get_global_rect) : bandeau y 0 à 20, jauge 20 à 22, fenêtre 184 à 388 (204 px), onglets 388 à 408 (20 px), aussi en Brume.
+
+| Test | Résultat | Preuve |
+|---|---|---|
+| BB1 plié en Brume | OK | Cendre 75/150, Éclats 2/6, minerai 4/25,2, jauge 32/80 (jalon17-BB1-plie-brume.png) |
+| BB2 déplié sans onglet | OK | monde entre bandeau et onglets (jalon17-BB2-deplie-sans-onglet.png) |
+| BB3 onglet Perso | OK | vocations, stats sur 2 lignes, arme sur 2 lignes (jalon17-BB3-perso.png) ; maquette non disponible côté Claude Code, comparaison à faire par Antho |
+| BB4 Sacoche, Purifier grisé | OK | au Brasero, quota atteint : « Déjà 2 purifications au Brasero cette expédition » atténuée (jalon17-BB4-sacoche-grise.png) |
+| BB5 Forge | OK | contenu du jalon 16 bis sans titre (jalon17-BB5-forge.png) |
+| BB6 carte Équiper / Jeter | OK | centrée, fenêtre masquée, onglets grisés (jalon17-BB6-carte.png) |
+| BB7 Options puis Crédits | OK | bouton Crédits, écran Crédits avec ligne Kyrise et remerciements CC0 (jalon17-BB7a-options.png, jalon17-BB7b-credits.png) |
+
+Retours à la ligne (Label visibles, lignes affichées − lignes du texte) : 0 partout à 208 et 308 px, sauf l'écran Crédits : ligne Kyrise et ligne de remerciements sur 2 lignes chacune à 300 px (attendu pour ces longueurs) ; texte OFL déjà replié avant.
+
+### Z5 (Fold 8, APK 0.17.0, sauvegarde conservée, copie dans build/backup-fold-jalon17/ ; journal build/captures/jalon17-Z5-logcat.txt, 0 ERROR)
+
+| Test | Résultat | Preuve |
+|---|---|---|
+| (1) icônes du bandeau reconnues sans légende | OUI | Antho |
+| (2) plié dégagé, jauge lisible | OUI | Antho |
+| (3) niveaux, équipement et minerais trouvés sans chercher | OUI | Antho |
+| (4) 4 onglets au pouce sans erreur | OUI | Antho |
+| (5) fenêtre conservée au pliage / dépliage, sans saccade | OUI | Antho |
+

@@ -19,148 +19,294 @@ mouse_filter = 2
 [node name="VBox" type="VBoxContainer" parent="Margin"]
 layout_mode = 2
 mouse_filter = 2
+theme_override_constants/separation = 0
 
-[node name="Gold" type="Label" parent="Margin/VBox"]
+[node name="Hud" type="PanelContainer" parent="Margin/VBox"]
+layout_mode = 2
+mouse_filter = 2
+theme_type_variation = &"Bandeau"
+
+[node name="Ligne" type="HBoxContainer" parent="Margin/VBox/Hud"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 6
+
+[node name="Or" type="HBoxContainer" parent="Margin/VBox/Hud/Ligne"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 1
+
+[node name="Icone" type="TextureRect" parent="Margin/VBox/Hud/Ligne/Or"]
+layout_mode = 2
+size_flags_vertical = 4
+mouse_filter = 2
+stretch_mode = 3
+
+[node name="Valeur" type="Label" parent="Margin/VBox/Hud/Ligne/Or"]
+layout_mode = 2
+size_flags_vertical = 4
+
+[node name="Cendre" type="HBoxContainer" parent="Margin/VBox/Hud/Ligne"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 1
+
+[node name="Icone" type="TextureRect" parent="Margin/VBox/Hud/Ligne/Cendre"]
+layout_mode = 2
+size_flags_vertical = 4
+mouse_filter = 2
+stretch_mode = 3
+
+[node name="Valeur" type="Label" parent="Margin/VBox/Hud/Ligne/Cendre"]
+layout_mode = 2
+size_flags_vertical = 4
+
+[node name="Eclats" type="HBoxContainer" parent="Margin/VBox/Hud/Ligne"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 1
+
+[node name="Icone" type="TextureRect" parent="Margin/VBox/Hud/Ligne/Eclats"]
+layout_mode = 2
+size_flags_vertical = 4
+mouse_filter = 2
+stretch_mode = 3
+
+[node name="Valeur" type="Label" parent="Margin/VBox/Hud/Ligne/Eclats"]
+layout_mode = 2
+size_flags_vertical = 4
+
+[node name="Minerai" type="HBoxContainer" parent="Margin/VBox/Hud/Ligne"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 1
+
+[node name="Icone" type="TextureRect" parent="Margin/VBox/Hud/Ligne/Minerai"]
+layout_mode = 2
+size_flags_vertical = 4
+mouse_filter = 2
+stretch_mode = 3
+
+[node name="Valeur" type="Label" parent="Margin/VBox/Hud/Ligne/Minerai"]
+layout_mode = 2
+size_flags_vertical = 4
+
+[node name="Jauge" type="ProgressBar" parent="Margin/VBox"]
+visible = false
+custom_minimum_size = Vector2(0, 2)
+layout_mode = 2
+mouse_filter = 2
+theme_type_variation = &"Jauge"
+show_percentage = false
+
+[node name="Monde" type="Control" parent="Margin/VBox"]
+layout_mode = 2
+size_flags_vertical = 3
+mouse_filter = 2
+
+[node name="Messages" type="VBoxContainer" parent="Margin/VBox/Monde"]
+layout_mode = 1
+anchors_preset = 10
+anchor_right = 1.0
+grow_horizontal = 2
+mouse_filter = 2
+
+[node name="Toast" type="Label" parent="Margin/VBox/Monde/Messages"]
+visible = false
+layout_mode = 2
+horizontal_alignment = 1
+
+[node name="Error" type="Label" parent="Margin/VBox/Monde/Messages"]
+visible = false
+layout_mode = 2
+horizontal_alignment = 1
+autowrap_mode = 3
+
+[node name="Fenetre" type="PanelContainer" parent="Margin/VBox/Monde"]
+visible = false
+layout_mode = 1
+anchors_preset = 12
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_top = -204.0
+grow_horizontal = 2
+grow_vertical = 0
+
+[node name="Box" type="VBoxContainer" parent="Margin/VBox/Monde/Fenetre"]
 layout_mode = 2
 
-[node name="Vocations" type="Label" parent="Margin/VBox"]
+[node name="Barre" type="PanelContainer" parent="Margin/VBox/Monde/Fenetre/Box"]
+layout_mode = 2
+theme_type_variation = &"BarreTitre"
+
+[node name="Ligne" type="HBoxContainer" parent="Margin/VBox/Monde/Fenetre/Box/Barre"]
+layout_mode = 2
+
+[node name="Titre" type="Label" parent="Margin/VBox/Monde/Fenetre/Box/Barre/Ligne"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="Fermer" type="Button" parent="Margin/VBox/Monde/Fenetre/Box/Barre/Ligne"]
+layout_mode = 2
+focus_mode = 0
+text = "×"
+flat = true
+
+[node name="Defile" type="ScrollContainer" parent="Margin/VBox/Monde/Fenetre/Box"]
+layout_mode = 2
+size_flags_vertical = 3
+horizontal_scroll_mode = 0
+
+[node name="Pages" type="VBoxContainer" parent="Margin/VBox/Monde/Fenetre/Box/Defile"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="Perso" type="Label" parent="Margin/VBox/Monde/Fenetre/Box/Defile/Pages"]
+visible = false
 layout_mode = 2
 autowrap_mode = 3
 
-[node name="Lanterne" type="Label" parent="Margin/VBox"]
-layout_mode = 2
-autowrap_mode = 3
-
-[node name="Equipement" type="PanelContainer" parent="Margin/VBox"]
+[node name="Sacoche" type="VBoxContainer" parent="Margin/VBox/Monde/Fenetre/Box/Defile/Pages"]
 visible = false
 layout_mode = 2
 
-[node name="Box" type="VBoxContainer" parent="Margin/VBox/Equipement"]
-layout_mode = 2
-
-[node name="Titre" type="Label" parent="Margin/VBox/Equipement/Box"]
-layout_mode = 2
-text = "Équipement"
-
-[node name="Lines" type="Label" parent="Margin/VBox/Equipement/Box"]
+[node name="Lines" type="Label" parent="Margin/VBox/Monde/Fenetre/Box/Defile/Pages/Sacoche"]
 layout_mode = 2
 autowrap_mode = 3
 
-[node name="Purifier" type="Button" parent="Margin/VBox/Equipement/Box"]
+[node name="Purifier" type="Button" parent="Margin/VBox/Monde/Fenetre/Box/Defile/Pages/Sacoche"]
 layout_mode = 2
 size_flags_horizontal = 0
 disabled = true
 text = "Purifier un Éclat"
 
-[node name="Forge" type="PanelContainer" parent="Margin/VBox"]
+[node name="Raison" type="Label" parent="Margin/VBox/Monde/Fenetre/Box/Defile/Pages/Sacoche"]
 visible = false
-layout_mode = 2
-
-[node name="Box" type="VBoxContainer" parent="Margin/VBox/Forge"]
-layout_mode = 2
-
-[node name="Titre" type="Label" parent="Margin/VBox/Forge/Box"]
-layout_mode = 2
-text = "Forge"
-
-[node name="Reserve" type="Label" parent="Margin/VBox/Forge/Box"]
 layout_mode = 2
 autowrap_mode = 3
 
-[node name="AvecCendre" type="CheckButton" parent="Margin/VBox/Forge/Box"]
+[node name="Forge" type="VBoxContainer" parent="Margin/VBox/Monde/Fenetre/Box/Defile/Pages"]
+visible = false
+layout_mode = 2
+
+[node name="Reserve" type="Label" parent="Margin/VBox/Monde/Fenetre/Box/Defile/Pages/Forge"]
+layout_mode = 2
+autowrap_mode = 3
+
+[node name="AvecCendre" type="CheckButton" parent="Margin/VBox/Monde/Fenetre/Box/Defile/Pages/Forge"]
 layout_mode = 2
 size_flags_horizontal = 0
 button_pressed = true
 text = "Avec Cendre"
 
-[node name="Aide" type="Label" parent="Margin/VBox/Forge/Box"]
+[node name="Aide" type="Label" parent="Margin/VBox/Monde/Fenetre/Box/Defile/Pages/Forge"]
 layout_mode = 2
 autowrap_mode = 3
 
-[node name="Boutons" type="VBoxContainer" parent="Margin/VBox/Forge/Box"]
+[node name="Boutons" type="VBoxContainer" parent="Margin/VBox/Monde/Fenetre/Box/Defile/Pages/Forge"]
 layout_mode = 2
 
-[node name="Raison" type="Label" parent="Margin/VBox/Forge/Box"]
+[node name="Raison" type="Label" parent="Margin/VBox/Monde/Fenetre/Box/Defile/Pages/Forge"]
 visible = false
 layout_mode = 2
 autowrap_mode = 3
 
-[node name="Apercu" type="PanelContainer" parent="Margin/VBox"]
+[node name="Options" type="VBoxContainer" parent="Margin/VBox/Monde/Fenetre/Box/Defile/Pages"]
 visible = false
 layout_mode = 2
 
-[node name="Box" type="VBoxContainer" parent="Margin/VBox/Apercu"]
+[node name="CreditsButton" type="Button" parent="Margin/VBox/Monde/Fenetre/Box/Defile/Pages/Options"]
+layout_mode = 2
+size_flags_horizontal = 0
+text = "Crédits"
+
+[node name="Report" type="PanelContainer" parent="Margin/VBox/Monde"]
+visible = false
+layout_mode = 1
+anchors_preset = 14
+anchor_top = 0.5
+anchor_right = 1.0
+anchor_bottom = 0.5
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="Lines" type="VBoxContainer" parent="Margin/VBox/Monde/Report"]
+layout_mode = 2
+mouse_filter = 2
+
+[node name="Apercu" type="PanelContainer" parent="Margin/VBox/Monde"]
+visible = false
+layout_mode = 1
+anchors_preset = 14
+anchor_top = 0.5
+anchor_right = 1.0
+anchor_bottom = 0.5
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="Box" type="VBoxContainer" parent="Margin/VBox/Monde/Apercu"]
 layout_mode = 2
 
-[node name="Superieure" type="Label" parent="Margin/VBox/Apercu/Box"]
+[node name="Superieure" type="Label" parent="Margin/VBox/Monde/Apercu/Box"]
 visible = false
 layout_mode = 2
 autowrap_mode = 3
 
-[node name="Verdict" type="Label" parent="Margin/VBox/Apercu/Box"]
+[node name="Verdict" type="Label" parent="Margin/VBox/Monde/Apercu/Box"]
 layout_mode = 2
 autowrap_mode = 3
 
-[node name="Lines" type="Label" parent="Margin/VBox/Apercu/Box"]
+[node name="Lines" type="Label" parent="Margin/VBox/Monde/Apercu/Box"]
 layout_mode = 2
 autowrap_mode = 3
 
-[node name="Choix" type="HBoxContainer" parent="Margin/VBox/Apercu/Box"]
+[node name="Choix" type="HBoxContainer" parent="Margin/VBox/Monde/Apercu/Box"]
 layout_mode = 2
 
-[node name="Equiper" type="Button" parent="Margin/VBox/Apercu/Box/Choix"]
+[node name="Equiper" type="Button" parent="Margin/VBox/Monde/Apercu/Box/Choix"]
 layout_mode = 2
 text = "Équiper"
 
-[node name="Jeter" type="Button" parent="Margin/VBox/Apercu/Box/Choix"]
+[node name="Jeter" type="Button" parent="Margin/VBox/Monde/Apercu/Box/Choix"]
 layout_mode = 2
 text = "Jeter"
 
-[node name="Expedition" type="Label" parent="Margin/VBox"]
-visible = false
+[node name="Onglets" type="HBoxContainer" parent="Margin/VBox"]
 layout_mode = 2
-autowrap_mode = 3
+theme_override_constants/separation = 0
 
-[node name="Toast" type="Label" parent="Margin/VBox"]
-visible = false
+[node name="Perso" type="Button" parent="Margin/VBox/Onglets"]
 layout_mode = 2
-horizontal_alignment = 1
-
-[node name="Report" type="PanelContainer" parent="Margin/VBox"]
-visible = false
-layout_mode = 2
-
-[node name="Lines" type="VBoxContainer" parent="Margin/VBox/Report"]
-layout_mode = 2
-mouse_filter = 2
-
-[node name="Error" type="Label" parent="Margin/VBox"]
-visible = false
-layout_mode = 2
-autowrap_mode = 3
-
-[node name="Espace" type="Control" parent="Margin/VBox"]
-layout_mode = 2
-size_flags_vertical = 3
-mouse_filter = 2
-
-[node name="Menu" type="HBoxContainer" parent="Margin/VBox"]
-layout_mode = 2
-mouse_filter = 2
-
-[node name="OngletEquipement" type="Button" parent="Margin/VBox/Menu"]
-layout_mode = 2
+size_flags_horizontal = 3
+focus_mode = 0
+theme_type_variation = &"Onglet"
 toggle_mode = true
-text = "Équipement"
+icon_alignment = 1
 
-[node name="OngletForge" type="Button" parent="Margin/VBox/Menu"]
+[node name="Sacoche" type="Button" parent="Margin/VBox/Onglets"]
 layout_mode = 2
+size_flags_horizontal = 3
+focus_mode = 0
+theme_type_variation = &"Onglet"
 toggle_mode = true
-text = "Forge"
+icon_alignment = 1
 
-[node name="CreditsButton" type="Button" parent="Margin/VBox/Menu"]
+[node name="Forge" type="Button" parent="Margin/VBox/Onglets"]
 layout_mode = 2
-text = "Crédits"
+size_flags_horizontal = 3
+focus_mode = 0
+theme_type_variation = &"Onglet"
+toggle_mode = true
+icon_alignment = 1
+
+[node name="Options" type="Button" parent="Margin/VBox/Onglets"]
+layout_mode = 2
+size_flags_horizontal = 3
+focus_mode = 0
+theme_type_variation = &"Onglet"
+toggle_mode = true
+icon_alignment = 1
 
 [node name="Credits" parent="." instance=ExtResource("2")]
 visible = false
