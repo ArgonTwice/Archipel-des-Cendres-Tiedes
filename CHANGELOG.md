@@ -48,3 +48,5 @@ Format : `AAAA-MM-JJ — type: description`. Une ligne par changement validé.
 - 2026-10-27 — chore: APK debug 0.16.1 (code 17) testé sur Z Fold 8
 - 2026-10-28 — feat: HUD à icônes, onglets et fenêtre unique façon Kairosoft (jalon 17)
 - 2026-10-28 — chore: APK debug 0.17.0 (code 18) testé sur Z Fold 8
+- 2026-10-28 — feat: feu de camp animé dans le bandeau (jalon 17 bis)
+- 2026-10-28 — chore: APK debug 0.17.1 (code 19) testé sur Z Fold 8

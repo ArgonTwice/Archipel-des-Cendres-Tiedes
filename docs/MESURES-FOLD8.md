@@ -509,3 +509,29 @@ Retours à la ligne (Label visibles, lignes affichées − lignes du texte) : 0 
 | (4) 4 onglets au pouce sans erreur | OUI | Antho |
 | (5) fenêtre conservée au pliage / dépliage, sans saccade | OUI | Antho |
 
+## Jalon 17 bis (APK 0.17.1)
+
+Feu de camp de la Cendre animé dans le bandeau, cosmétique (aucune règle ni valeur, aucun asset modifié). ui_layer.gd : FIRE_FRAMES 4, FIRE_FRAME_MS 125 (durée de l'auteur, GIF 120–130 ms ; validé sur Fold (jalon 17 bis)), fire_region(ms) pure (région de HUD_ICONS["cendre"] décalée d'une largeur d'image), _animate_fire(ms) ne touche la région qu'au changement d'image, appelé par _process avec Time.get_ticks_msec() (horloge monotone, pas Clock). AnimatedTexture écartée : « Deprecated: This class does not work properly in current versions and may be removed in the future » (doc Godot 4.7). Couche masquée = process_mode DISABLED, feu figé. Simulateur : 703 PASS, 0 FAIL (+3).
+
+Export debug le 28/10 : 0 ERROR ; `aapt2` donne versionCode 19, versionName 0.17.1 ; SHA-256 29497d160ac570577f556beaea57125e6bb65ba86f42cb919bbe7b51122a12a5. Installé par `adb install -r`, sauvegarde du Fold conservée, copie dans build/backup-fold-jalon17b/ ; lancement : 0 ERROR (build/captures/jalon17b-Z6-logcat.txt).
+
+### AB1, AB2 et FPS (PC, script de capture hors dépôt, _process de la couche coupé pendant les captures ; sauvegarde PC restaurée ensuite)
+
+| Test | Résultat | Preuve |
+|---|---|---|
+| AB1 déplié 924 × 1224 (zone 308 × 408), images 0 à 3 | OK | 4 bandeaux distincts, feu entier (jalon17b-AB1-deplie-image0..3.png) |
+| AB2 plié 416 × 657 (zone 208 × 328), images 0 à 3 | OK | 4 bandeaux distincts, feu entier (jalon17b-AB2-plie-image0..3.png) |
+| FPS déplié, 10 s animé / 10 s fixe | inchangé | 237,0 (234 à 240) / 236,1 (233 à 238) |
+| FPS plié, 10 s animé / 10 s fixe | inchangé | 236,2 (232 à 240) / 235,4 (229 à 240) |
+
+Le prompt indiquait « 416 × 657 déplié » : 416 × 657 donne le mode plié (rapport 1,58), le déplié a été pris à 924 × 1224 comme au jalon 17.
+
+### Z6 (Fold 8, APK 0.17.1, sauvegarde conservée)
+
+| Test | Résultat | Preuve |
+|---|---|---|
+| Feu animé en plié, au village et en Brume | OUI | Antho : « C'est parfait » |
+| Feu animé en déplié | OUI | Antho : « C'est parfait » |
+| Après 3 pliages / dépliages, toujours animé, sans saccade ni clignotement | OUI | Antho : « C'est parfait » |
+| Rythme | OUI | Antho : « C'est parfait » |
+

@@ -28,6 +28,9 @@ const TT = preload("res://assets/tiles/kenney_tiny_town/tilemap_packed.png")
 const TAB_ICONS: Array = [[TD, 112], [TT, 107], [TD, 74], [TT, 83]] # Perso, Sacoche, Forge, Options
 const TAB_TITLES: Array[String] = ["Perso", "Sacoche", "Forge", "Options"]
 const PAGES: String = "Margin/VBox/Monde/Fenetre/Box/Defile/Pages/"
+# Feu de camp de la Cendre (jalon 17 bis) : 4 images côte à côte sur la planche de krial.
+const FIRE_FRAMES: int = 4
+const FIRE_FRAME_MS: int = 125 # durée de l'auteur (GIF 120–130 ms) ; technique, validé sur Fold (jalon 17 bis)
 
 @export var compact: bool = true
 
@@ -40,6 +43,8 @@ var _toast_id: int = 0 # numéro du dernier toast affiché
 @onready var _report: PanelContainer = find_child("Report", true, false) # plié : sous le bandeau ; déplié : fenêtre centrée
 @onready var _report_lines: VBoxContainer = _report.get_node("Lines")
 @onready var _error: Label = $Margin/VBox/Monde/Messages/Error
+@onready var _fire: TextureRect = get_node_or_null("Margin/VBox/Hud/Ligne/Cendre/Icone")
+var _fire_frame: int = 0 # image affichée : _ready pose l'image 0
 # Bandeau : dernières valeurs reçues (Or, joueur, coffre, cargaison en expédition).
 var _gold: int = 0
 var _player: Dictionary = {}
@@ -76,6 +81,24 @@ static func atlas(sheet: Texture2D, region: Rect2) -> AtlasTexture:
 # Tuile entière d'une planche Kenney à 12 colonnes.
 static func tile_region(i: int) -> Rect2:
 	return Rect2((i % 12) * 16, (i / 12) * 16, 16, 16)
+
+# Région de l'image du feu à l'instant ms : celle de HUD_ICONS["cendre"], décalée d'une largeur d'image (planche / FIRE_FRAMES).
+static func fire_region(ms: int) -> Rect2:
+	var base: Rect2 = HUD_ICONS["cendre"][1]
+	var step: float = float(HUD_ICONS["cendre"][0].get_width()) / FIRE_FRAMES
+	return Rect2(base.position.x + step * ((ms / FIRE_FRAME_MS) % FIRE_FRAMES), base.position.y, base.size.x, base.size.y)
+
+# Horloge monotone et cosmétique (pas l'horloge de jeu). Couche masquée : process_mode DISABLED, le feu se fige.
+func _process(_delta: float) -> void:
+	_animate_fire(Time.get_ticks_msec())
+
+# Ne touche la région qu'au changement d'image : pas de redessin à chaque image.
+func _animate_fire(ms: int) -> void:
+	var frame: int = (ms / FIRE_FRAME_MS) % FIRE_FRAMES
+	if _fire == null or frame == _fire_frame:
+		return
+	_fire_frame = frame
+	(_fire.texture as AtlasTexture).region = fire_region(ms)
 
 func _ready() -> void:
 	_report.gui_input.connect(_on_report_input)

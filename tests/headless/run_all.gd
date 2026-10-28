@@ -1182,6 +1182,38 @@ func _jalon_17() -> void:
 	uf.free()
 	uu.free()
 
+# Jalon 17 bis : feu de camp animé (4 images de 125 ms). Références : prompt d'Antho (prep_jalon_17bis.py).
+func _jalon_17b() -> void:
+	var xs: Array = []
+	var other: bool = true
+	for ms: int in [0, 124, 125, 249, 250, 375, 499, 500, 1000, 1124, 1125]:
+		var r: Rect2 = UiS.fire_region(ms)
+		xs.append(int(r.position.x))
+		other = other and r.position.y == 0.0 and r.size == Vector2(12, 16)
+	print("      fire_region x " + str(xs))
+	_check("fire_region: x = 2, 2, 18, 18, 34, 50, 50, 2, 2, 2, 18 ; y 0, 12 × 16", xs == [2, 2, 18, 18, 34, 50, 50, 2, 2, 2, 18] and other, str(xs))
+	for path: String in ["res://scenes/ui/ui_folded.tscn", "res://scenes/ui/ui_unfolded.tscn"]:
+		var ui: CanvasLayer = _ui_ready(path)
+		var fire: AtlasTexture = ui.get_node("Margin/VBox/Hud/Ligne/Cendre/Icone").texture
+		var still: Array = []
+		for k: String in ["Eclats", "Minerai"] + ([] if ui.compact else ["Or"]):
+			still.append(ui.get_node("Margin/VBox/Hud/Ligne/%s/Icone" % k).texture.region)
+		var changed: Array[int] = [0]
+		fire.changed.connect(func() -> void: changed[0] += 1)
+		ui._animate_fire(250)
+		var r250: Array = [fire.region, fire.atlas.resource_path, changed[0]]
+		ui._animate_fire(260)
+		var r260: int = changed[0]
+		ui._animate_fire(0)
+		var after: Array = []
+		for k: String in ["Eclats", "Minerai"] + ([] if ui.compact else ["Or"]):
+			after.append(ui.get_node("Margin/VBox/Hud/Ligne/%s/Icone" % k).texture.region)
+		print("      %s %s, 260 -> changed %d, 0 -> %s" % [path.get_file(), str(r250), r260, str(fire.region)])
+		_check("feu %s: 250 -> (34, 0, 12, 16) sur campfire_16x16.png ; 260 même image, aucun changed ; 0 -> (2, 0, 12, 16) ; autres icônes fixes" % path.get_file(),
+			r250 == [Rect2(34, 0, 12, 16), "res://assets/icons/hud/campfire_16x16.png", 1] and r260 == 1 and fire.region == Rect2(2, 0, 12, 16)
+			and after == still, str(r250))
+		ui.free()
+
 # Sacoche : e Éclats d'Élite puis n normaux, à l'ilvl donné (ordre de la conversion de SaveManager).
 func _bag(n: int, e: int, ilvl: int = 1) -> Array:
 	var bag: Array = []
@@ -1707,6 +1739,7 @@ func _jalon_11(vd: Dictionary, solid1: Dictionary) -> void:
 	_jalon_16(solid1)
 	_jalon_16b()
 	_jalon_17()
+	_jalon_17b()
 	# Scènes et données
 	var vil: Node = load("res://scenes/village/village.tscn").instantiate()
 	var sg: Node2D = vil.get_node_or_null("Entites/Segment")
