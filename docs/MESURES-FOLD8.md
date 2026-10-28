@@ -600,3 +600,31 @@ Aucun Label visible ne passe à la ligne à 308 px (ligne la plus large : 277 px
 Refonte de la page PNJ (Z8 5 et 6) : une ligne par PNJ (sprite Tiny Dungeon de village.json, nom, poste) ; un appui ouvre sa fiche dessous, une seule à la fois (ButtonGroup) ; fiche sur fond léger, intertitres bleu ciel Profil / Poste / Cadence, aptitude sur chaque bouton de poste (« Forge 1 »), Collecte et Négoce fermés en ligne atténuée, attente en vert. Couleurs Okabe-Ito et fond : PROPOSÉ. Correctif : la graine du monde est posée avant le premier affichage (noms et aptitudes faux jusqu'au rafraîchissement suivant). Captures jalon19-AE1-liste.png, jalon19-AE2-fiche-producteur.png, jalon19-AE3-fiche-garde.png.
 
 Défilement tactile (66db1e17) : les boutons et panneaux de la fenêtre défilante passent de STOP à PASS (UiLayer.touch_scroll), le glissé remonte au ScrollContainer. Mesure PC (émulation tactile, fiche ouverte, max 187 px) : glissé de 80 px -> 87 px, inertie jusqu'à 187 ; la ligne glissée ne s'ouvre pas, un appui simple l'ouvre. Vaut pour toutes les pages (Sacoche, Forge, PNJ, Village). Fold : OUI (Antho).
+
+## Jalon 19 bis (APK 0.19.1)
+
+UI seule. Moral coloré : étiquette « Moral N » ou « En grève » enfant du bouton de tête de chaque PNJ (ancrée en haut à droite, mouse_filter IGNORE), couleur par bande de production VText.moral_band (seuils de BalanceB : grève < 20, bas < 50, normal < 85, haut), MORAL_COLORS Okabe-Ito (PROPOSÉ). Onglet Village en lignes dépliables, même construction que la page PNJ (UiLayer._card), ButtonGroup à part : Grand Âtre (tête atre_head, fiche atre_detail + Postes / occupation), Matériaux, Taverne, Forge (tête shop_head avec « demain … » si une posture attend, fiche shop_lines + Posture). shop_lines : 1re ligne « Gérant : X » / « Gérante : X ». atre_lines supprimée. Icône du Grand Âtre : image 0 du feu du bandeau élargie à 16 px (région (0, 0, 16, 16)) pour aligner les textes avec les tuiles roche, tonneau, enclume.
+
+Largeurs mesurées dans Godot (Silkscreen 8) : pire tête « Stock 999/999, Solidaire, demain Exportation » 236 px ; « Esclarmonde » + « Moral 100 » 116 px (sans espace ; le jumeau donne 124) ; autres têtes <= 169 px ; tout sous 264 px.
+
+Export debug le 28/10 : 0 ERROR ; versionCode 22, versionName 0.19.1 ; SHA-256 b3d247d5b4b81b526b9a803fbec8142ff40b1934961673d86b637e41ade6e823. Installé par `adb install -r`, sauvegarde du Fold conservée, copie dans build/backup-fold-jalon19bis/ ; 0 ERROR au lancement.
+
+### AE1 à AE5 (PC 924 × 1224, zone 308 × 408, --hour=10 ; script de capture hors dépôt, Moral 49 / grève / 90 et posture en attente posés en mémoire ; sauvegarde PC restaurée ensuite)
+
+| Test | Résultat | Preuve |
+|---|---|---|
+| AE1 page PNJ fermée, Moral coloré | OK | blanc 79, orange 49, vermillon « En grève », vert 90 (jalon19bis-AE1-pnj-moral.png) |
+| AE2 onglet Village fermé, 4 lignes | OK | feu, roche, tonneau, enclume ; textes alignés (jalon19bis-AE2-village-ferme.png) |
+| AE3 Taverne ouverte, posture en attente | OK | « demain Exportation » sur la tête, « Demain : Exportation (…) » dans l'aide (jalon19bis-AE3-taverne-ouverte.png) |
+| AE4 Grand Âtre ouvert | OK | rayon, Postes, occupation (jalon19bis-AE4-atre-ouvert.png) |
+| AE5 en Brume | OK | raison en tête, postures grisées, choix visible (jalon19bis-AE5-brume-grise.png) |
+| Défilement au doigt sur une tête Village | OK | glissé sur la ligne Forge : 54 px de défilement, ligne non ouverte |
+
+### Z9 (Fold 8, APK 0.19.1, sauvegarde conservée)
+
+| Test | Résultat | Preuve |
+|---|---|---|
+| (1) couleur du Moral lue d'un coup d'œil, « En grève » saute aux yeux | OUI | Antho |
+| (2) onglet Village fermé plus clair qu'avant | OUI | Antho |
+| (3) ouvrir une ligne et changer une posture est naturel (« demain » sur la ligne) | OUI | Antho |
+| (4) défilement au doigt sur Village sans ouverture par erreur | OUI | Antho |

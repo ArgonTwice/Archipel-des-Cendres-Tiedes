@@ -53,3 +53,5 @@ Format : `AAAA-MM-JJ — type: description`. Une ligne par changement validé.
 - 2026-10-28 — feat: onglets PNJ et Village, cadence et posture réglables (jalon 18)
 - 2026-10-28 — feat: aptitudes des PNJ, changement de poste et auto-assignation (jalon 19)
 - 2026-10-28 — chore: APK debug 0.19.0 (code 21) testé sur Z Fold 8
+- 2026-10-28 — feat: Moral coloré et onglet Village en lignes dépliables (jalon 19 bis)
+- 2026-10-28 — chore: APK debug 0.19.1 (code 22) testé sur Z Fold 8

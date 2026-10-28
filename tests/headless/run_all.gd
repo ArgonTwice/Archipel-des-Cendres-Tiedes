@@ -1286,11 +1286,11 @@ func _jalon_18() -> void:
 		["MAT", {"stock": 0, "lvl": 1, "posture": "EQUILIBRE", "griffe_trait": 1, "treasury": 150}, 2, 0],
 		["TAVERN", {"stock": 12, "lvl": 1, "posture": "SOLIDAIRE", "griffe_trait": 5, "treasury": 37}, 2, 1]]
 	var want_shop: Array = [
-		["Matériaux, niveau 1 (gérant : Gaspard)", "Stock 0 / cible 41 / max 69", "Prix 3 Or, rachat 1 Or", "Trésorerie 150 Or", "Équilibre : cible 60 % du stock, taxe 20 %"],
-		["Taverne, niveau 1 (gérante : Margaux)", "Stock 12 / cible 12 / max 30", "Prix 8 Or, rachat 4 Or", "Trésorerie 37 Or", "Demain : Exportation (cible 85 % du stock, taxe 30 %)"],
-		["Forge, niveau 1 (gérant : Ulric)", "Stock 3 / cible 26 / max 30", "Prix 14 Or, rachat 8 Or", "Trésorerie 0 Or", "Exportation : cible 85 % du stock, taxe 30 %"],
-		["Matériaux, niveau 1 (gérant : Gaspard)", "Stock 0 / cible 41 / max 69", "Prix 3 Or, rachat 1 Or", "Trésorerie 150 Or", "Équilibre : cible 60 % du stock, taxe 20 %"],
-		["Taverne, niveau 1 (gérante : Margaux)", "Stock 12 / cible 12 / max 30", "Prix 10 Or, rachat 6 Or", "Trésorerie 37 Or", "Solidaire : cible 40 % du stock, taxe 10 %"]]
+		["Gérant : Gaspard", "Stock 0 / cible 41 / max 69", "Prix 3 Or, rachat 1 Or", "Trésorerie 150 Or", "Équilibre : cible 60 % du stock, taxe 20 %"],
+		["Gérante : Margaux", "Stock 12 / cible 12 / max 30", "Prix 8 Or, rachat 4 Or", "Trésorerie 37 Or", "Demain : Exportation (cible 85 % du stock, taxe 30 %)"],
+		["Gérant : Ulric", "Stock 3 / cible 26 / max 30", "Prix 14 Or, rachat 8 Or", "Trésorerie 0 Or", "Exportation : cible 85 % du stock, taxe 30 %"],
+		["Gérant : Gaspard", "Stock 0 / cible 41 / max 69", "Prix 3 Or, rachat 1 Or", "Trésorerie 150 Or", "Équilibre : cible 60 % du stock, taxe 20 %"],
+		["Gérante : Margaux", "Stock 12 / cible 12 / max 30", "Prix 10 Or, rachat 6 Or", "Trésorerie 37 Or", "Solidaire : cible 40 % du stock, taxe 10 %"]]
 	bad = ""
 	for k in sx.size():
 		var got: PackedStringArray = VText.shop_lines(sx[k][0], sx[k][1], sx[k][2], sx[k][3], names)
@@ -1302,8 +1302,7 @@ func _jalon_18() -> void:
 	var pos: Array = [VText.posture_help("SOLIDAIRE", "", names), VText.posture_help("EQUILIBRE", "", names), VText.posture_help("EXPORTATION", "", names)]
 	_check("posture_help: 3 sans attente", pos == ["Solidaire : cible 40 % du stock, taxe 10 %", "Équilibre : cible 60 % du stock, taxe 20 %",
 		"Exportation : cible 85 % du stock, taxe 30 %"], str(pos))
-	var atre: PackedStringArray = VText.atre_lines(1, 5)
-	_check("atre_lines(1, 5)", atre == PackedStringArray(["Grand Âtre niveau 1 : rayon 12 tuiles", "PNJ 5/5, postes occupés 5/6"]), str(atre))
+	# atre_lines remplacée au jalon 19 bis par atre_head / atre_detail (_jalon_19b)
 	# DAG : réglage différé, effet au prochain tick
 	var day: int = 86400
 	var v0: Dictionary = NewGameS.village(18, D0, 0)
@@ -1367,10 +1366,8 @@ func _jalon_18() -> void:
 	var rows: int = 0
 	for c: Node in cards: # jalon 19 : chaque fiche a sa rangée de cadence, visible pour un producteur du jour
 		rows += int(c.find_child("Cadence", true, false).visible)
-	var shops: Array = uu.get_node(UiS.PAGES + "Village").get_children().filter(func(c: Node) -> bool: return c is VBoxContainer)
-	var prow: int = 0
-	for c: Node in shops:
-		prow += c.get_children().filter(func(n: Node) -> bool: return n is HBoxContainer).size()
+	var shops: Array = uu.get_node(UiS.PAGES + "Village").find_children("Posture", "HBoxContainer", true, false) # jalon 19 bis : dans les fiches
+	var prow: int = shops.filter(func(r: HBoxContainer) -> bool: return r.get_child_count() == 3).size()
 	_check("scenes: 5 cartes PNJ, 3 rangées de cadence, 3 blocs de boutique à 3 postures", cards.size() == 5 and rows == 3 and shops.size() == 3 and prow == 3,
 		"%d %d %d %d" % [cards.size(), rows, shops.size(), prow])
 	var emitted: Array = []
@@ -1378,7 +1375,7 @@ func _jalon_18() -> void:
 	uu.posture_chosen.connect(func(k: String, p: String) -> void: emitted.append([k, p]))
 	var row0: Node = cards[0].find_child("Cadence", true, false)
 	row0.get_child(2).pressed.emit()
-	shops[0].get_children().filter(func(n: Node) -> bool: return n is HBoxContainer)[0].get_child(0).pressed.emit()
+	shops[0].get_child(0).pressed.emit()
 	_check("scenes: Forge ardente de la carte 0 -> cadence_chosen(0, FORGE_ARDENTE) ; Solidaire de Matériaux -> posture_chosen(MAT, SOLIDAIRE)",
 		emitted == [[0, "FORGE_ARDENTE"], ["MAT", "SOLIDAIRE"]], str(emitted))
 	vk["npcs"][0]["cadence_next"] = "PAISIBLE"
@@ -1683,8 +1680,95 @@ func _jalon_19() -> void:
 	_check("scenes: hors du village, boutons de poste et Libérer grisés, raison affichée, bouton choisi visible", grey
 		and uu.get_node(UiS.PAGES + "PNJ/Raison").visible and rows[3].get_child(0).button_pressed
 		and rows[3].get_child(0).get_theme_stylebox("disabled") == rows[3].get_child(0).get_theme_stylebox("pressed"))
-	var atre_txt: String = uu.find_children("*", "Label", true, false).filter(func(l: Label) -> bool: return l.text.begins_with("Grand Âtre"))[0].text
-	_check("scenes: onglet Village, occupation des postes après atre_lines", atre_txt.ends_with("\nExtraction 2/2, Forge 1/1, Taverne 1/1, Garde 1/2"), atre_txt)
+	var atre_txt: String = uu.find_child("Occupation", true, false).text # jalon 19 bis : fiche du Grand Âtre
+	_check("scenes: onglet Village, occupation des postes (fiche du Grand Âtre)", atre_txt == "Extraction 2/2, Forge 1/1, Taverne 1/1, Garde 1/2", atre_txt)
+	uu.free()
+
+# Jalon 19 bis : Moral coloré, onglet Village en lignes dépliables. Références : prompt d'Antho (sortie de prep_jalon_19bis.py).
+func _jalon_19b() -> void:
+	var names: Dictionary = VText.load_names()
+	names["npcs"] = [{"name": "Gaspard", "g": "M"}, {"name": "Margaux", "g": "F"}, {"name": "Ulric", "g": "M"}, {"name": "Thibaut", "g": "M"},
+		{"name": "Odile", "g": "F"}]
+	var bands: Array = [[19, false, "STRIKE"], [20, false, "LOW"], [49, false, "LOW"], [50, false, "NORMAL"], [84, false, "NORMAL"], [85, false, "HIGH"],
+		[100, false, "HIGH"], [35, true, "STRIKE"], [0, true, "STRIKE"]]
+	var got_b: Array = bands.map(func(b: Array) -> String: return VText.moral_band(b[0], b[1]))
+	_check("moral_band: 9 bornes du jumeau", got_b == bands.map(func(b: Array) -> String: return b[2]), str(got_b))
+	var tags: Array = [VText.moral_tag({"moral": 80, "on_strike": false}), VText.moral_tag({"moral": 15, "on_strike": true}),
+		VText.moral_tag({"moral": 100, "on_strike": false})]
+	_check("moral_tag: « Moral 80 », « En grève », « Moral 100 »", tags == ["Moral 80", "En grève", "Moral 100"], str(tags))
+	var sh: Array = [VText.shop_head("MAT", {"stock": 0, "lvl": 1, "posture": "EQUILIBRE", "griffe_trait": 1}, names),
+		VText.shop_head("TAVERN", {"stock": 12, "lvl": 1, "posture": "SOLIDAIRE", "posture_next": "EXPORTATION", "griffe_trait": 5}, names),
+		VText.shop_head("FORGE", {"stock": 3, "lvl": 1, "posture": "EXPORTATION", "griffe_trait": 3}, names)]
+	print("      shop_head : %s" % str(sh))
+	_check("shop_head: 3 fixtures du jumeau", sh == [PackedStringArray(["Matériaux, niveau 1", "Stock 0/69, Équilibre"]),
+		PackedStringArray(["Taverne, niveau 1", "Stock 12/30, Solidaire, demain Exportation"]), PackedStringArray(["Forge, niveau 1", "Stock 3/30, Exportation"])], str(sh))
+	var ah: PackedStringArray = VText.atre_head(1, 5)
+	_check("atre_head(1, 5) et atre_detail(1)", ah == PackedStringArray(["Grand Âtre, niveau 1", "PNJ 5/5, postes occupés 5/6"])
+		and VText.atre_detail(1) == "Rayon 12 tuiles autour de l'Âtre", str(ah) + VText.atre_detail(1))
+	# Largeurs des têtes : pire cas du jumeau, borne 264 px
+	var font: Font = load(FONT_PATH)
+	var fw: Callable = func(t: String) -> float: return font.get_string_size(t, HORIZONTAL_ALIGNMENT_LEFT, -1, 8).x
+	var worst: float = fw.call("Stock 999/999, Solidaire, demain Exportation")
+	var longest: String = ""
+	for g: String in ["M", "F"]:
+		for n: String in names["name_pool"][g]:
+			if fw.call(n) > fw.call(longest):
+				longest = n
+	var name_tag: float = fw.call(longest) + fw.call("Moral 100")
+	var heads: Array[String] = ["Grand Âtre, niveau 1", "PNJ 5/5, postes occupés 5/6", "Taverne, niveau 1", "Matériaux, niveau 1", "Rayon 12 tuiles autour de l'Âtre"]
+	var widest: float = heads.map(func(t: String) -> float: return fw.call(t)).max()
+	print("      têtes : pire stock %d px, « %s » + « Moral 100 » %d px, autres <= %d px" % [worst, longest, name_tag, widest])
+	_check("largeurs: têtes Village et nom + Moral <= 264 px", worst <= 264.0 and name_tag <= 264.0 and widest <= 264.0, "%d %d %d" % [worst, name_tag, widest])
+	# UI instanciée
+	var uu: CanvasLayer = _ui_ready("res://scenes/ui/ui_unfolded.tscn")
+	uu.set_world_seed(1)
+	var pnj: Node = uu.get_node(UiS.PAGES + "PNJ")
+	var vil: Node = uu.get_node(UiS.PAGES + "Village")
+	var vcards: Array = vil.get_children().filter(func(c: Node) -> bool: return c is VBoxContainer)
+	var vheads: Array = vcards.map(func(c: Node) -> Button: return c.find_child("Tete", false, false))
+	var vdet: Array = vcards.map(func(c: Node) -> Control: return c.find_child("Detail", false, false))
+	var grp: ButtonGroup = vheads[0].button_group
+	var closed: bool = vdet.all(func(d: Control) -> bool: return not d.visible)
+	vheads[1].button_pressed = true
+	vheads[2].button_pressed = true
+	var open: Array = vdet.map(func(d: Control) -> bool: return d.visible)
+	vheads[2].button_pressed = false
+	var pnj_grp: ButtonGroup = pnj.get_children().filter(func(c: Node) -> bool: return c is VBoxContainer)[0].find_child("Tete", false, false).button_group
+	_check("village: 4 cartes (Âtre, Matériaux, Taverne, Forge), ButtonGroup à part allow_unpress, fermées au départ, une ouverte à la fois",
+		vcards.size() == 4 and vheads.all(func(h: Button) -> bool: return h.button_group == grp) and grp.allow_unpress and grp != pnj_grp
+		and closed and open == [false, false, true, false], "%d %s" % [vcards.size(), str(open)])
+	var td: String = "res://assets/tiles/kenney_tiny_dungeon/tilemap_packed.png"
+	var tiles: Dictionary = VL.load_data()["tiles"]
+	var icons: Array = vheads.map(func(h: Button) -> Array: return _icon_of(h.icon))
+	_check("village: icônes feu (image 0 du bandeau, 16 px), roche, tonneau, enclume", UiS.fire_icon_region() == Rect2(0, 0, 16, 16)
+		and icons == [[UiS.HUD_ICONS["cendre"][0].resource_path, UiS.fire_icon_region()],
+		[td, UiS.tile_region(int(tiles["roche"][1]))], [td, UiS.tile_region(int(tiles["tonneau"][1]))], [td, UiS.tile_region(int(tiles["enclume"][1]))]], str(icons))
+	var morals: Array = pnj.find_children("Moral", "Label", true, false)
+	_check("pnj: 5 étiquettes Moral, enfants de la tête, mouse_filter IGNORE", morals.size() == 5
+		and morals.all(func(l: Label) -> bool: return l.mouse_filter == Control.MOUSE_FILTER_IGNORE and l.get_parent().name == "Tete"))
+	var v: Dictionary = NewGameS.village(1, D0, 0)
+	v["npcs"][1]["moral"] = 49
+	v["npcs"][2]["moral"] = 15
+	v["npcs"][2]["on_strike"] = true
+	v["npcs"][3]["moral"] = 90
+	v["shops"]["TAVERN"]["posture_next"] = "EXPORTATION"
+	var n_pnj: int = pnj.find_children("*", "", true, false).size()
+	var n_vil: int = vil.find_children("*", "", true, false).size()
+	uu.show_village(v, 10, true, "")
+	uu.show_village(v, 10, true, "")
+	_check("show_village x2 : aucun nœud créé dans PNJ ni Village", pnj.find_children("*", "", true, false).size() == n_pnj
+		and vil.find_children("*", "", true, false).size() == n_vil)
+	var mt: Array = morals.map(func(l: Label) -> String: return l.text)
+	var mc: Array = morals.map(func(l: Label) -> Color: return l.get_theme_color("font_color"))
+	print("      étiquettes Moral : %s" % str(mt))
+	_check("pnj: Moral 49 orange, grève vermillon « En grève », 90 vert, 80 blanc", mt[1] == "Moral 49" and mt[2] == "En grève" and mt[3] == "Moral 90"
+		and mc[1] == UiS.MORAL_COLORS["LOW"] and mc[2] == UiS.MORAL_COLORS["STRIKE"] and mc[3] == UiS.MORAL_COLORS["HIGH"]
+		and mc[0] == UiS.MORAL_COLORS[VText.moral_band(v["npcs"][0]["moral"], false)], str(mt))
+	var tav: String = vheads[2].text
+	var tav_help: String = vcards[2].find_child("Posture", true, false).get_parent().get_child(-1).text
+	_check("village: têtes Âtre et Taverne (« demain Exportation » sur la tête et dans l'aide), occupation dans la fiche Âtre",
+		vheads[0].text == "Grand Âtre, niveau 1\nPNJ 5/5, postes occupés 5/6" and tav.ends_with(", demain Exportation") and tav_help.begins_with("Demain : Exportation")
+		and vcards[0].find_child("Occupation", true, false).text == "Extraction 1/2, Forge 1/1, Taverne 1/1, Garde 2/2", tav + " | " + tav_help)
 	uu.free()
 
 # Jalon 17 bis : feu de camp animé (4 images de 125 ms). Références : prompt d'Antho (prep_jalon_17bis.py).
@@ -2247,6 +2331,7 @@ func _jalon_11(vd: Dictionary, solid1: Dictionary) -> void:
 	_jalon_17b()
 	_jalon_18()
 	_jalon_19()
+	_jalon_19b()
 	# Scènes et données
 	var vil: Node = load("res://scenes/village/village.tscn").instantiate()
 	var sg: Node2D = vil.get_node_or_null("Entites/Segment")

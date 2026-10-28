@@ -120,13 +120,39 @@ static func shop_lines(key: String, shop: Dictionary, isolat: int, manager_index
 	var target: int = Eco.stock_target(s_max, shop["posture"])
 	var p_max: float = BD.GRIFFE_DEFS[shop["griffe_trait"]]["price_mult_max_override"] if BD.GRIFFE_DEFS.has(shop["griffe_trait"]) else BB.PRICE_MULT_MAX
 	var price: int = Eco.sell_price(BB.ITEM_BASE_GOLD[Dag.SHOP_ITEM[key]], isolat, shop["stock"], target, p_max)
-	return PackedStringArray(["%s, niveau %d (%s : %s)" % [names["shops"][key], shop["lvl"], _manager(who["g"]), who["name"]],
+	return PackedStringArray(["%s : %s" % ["Gérant" if who["g"] == "M" else "Gérante", who["name"]],
 		"Stock %d / cible %d / max %d" % [shop["stock"], target, s_max], "Prix %d Or, rachat %d Or" % [price, Eco.buyback_price(price)],
 		"Trésorerie %d Or" % shop["treasury"]])
 
-static func atre_lines(lvl: int, npc_count: int) -> PackedStringArray:
-	return PackedStringArray(["Grand Âtre niveau %d : rayon %d tuiles" % [lvl, BD.ATRE_RADIUS_TILES[lvl - 1]],
+# Ligne d'un onglet Village (jalon 19 bis) : 2 lignes de tête, détail dans la carte dépliée.
+static func atre_head(lvl: int, npc_count: int) -> PackedStringArray:
+	return PackedStringArray(["Grand Âtre, niveau %d" % lvl,
 		"PNJ %d/%d, postes occupés %d/%d" % [npc_count, BD.ATRE_NPC_CAP[lvl - 1], npc_count, BD.ATRE_WORK_POSTS_CAP[lvl - 1]]])
+
+static func atre_detail(lvl: int) -> String:
+	return "Rayon %d tuiles autour de l'Âtre" % BD.ATRE_RADIUS_TILES[lvl - 1]
+
+# « Stock 12/30, Solidaire, demain Exportation » : max Griffe comprise, posture en attente si elle diffère.
+static func shop_head(key: String, shop: Dictionary, names: Dictionary) -> PackedStringArray:
+	var s_max: int = Eco.stock_max(key == "MAT", shop["lvl"], shop["griffe_trait"])
+	var line: String = "Stock %d/%d, %s" % [shop["stock"], s_max, names["postures"][shop["posture"]]]
+	var pending: String = shop.get("posture_next", "")
+	if pending != "" and pending != shop["posture"]:
+		line += ", demain " + names["postures"][pending]
+	return PackedStringArray(["%s, niveau %d" % [names["shops"][key], shop["lvl"]], line])
+
+# Bande de production du Moral (seuils de Economy.moral_prod_mult) : STRIKE, LOW, NORMAL, HIGH.
+static func moral_band(moral: int, on_strike: bool) -> String:
+	if on_strike or moral < BB.MORAL_STRIKE_ENTER_THRESHOLD:
+		return "STRIKE"
+	if moral < BB.MORAL_LOW_PENALTY_THRESHOLD:
+		return "LOW"
+	if moral < BB.MORAL_HIGH_BONUS_THRESHOLD:
+		return "NORMAL"
+	return "HIGH"
+
+static func moral_tag(npc: Dictionary) -> String:
+	return "En grève" if npc["on_strike"] else "Moral %d" % npc["moral"]
 
 # Postes (jalon 19) : aptitudes des 4 postes ouverts, puis Collecte, Négoce (fermés) et favori.
 static func apt_lines(apt: Dictionary, favorite: String, names: Dictionary) -> PackedStringArray:
