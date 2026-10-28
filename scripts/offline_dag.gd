@@ -19,6 +19,8 @@ extends RefCounted
 #   Ordre : a. t_eff, tick_due ; b. si tick : pots du jour, remplacement des outils brisés (stock et pot de la Forge) ;
 #   c. rates ; d. resolve et application ; e. bonus de stock plein ; f. si tick : Moral, usure, frais fixes ;
 #   g. last_save_utc = max(last_save_utc, now). Sans tick : ni remplacement, ni usure, ni frais.
+#   g'. (fin de f, jalon 18) si tick : cadence_next / posture_next (clés optionnelles) deviennent cadence / posture, puis
+#       sont effacées ; sans tick, elles restent. La journée écoulée est produite et fatiguée avec la cadence d'avant.
 
 const BB = preload("res://balance/balance_b.gd")
 const Eco = preload("res://scripts/economy.gd")
@@ -83,6 +85,18 @@ static func resolve(t_eff: float, isolat: int, mat: Dictionary, tavern: Dictiona
 	if rt["t_glean"] > 0.0 or rf["t_glean"] > 0.0:
 		rm["fiche"] = true
 	return {"MAT": rm, "TAVERN": rt, "FORGE": rf, "meals": mini(npc_count, rt["sold"])}
+
+# Réglage différé (jalon 18) : value devient d[field + "_next"], ou efface l'attente si value est la valeur en cours.
+static func set_next(d: Dictionary, field: String, value: String) -> void:
+	if value == d[field]:
+		d.erase(field + "_next")
+	else:
+		d[field + "_next"] = value
+
+static func _apply_next(d: Dictionary, field: String) -> void:
+	if d.has(field + "_next"):
+		d[field] = d[field + "_next"]
+		d.erase(field + "_next")
 
 static func resume(village: Dictionary, now_utc: int) -> Dictionary:
 	var v: Dictionary = village.duplicate(true)
@@ -160,5 +174,9 @@ static func resume(village: Dictionary, now_utc: int) -> Dictionary:
 		fixed_cost_paid = mini(v["player_gold"], Eco.daily_fixed_sink(lvls))
 		v["player_gold"] -= fixed_cost_paid
 		v["last_tick_day"] = today
+		for npc: Dictionary in v["npcs"]:
+			_apply_next(npc, "cadence")
+		for key: String in SHOP_BUDGET_KEY:
+			_apply_next(v["shops"][key], "posture")
 	v["last_save_utc"] = maxi(v["last_save_utc"], now_utc)
 	return {"village": v, "t_eff": t_eff, "ticked": tick_due, "fiches": fiches, "fixed_cost_paid": fixed_cost_paid, "tools_replaced": tools_replaced, "dag": res}

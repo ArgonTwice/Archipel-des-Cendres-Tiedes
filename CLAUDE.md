@@ -44,6 +44,7 @@ build/             APK (ignoré par git)
 - Segment (jalon 11) : cartes SegmentGen (RNG segment/noeud/i, nœuds loin du village, passages en fondu), Expedition en mémoire (Cendre, Éclats, saturation à 80), rien de sauvegardé ; Élite dormant au fond de l'Antre, éveillé à la saturation.
 - Progression (jalon 13) : XP de vocation cumulée dans state.player.voc_xp (clé optionnelle, format 1), niveau déduit ; niveau de combat = Combattant ; rattrapage ×2 ; XP gardée à la mort ; écriture aussi en fin d'expédition ; Lanterne niveau 1 (Cendre 150, Sacoche 6) dans state.player, gardée à la mort ; équipement porté (4 emplacements) dans state.player ; purification des Éclats au village et au Brasero (2 par expédition) ; Volet F dans balance_f.gd ; niveau du segment figé au départ (BalanceA.get_segment_mob_level, n°37), Sacoche = liste d'Éclats avec leur ilvl ; minerai de nœud dans la cargaison (Mineur), coffre au retour, caisse unique à la mort ; Forge du village : craft avec ou sans Cendre, emplacement choisi, Qualité Supérieure.
 - UI (jalon 17) : bandeau à icônes Tiny Dungeon sans cadre (+ jauge de saturation en Brume) ; déplié = fenêtre unique + 4 onglets à icônes ; action impossible = grisée avec sa raison.
+- Gérer (jalon 18) : onglets PNJ et Village ; cadence (producteurs) et posture réglables au village, effet au prochain tick (clés _next) ; noms dans data/village/npcs.json.
 
 ## Assets
 - Uniquement gratuits et open source. Licences acceptées : CC0, CC-BY, MIT, OFL pour les polices. Pas de « non commercial » ni de licence floue sans accord d'Antho.

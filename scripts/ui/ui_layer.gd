@@ -6,10 +6,16 @@ const FoldModeS = preload("res://scripts/ui/fold_mode.gd")
 const BA = preload("res://balance/balance_a.gd")
 const ProgressionS = preload("res://scripts/progression.gd")
 const EqText = preload("res://scripts/ui/equipment_text.gd")
+const VText = preload("res://scripts/ui/village_text.gd")
+const NewGameS = preload("res://scripts/new_game.gd")
+const Dag = preload("res://scripts/offline_dag.gd")
+const VL = preload("res://scripts/village/village_layout.gd")
 
 signal purify_requested
 signal purify_chosen(equip: bool)
 signal forge_requested(slot: int, cendre: bool)
+signal cadence_chosen(index: int, cadence: String)
+signal posture_chosen(key: String, posture: String)
 
 const LEVEL_UP_TOAST_SEC: float = 2.5 # PROPOSÉ, à valider (jalon 13)
 const SUPERIOR_COLOR: Color = Color("#E69F00") # couleur de l'École Enclume ; PROPOSÉ, à valider (jalon 16 bis)
@@ -25,8 +31,8 @@ const HUD_ICONS: Dictionary = {
 	"minerai": [preload("res://assets/icons/hud/Stones_ores_gems_without_grass.png"), Rect2(0, 22, 15, 10)]}
 const TD = preload("res://assets/tiles/kenney_tiny_dungeon/tilemap_packed.png")
 const TT = preload("res://assets/tiles/kenney_tiny_town/tilemap_packed.png")
-const TAB_ICONS: Array = [[TD, 112], [TT, 107], [TD, 74], [TT, 83]] # Perso, Sacoche, Forge, Options
-const TAB_TITLES: Array[String] = ["Perso", "Sacoche", "Forge", "Options"]
+const TAB_ICONS: Array = [[TD, 112], [TT, 107], [TD, 74], [TD, 99], [TT, 104], [TT, 83]] # Perso, Sacoche, Forge, PNJ, Village, Options
+const TAB_TITLES: Array[String] = ["Perso", "Sacoche", "Forge", "PNJ", "Village", "Options"]
 const PAGES: String = "Margin/VBox/Monde/Fenetre/Box/Defile/Pages/"
 # Feu de camp de la Cendre (jalon 17 bis) : 4 images côte à côte sur la planche de krial.
 const FIRE_FRAMES: int = 4
@@ -71,6 +77,12 @@ var _forge_buttons: Array[Button] = []
 var _tabs: Array[Button] = []
 var _pages: Array[Control] = []
 var _forge_help_of: Callable # (cendre: bool) -> PackedStringArray, fourni par main.gd
+# Onglets PNJ et Village (jalon 18) : cartes et blocs créés une fois dans _ready ; show_village ne change que textes et boutons.
+var _names: Dictionary = {}
+var _npc_sprites: Array = [] # village.json : le sprite fixe le genre du nom (VText.npc_identities)
+var _npc_cards: Array[Dictionary] = [] # {"lines": Label, "buttons": Array[Button] (vide pour un garde), "help": Label}
+var _shop_blocks: Dictionary = {} # clé de boutique -> {"lines", "buttons", "help"}
+var _atre: Label
 
 static func atlas(sheet: Texture2D, region: Rect2) -> AtlasTexture:
 	var t: AtlasTexture = AtlasTexture.new()
@@ -127,6 +139,7 @@ func _ready() -> void:
 		$Margin/VBox/Monde/Apercu/Box/Choix/Equiper.pressed.connect(purify_chosen.emit.bind(true))
 		$Margin/VBox/Monde/Apercu/Box/Choix/Jeter.pressed.connect(purify_chosen.emit.bind(false))
 		get_node(PAGES + "Options/CreditsButton").pressed.connect($Credits.show)
+		_build_village_pages()
 		if is_inside_tree(): # hors arbre sous le simulateur headless : il appelle fit_window lui-même
 			fit_window(get_viewport().get_visible_rect().size.y)
 			get_viewport().size_changed.connect(func() -> void: fit_window(get_viewport().get_visible_rect().size.y))
@@ -144,6 +157,96 @@ func _ready() -> void:
 			b.pressed.connect(func() -> void: forge_requested.emit(slot, _forge_cendre.button_pressed))
 			_forge.get_node("Boutons").add_child(b)
 			_forge_buttons.append(b)
+
+# Une carte par PNJ (poste de départ : pas de changement de poste au jalon 18), un bloc par boutique.
+func _build_village_pages() -> void:
+	_npc_sprites = VL.load_data()["npc_sprites"]
+	_names = VText.with_identities(VText.load_names(), 0, _npc_sprites) # remplacé par set_world_seed
+	var pnj: Node = get_node(PAGES + "PNJ")
+	var village: Node = get_node(PAGES + "Village")
+	get_node(PAGES + "PNJ/Raison").add_theme_color_override("font_color", FORGE_REASON_COLOR)
+	get_node(PAGES + "Village/Raison").add_theme_color_override("font_color", FORGE_REASON_COLOR)
+	for i in NewGameS.START_POSTS.size():
+		var producer: bool = Dag.POST_SHOP.has(NewGameS.START_POSTS[i][0])
+		_npc_cards.append(_block(pnj, _names["cadences"] if producer else {}, func(value: String) -> void: cadence_chosen.emit(i, value)))
+	_atre = Label.new()
+	village.add_child(_atre)
+	for key: String in Dag.SHOP_ITEM:
+		_shop_blocks[key] = _block(village, _names["postures"], func(value: String) -> void: posture_chosen.emit(key, value))
+
+# Lignes, rangée de boutons à bascule (un ButtonGroup) si choices n'est pas vide, aide atténuée.
+func _block(parent: Node, choices: Dictionary, on_choice: Callable) -> Dictionary:
+	var box: VBoxContainer = VBoxContainer.new()
+	box.add_theme_constant_override("separation", 2)
+	parent.add_child(box)
+	var lines: Label = Label.new()
+	box.add_child(lines)
+	var buttons: Array[Button] = []
+	if not choices.is_empty():
+		var row: HBoxContainer = HBoxContainer.new()
+		row.add_theme_constant_override("separation", 2)
+		box.add_child(row)
+		var group: ButtonGroup = ButtonGroup.new()
+		for value: String in choices:
+			var b: Button = Button.new()
+			b.text = choices[value]
+			b.toggle_mode = true
+			b.button_group = group
+			b.focus_mode = Control.FOCUS_NONE
+			b.pressed.connect(on_choice.bind(value))
+			row.add_child(b)
+			buttons.append(b)
+	var help: Label = Label.new()
+	help.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	help.add_theme_color_override("font_color", FORGE_REASON_COLOR)
+	box.add_child(help)
+	return {"lines": lines, "buttons": buttons, "help": help}
+
+# Noms des PNJ tirés de la graine du monde ; main.gd appelle ensuite show_village.
+func set_world_seed(world_seed: int) -> void:
+	if not _npc_cards.is_empty():
+		_names = VText.with_identities(_names, world_seed, _npc_sprites)
+
+# Onglets PNJ et Village : textes et état des boutons seulement. Bouton allumé = valeur en attente, sinon en cours.
+func show_village(village: Dictionary, hour: int, can_set: bool, reason: String) -> void:
+	if _npc_cards.is_empty():
+		return
+	for page: String in ["PNJ", "Village"]:
+		var r: Label = get_node(PAGES + page + "/Raison")
+		r.text = reason
+		r.visible = not can_set
+	if village.is_empty():
+		return
+	var managers: Dictionary = {}
+	for i in mini(_npc_cards.size(), village["npcs"].size()):
+		var npc: Dictionary = village["npcs"][i]
+		if npc["manages"] != "":
+			managers[npc["manages"]] = i
+		var card: Dictionary = _npc_cards[i]
+		card["lines"].text = "\n".join(VText.npc_lines(npc, i, hour, _names))
+		if not card["buttons"].is_empty():
+			var pending: String = npc.get("cadence_next", "")
+			_set_choice(card["buttons"], _names["cadences"].keys().find(pending if pending != "" else npc["cadence"]), can_set)
+			card["help"].text = VText.cadence_help(npc["cadence"], pending, _names)
+	_atre.text = "\n".join(VText.atre_lines(village.get("atre_lvl", 1), village["npcs"].size()))
+	for key: String in _shop_blocks:
+		var shop: Dictionary = village["shops"][key]
+		var block: Dictionary = _shop_blocks[key]
+		var pending: String = shop.get("posture_next", "")
+		block["lines"].text = "\n".join(VText.shop_lines(key, shop, village["isolat"], managers.get(key, 0), _names))
+		_set_choice(block["buttons"], _names["postures"].keys().find(pending if pending != "" else shop["posture"]), can_set)
+		block["help"].text = VText.posture_help(shop["posture"], pending, _names)
+
+# Grisé : Godot dessine le style « disabled » même enfoncé ; le bouton choisi garde alors le fond « pressed » (AC4).
+func _set_choice(buttons: Array[Button], on: int, enabled: bool) -> void:
+	for k in buttons.size():
+		var b: Button = buttons[k]
+		b.set_pressed_no_signal(k == on)
+		b.disabled = not enabled
+		if b.disabled and k == on:
+			b.add_theme_stylebox_override("disabled", b.get_theme_stylebox("pressed"))
+		else:
+			b.remove_theme_stylebox_override("disabled")
 
 # Hauteur fixe de la fenêtre, ancrée en bas de Monde (juste au-dessus des onglets) : offsets seulement.
 func fit_window(zone_height: float) -> void:

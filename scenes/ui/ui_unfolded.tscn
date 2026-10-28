@@ -212,6 +212,24 @@ visible = false
 layout_mode = 2
 autowrap_mode = 3
 
+[node name="PNJ" type="VBoxContainer" parent="Margin/VBox/Monde/Fenetre/Box/Defile/Pages"]
+visible = false
+layout_mode = 2
+
+[node name="Raison" type="Label" parent="Margin/VBox/Monde/Fenetre/Box/Defile/Pages/PNJ"]
+visible = false
+layout_mode = 2
+autowrap_mode = 3
+
+[node name="Village" type="VBoxContainer" parent="Margin/VBox/Monde/Fenetre/Box/Defile/Pages"]
+visible = false
+layout_mode = 2
+
+[node name="Raison" type="Label" parent="Margin/VBox/Monde/Fenetre/Box/Defile/Pages/Village"]
+visible = false
+layout_mode = 2
+autowrap_mode = 3
+
 [node name="Options" type="VBoxContainer" parent="Margin/VBox/Monde/Fenetre/Box/Defile/Pages"]
 visible = false
 layout_mode = 2
@@ -293,6 +311,22 @@ toggle_mode = true
 icon_alignment = 1
 
 [node name="Forge" type="Button" parent="Margin/VBox/Onglets"]
+layout_mode = 2
+size_flags_horizontal = 3
+focus_mode = 0
+theme_type_variation = &"Onglet"
+toggle_mode = true
+icon_alignment = 1
+
+[node name="PNJ" type="Button" parent="Margin/VBox/Onglets"]
+layout_mode = 2
+size_flags_horizontal = 3
+focus_mode = 0
+theme_type_variation = &"Onglet"
+toggle_mode = true
+icon_alignment = 1
+
+[node name="Village" type="Button" parent="Margin/VBox/Onglets"]
 layout_mode = 2
 size_flags_horizontal = 3
 focus_mode = 0

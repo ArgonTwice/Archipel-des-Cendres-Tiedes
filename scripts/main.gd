@@ -11,6 +11,7 @@ const EquipmentS = preload("res://scripts/loot/equipment.gd")
 const PurifS = preload("res://scripts/loot/purification.gd")
 const EqText = preload("res://scripts/ui/equipment_text.gd")
 const ForgeS = preload("res://scripts/loot/forge.gd")
+const Dag = preload("res://scripts/offline_dag.gd")
 
 @onready var _world: Node2D = $World # village.gd
 @onready var _camera: Camera2D = $Camera2D
@@ -24,6 +25,7 @@ var _tween: Tween
 var _fallback_player: Dictionary = {} # boot en erreur : XP en mémoire seulement, rien n'est sauvegardé
 var _preview: Dictionary = {} # pièce en aperçu de purification, {} sinon
 var _preview_place: String = ""
+var _village_key: Vector2i = Vector2i(-1, -1) # (heure locale, joueur au village) du dernier show_village
 
 func _ready() -> void:
 	var now: int = ClockS.now_utc()
@@ -40,6 +42,7 @@ func _ready() -> void:
 	player.set_equipment(_player_state()["equipment"])
 	player.set_level(ProgressionS.combat_level(_player_state()))
 	_ui_unfolded.set_forge_help_source(_forge_help)
+	_ui_unfolded.set_world_seed(0 if r.is_empty() else r["state"]["world_seed"])
 	_show_player()
 	var seg: Node2D = _world.segment() # segment.gd
 	seg.xp_changed.connect(_show_player)
@@ -58,6 +61,8 @@ func _ready() -> void:
 	_ui_unfolded.purify_requested.connect(_on_purify_requested)
 	_ui_unfolded.purify_chosen.connect(_on_purify_chosen)
 	_ui_unfolded.forge_requested.connect(_on_forge_requested)
+	_ui_unfolded.cadence_chosen.connect(_on_village_set.bind("cadence"))
+	_ui_unfolded.posture_chosen.connect(_on_village_set.bind("posture"))
 	_show_forge_pending() # carte de craft laissée ouverte à la fermeture de l'appli
 	_black.color = CombatS.EVAC_COLOR
 	_black.color.a = 0.0
@@ -86,6 +91,9 @@ func _process(_delta: float) -> void:
 	if not _folded:
 		_ui_unfolded.set_purify_reason(_purify_block_reason())
 		_ui_unfolded.set_forge_enabled(_forge_block_reason)
+	var key: Vector2i = Vector2i(_world.hour_at(ClockS.now_utc()), int(CombatS.in_village(player.position)))
+	if key != _village_key: # heure locale ou entrée / sortie du village
+		_show_village()
 
 # Plié : sur le joueur. Déplié hors du rayon de l'Âtre : le combat continue, caméra sur le joueur (n°25).
 # Déplié dans le rayon : Vision d'architecte centrée sur l'Âtre, tout le rayon visible.
@@ -138,6 +146,7 @@ func _show(r: Dictionary) -> void:
 		layer.show_report(r)
 	_show_player()
 	_world.refresh(r["state"]["village"], ClockS.now_utc())
+	_show_village()
 
 # Échelle d'interface choisie ici (FoldMode.ui_scale), zone = fenêtre / échelle : pas de bandes noires.
 # Affecter content_scale_size relance size_changed : la garde != empêche la boucle.
@@ -291,6 +300,32 @@ func _on_forge_requested(slot: int, cendre: bool) -> void:
 	_show_player()
 	_show_forge_pending()
 	_sync() # la pièce en attente est écrite : quitter sur la carte la fait revenir
+
+# Onglets PNJ et Village (jalon 18) : lecture partout, réglages au village seulement, jamais sans sauvegarde.
+func _village_block_reason() -> String:
+	if SaveManager.state.is_empty():
+		return "Sauvegarde illisible"
+	return "" if CombatS.in_village(_world.player().position) else "Réglages au village seulement"
+
+func _show_village() -> void:
+	var now: int = ClockS.now_utc()
+	var in_village: bool = CombatS.in_village(_world.player().position)
+	_village_key = Vector2i(_world.hour_at(now), int(in_village))
+	var reason: String = _village_block_reason()
+	var village: Dictionary = {} if SaveManager.state.is_empty() else SaveManager.state["village"]
+	_ui_unfolded.show_village(village, _village_key.x, reason == "", reason)
+
+# Cadence ou posture : effet au prochain tick (clé _next, OfflineDag.set_next), écrit tout de suite.
+# id : index du PNJ (cadence) ou clé de la boutique (posture).
+func _on_village_set(id: Variant, value: String, field: String) -> void:
+	if _village_block_reason() != "":
+		return
+	var village: Dictionary = SaveManager.state["village"]
+	var cadence: bool = field == "cadence"
+	Dag.set_next(village["npcs"][id] if cadence else village["shops"][id], field, value)
+	_log_json("[VILLAGE] ", {"event": "reglage", ("pnj" if cadence else "boutique"): id, "valeur": value, "effet": "demain"})
+	_sync()
+	_show_village()
 
 # Événements seulement ; build debug seulement.
 func _log_json(tag: String, d: Dictionary) -> void:

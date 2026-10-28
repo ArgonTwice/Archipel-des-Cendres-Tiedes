@@ -77,7 +77,7 @@ func setup(world_seed: int, village: Dictionary, now_utc: int, player_ref: Calla
 	_setup_segment(world_seed, village.get("isolat", 0), solid, shadow, player_ref)
 	_village = village
 	var npcs: Array = village.get("npcs", [])
-	var hour: int = _hour(now_utc)
+	var hour: int = hour_at(now_utc)
 	_acts = _activities(hour)
 	var anchors: Array[Vector2] = VL.anchors(_acts, npcs, sites)
 	for i in npcs.size():
@@ -127,7 +127,7 @@ func refresh(village: Dictionary, now_utc: int) -> void:
 	if _data.is_empty():
 		return
 	_village = village
-	var hour: int = _hour(now_utc)
+	var hour: int = hour_at(now_utc)
 	_apply_phase(hour)
 	if _npcs.is_empty():
 		return
@@ -148,7 +148,7 @@ func _process(delta: float) -> void:
 	if _brazier_light != null:
 		_brazier_light.energy = _light.energy
 
-func _hour(now_utc: int) -> int:
+func hour_at(now_utc: int) -> int:
 	return hour_override if hour_override >= 0 else VL.local_hour(now_utc, _village.get("tz_offset_sec", 0))
 
 func _activities(hour: int) -> Array:

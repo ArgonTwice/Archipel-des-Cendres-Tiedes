@@ -109,6 +109,13 @@ static func unpack(bytes: PackedByteArray) -> Dictionary:
 		p["shard_bag"] = bag
 	p.erase("shards")
 	p.erase("shards_elite")
+	# Réglages différés (jalon 18, clés optionnelles) : une valeur inconnue est effacée.
+	for npc: Dictionary in v["village"]["npcs"]:
+		if npc.has("cadence_next") and not BB.CADENCE_PROD_MULT.has(npc["cadence_next"]):
+			npc.erase("cadence_next")
+	for shop: Dictionary in v["village"]["shops"].values():
+		if shop.has("posture_next") and not BB.POSTURE_TARGET_STOCK_RATIO.has(shop["posture_next"]):
+			shop.erase("posture_next")
 	return v
 
 # Aucune migration : un autre format est refusé.

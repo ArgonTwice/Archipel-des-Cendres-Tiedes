@@ -30,6 +30,7 @@ const SG = preload("res://scripts/segment/segment_gen.gd")
 const ForgeS = preload("res://scripts/loot/forge.gd")
 const EqText = preload("res://scripts/ui/equipment_text.gd")
 const UiS = preload("res://scripts/ui/ui_layer.gd")
+const VText = preload("res://scripts/ui/village_text.gd")
 const LISIERE_SPAWNS_10: Array = [[0, 16], [0, 20], [0, 24]] # banc d'essai du jalon 10, retiré du village au jalon 11
 const FONT_PATH: String = "res://assets/fonts/silkscreen/Silkscreen-Regular.ttf"
 const OFL_PATH: String = "res://assets/fonts/silkscreen/OFL.txt"
@@ -1108,14 +1109,20 @@ func _jalon_17() -> void:
 	var td: String = "res://assets/tiles/kenney_tiny_dungeon/tilemap_packed.png"
 	var tt: String = "res://assets/tiles/kenney_tiny_town/tilemap_packed.png"
 	var tab_want: Dictionary = {"Perso": [td, Rect2(64, 144, 16, 16)], "Sacoche": [tt, Rect2(176, 128, 16, 16)],
-		"Forge": [td, Rect2(32, 96, 16, 16)], "Options": [tt, Rect2(176, 96, 16, 16)]}
+		"Forge": [td, Rect2(32, 96, 16, 16)], "PNJ": [td, Rect2(48, 128, 16, 16)], "Village": [tt, Rect2(128, 128, 16, 16)],
+		"Options": [tt, Rect2(176, 96, 16, 16)]} # PNJ et Village : jalon 18
 	var tabs: Array[Button] = []
+	var order: Array = []
+	for b: Node in uu.get_node("Margin/VBox/Onglets").get_children():
+		order.append(String(b.name))
+	if order != tab_want.keys():
+		bad += "ordre " + str(order) + " "
 	for k: String in tab_want:
 		var b: Button = uu.get_node("Margin/VBox/Onglets/" + k)
 		tabs.append(b)
 		if _icon_of(b.icon) != tab_want[k] or b.text != "" or b.expand_icon:
 			bad += "onglet " + k + " "
-	_check("icônes: 4 du bandeau (fichier et région, Or absent du plié) et 4 onglets (TD 112, TT 107, TD 74, TT 83), sans texte", bad == "", bad)
+	_check("icônes: 4 du bandeau (fichier et région, Or absent du plié) et 6 onglets dans l'ordre (TD 112, TT 107, TD 74, TD 99, TT 104, TT 83), sans texte", bad == "", bad)
 	var kyrise: Label = uu.get_node("Credits").get_node_or_null("Margin/VBox/Kyrise")
 	_check("credits: ligne Kyrise", kyrise != null and kyrise.text
 		== "Icône de l'Or : Kyrise's Free 16x16 RPG Icon Pack, par Kyrise, CC BY 4.0 (creativecommons.org/licenses/by/4.0)")
@@ -1125,7 +1132,7 @@ func _jalon_17() -> void:
 			gone += n + " "
 	_check("scenes: plié sans couple Or ni onglet ; Gold, Vocations, Lanterne, Expedition absents des deux couches",
 		uf.find_child("Or", true, false) == null and uf.find_child("Onglets", true, false) == null and gone == "", gone)
-	_check("scenes: déplié, 4 onglets et une seule Fenetre", uu.get_node("Margin/VBox/Onglets").get_child_count() == 4
+	_check("scenes: déplié, 6 onglets (jalon 18) et une seule Fenetre", uu.get_node("Margin/VBox/Onglets").get_child_count() == 6
 		and uu.find_children("Fenetre", "", true, false).size() == 1)
 	# Jauge de saturation et bandeau en expédition
 	var gauge: ProgressBar = uf.get_node("Margin/VBox/Jauge")
@@ -1152,15 +1159,15 @@ func _jalon_17() -> void:
 	tabs[0].button_pressed = true
 	m.append([win.visible, page.call(), title.text, tabs[2].button_pressed])
 	uu.show_preview(EquipmentS.craft(1, 8, 2, 1, true, 0), null, "PV +0", true, 0)
-	m.append([win.visible, tabs[0].disabled, tabs[3].disabled])
+	m.append([win.visible, tabs[0].disabled, tabs[5].disabled])
 	uu.hide_preview()
 	m.append([win.visible, page.call(), tabs[0].disabled])
 	uu.get_node("Margin/VBox/Monde/Fenetre/Box/Barre/Ligne/Fermer").pressed.emit()
 	m.append([win.visible, tabs[0].button_pressed])
-	tabs[3].button_pressed = true
+	tabs[5].button_pressed = true
 	uu.get_node(UiS.PAGES + "Options/CreditsButton").pressed.emit()
 	m.append([win.visible, title.text, uu.get_node("Credits").visible])
-	tabs[3].button_pressed = false
+	tabs[5].button_pressed = false
 	m.append([win.visible])
 	print("      menu " + str(m))
 	_check("menu: aucun onglet, Forge, Perso (un seul), carte -> fenêtre masquée et onglets grisés, retour à Perso, « × » referme, Options -> Crédits, 2e appui referme",
@@ -1180,6 +1187,214 @@ func _jalon_17() -> void:
 		bandeau == 20.0 and onglets == 20.0 and win_h == 204.0 and win.anchor_top == 1.0 and win.offset_bottom == 0.0
 		and win_top >= bandeau + jauge, "%d %d %d" % [bandeau, onglets, win_h])
 	uf.free()
+	uu.free()
+
+# Jalon 18 : onglets PNJ et Village, réglages différés. Références : sortie de prep_jalon_18.py (fixtures reprises telles quelles).
+func _jalon_18() -> void:
+	var pool_names: Dictionary = VText.load_names()
+	var names: Dictionary = pool_names.duplicate()
+	# Noms des fixtures du jumeau ; en jeu, names["npcs"] vient de la graine (VText.with_identities, Z7)
+	names["npcs"] = [{"name": "Gaspard", "g": "M"}, {"name": "Margaux", "g": "F"}, {"name": "Ulric", "g": "M"}, {"name": "Thibaut", "g": "M"},
+		{"name": "Odile", "g": "F"}]
+	var sprites: Array = VL.load_data()["npc_sprites"]
+	var ids: Array = VText.npc_identities(18, pool_names, sprites)
+	var genders_ok: bool = true
+	var distinct_ok: bool = true
+	var sets: Dictionary = {}
+	for sd in 200:
+		var who: Array = VText.npc_identities(sd, pool_names, sprites)
+		var five: Array = who.map(func(x: Dictionary) -> String: return x["name"])
+		genders_ok = genders_ok and who[0]["g"] == "M" and who[1]["g"] == "F" and who[2]["g"] == "M"
+		for x: Dictionary in who:
+			genders_ok = genders_ok and x["name"] in pool_names["name_pool"][x["g"]]
+		var uniq: Dictionary = {}
+		for n: String in five:
+			uniq[n] = true
+		distinct_ok = distinct_ok and uniq.size() == 5
+		five.sort()
+		sets[str(five)] = true
+	var g34: Dictionary = {}
+	for sd in 200:
+		var who: Array = VText.npc_identities(sd, pool_names, sprites)
+		g34[who[3]["g"]] = true
+		g34[who[4]["g"]] = true
+	var first5: Array = ids.map(func(x: Dictionary) -> String: return x["name"])
+	var other5: Array = VText.npc_identities(19, pool_names, sprites).map(func(x: Dictionary) -> String: return x["name"])
+	print("      noms graine 18 %s, graine 19 %s, %d villages distincts sur 200, genres des chevaliers %s" % [str(first5), str(other5), sets.size(), str(g34.keys())])
+	_check("noms: sprites TD 86 / 99 / 87 -> M / F / M, chevaliers libres (M et F tirés), 5 noms distincts par village sur 200 graines, même graine = mêmes noms, 18 != 19",
+		sprites.slice(0, 3) == ["pnj_mineur", "pnj_aubergiste", "pnj_forgeron"] and genders_ok and distinct_ok and g34.size() == 2
+		and VText.npc_identities(18, pool_names, sprites) == ids and first5 != other5 and sets.size() == 200, "%s %s %d" % [genders_ok, distinct_ok, sets.size()])
+	var traits_ok: bool = true
+	for sd in 20:
+		var before: Array = NewGameS.village(sd, D0, 0)["npcs"].map(func(n: Dictionary) -> Array: return n["traits"])
+		VText.npc_identities(sd, pool_names, sprites)
+		var after: Array = NewGameS.village(sd, D0, 0)["npcs"].map(func(n: Dictionary) -> Array: return n["traits"])
+		for i in NewGameS.START_POSTS.size():
+			traits_ok = traits_ok and before[i] == after[i] and after[i] == NewGameS.draw_traits(RngS.make_rng(sd, "npc/%d" % i))
+	_check("noms: RNG « npc/name/i » à part, traits identiques avant / après et égaux au tirage « npc/i » (20 graines)", traits_ok)
+	var font: Font = load(FONT_PATH)
+	var widest: String = ""
+	var missing: String = ""
+	for g: String in ["M", "F"]:
+		for n: String in pool_names["name_pool"][g]:
+			for ch: String in n:
+				if not font.has_char(ch.unicode_at(0)):
+					missing += ch
+			var head: String = "%s : Extraction, 2 étoiles, %s" % [n, "gérant" if g == "M" else "gérante"]
+			if font.get_string_size(head, HORIZONTAL_ALIGNMENT_LEFT, -1, 8).x > font.get_string_size(widest, HORIZONTAL_ALIGNMENT_LEFT, -1, 8).x:
+				widest = head
+	var ww: float = font.get_string_size(widest, HORIZONTAL_ALIGNMENT_LEFT, -1, 8).x
+	print("      en-tête le plus large : « %s » %d px" % [widest, ww])
+	_check("noms: tous les glyphes dans Silkscreen, en-tête le plus large <= 296 px (borne du jumeau)", missing == "" and ww <= 296.0, missing + " %d" % ww)
+	var fx: Array = [
+		[0, {"post": "EXTRACTION", "stars": 2, "cadence": "NORMAL", "moral": 80, "on_strike": false, "tool_broken": false, "tool_durability": 64.0, "traits": [1, 4], "manages": "MAT"}, 10],
+		[1, {"post": "TAVERN", "stars": 2, "cadence": "FORGE_ARDENTE", "cadence_next": "PAISIBLE", "moral": 49, "on_strike": false, "tool_broken": true, "tool_durability": 0.0, "traits": [5], "manages": "TAVERN"}, 23],
+		[2, {"post": "FORGE", "stars": 1, "cadence": "NORMAL", "moral": 15, "on_strike": true, "tool_broken": false, "tool_durability": 99.5, "traits": [3, 1], "manages": "FORGE"}, 10],
+		[4, {"post": "GUARD", "stars": 2, "cadence": "NORMAL", "moral": 85, "on_strike": false, "tool_broken": false, "tool_durability": 100.0, "traits": [0, 4], "manages": ""}, 23]]
+	var want_npc: Array = [
+		["Gaspard : Extraction, 2 étoiles, gérant", "Traits : Costaud, Bosseur", "Griffe : Charpente Renforcée (stock max ×1,15)", "Moral 80/100 : production ×1,00", "Maintenant : au travail", "Outil : 64 %"],
+		["Margaux : Taverne, 2 étoiles, gérante", "Traits : Bout-en-train", "Griffe : Auberge Chaleureuse (+2 Moral par jour à tous)", "Moral 49/100 : production ×0,75", "Maintenant : endormie", "Outil : brisé, production ×0,60"],
+		["Ulric : Forge, 1 étoile, gérant", "Traits : Tête-en-l'air, Costaud", "Griffe : Tarif Étourdi (prix max ×1,15)", "Moral 15/100 : en grève, ne travaille pas", "Maintenant : se réchauffe à l'Âtre", "Outil : 100 %"],
+		["Odile : Garde, 2 étoiles", "Traits : Noctambule, Bosseuse", "Moral 85/100", "Maintenant : au travail"]]
+	var bad: String = ""
+	for k in fx.size():
+		var traits: Array[int] = []
+		traits.assign(fx[k][1]["traits"])
+		fx[k][1]["traits"] = traits
+		var got: PackedStringArray = VText.npc_lines(fx[k][1], fx[k][0], fx[k][2], names)
+		print("      (%d, %dh) %s" % [fx[k][0], fx[k][2], str(got)])
+		if got != PackedStringArray(want_npc[k]):
+			bad += "%d " % fx[k][0]
+	_check("npc_lines: 4 fixtures du jumeau (gérant / gérante, étoiles, Moral 80 / 49 / grève / garde, outil 64 / brisé / 99,5, endormie, Âtre, Noctambule)", bad == "", bad)
+	var cad: Array = [VText.cadence_help("PAISIBLE", "", names), VText.cadence_help("NORMAL", "", names), VText.cadence_help("FORGE_ARDENTE", "", names),
+		VText.cadence_help("FORGE_ARDENTE", "PAISIBLE", names), VText.cadence_help("NORMAL", "NORMAL", names)]
+	print("      " + str(cad))
+	_check("cadence_help: 3 sans attente, « Demain : Paisible », attente égale = sans attente", cad == ["Paisible : production ×0,80, Moral -6/jour",
+		"Normal : production ×1,00, Moral -12/jour", "Forge ardente : production ×1,30, Moral -24/jour",
+		"Demain : Paisible (production ×0,80, Moral -6/jour)", "Normal : production ×1,00, Moral -12/jour"], str(cad))
+	var gr: Array = []
+	for t in 6:
+		gr.append(VText.griffe_text(t, names))
+	_check("griffe_text: 6 enseignes", gr == ["Lanterne de Veille (24 h/24, +3 Lien par fiche)", "Charpente Renforcée (stock max ×1,15)",
+		"Comptoir Méticuleux (+4 Lien par cadeau)", "Tarif Étourdi (prix max ×1,15)", "Service Express (+3 Lien au Coup de feu)",
+		"Auberge Chaleureuse (+2 Moral par jour à tous)"], str(gr))
+	var sx: Array = [
+		["MAT", {"stock": 0, "lvl": 1, "posture": "EQUILIBRE", "griffe_trait": 1, "treasury": 150}, 0, 0],
+		["TAVERN", {"stock": 12, "lvl": 1, "posture": "SOLIDAIRE", "posture_next": "EXPORTATION", "griffe_trait": 5, "treasury": 37}, 0, 1],
+		["FORGE", {"stock": 3, "lvl": 1, "posture": "EXPORTATION", "griffe_trait": 3, "treasury": 0}, 0, 2],
+		["MAT", {"stock": 0, "lvl": 1, "posture": "EQUILIBRE", "griffe_trait": 1, "treasury": 150}, 2, 0],
+		["TAVERN", {"stock": 12, "lvl": 1, "posture": "SOLIDAIRE", "griffe_trait": 5, "treasury": 37}, 2, 1]]
+	var want_shop: Array = [
+		["Matériaux, niveau 1 (gérant : Gaspard)", "Stock 0 / cible 41 / max 69", "Prix 3 Or, rachat 1 Or", "Trésorerie 150 Or", "Équilibre : cible 60 % du stock, taxe 20 %"],
+		["Taverne, niveau 1 (gérante : Margaux)", "Stock 12 / cible 12 / max 30", "Prix 8 Or, rachat 4 Or", "Trésorerie 37 Or", "Demain : Exportation (cible 85 % du stock, taxe 30 %)"],
+		["Forge, niveau 1 (gérant : Ulric)", "Stock 3 / cible 26 / max 30", "Prix 14 Or, rachat 8 Or", "Trésorerie 0 Or", "Exportation : cible 85 % du stock, taxe 30 %"],
+		["Matériaux, niveau 1 (gérant : Gaspard)", "Stock 0 / cible 41 / max 69", "Prix 3 Or, rachat 1 Or", "Trésorerie 150 Or", "Équilibre : cible 60 % du stock, taxe 20 %"],
+		["Taverne, niveau 1 (gérante : Margaux)", "Stock 12 / cible 12 / max 30", "Prix 10 Or, rachat 6 Or", "Trésorerie 37 Or", "Solidaire : cible 40 % du stock, taxe 10 %"]]
+	bad = ""
+	for k in sx.size():
+		var got: PackedStringArray = VText.shop_lines(sx[k][0], sx[k][1], sx[k][2], sx[k][3], names)
+		got.append(VText.posture_help(sx[k][1]["posture"], sx[k][1].get("posture_next", ""), names))
+		print("      (%s, isolat %d) %s" % [sx[k][0], sx[k][2], str(got)])
+		if got != PackedStringArray(want_shop[k]):
+			bad += "%d " % k
+	_check("shop_lines + posture_help: 5 fixtures du jumeau", bad == "", bad)
+	var pos: Array = [VText.posture_help("SOLIDAIRE", "", names), VText.posture_help("EQUILIBRE", "", names), VText.posture_help("EXPORTATION", "", names)]
+	_check("posture_help: 3 sans attente", pos == ["Solidaire : cible 40 % du stock, taxe 10 %", "Équilibre : cible 60 % du stock, taxe 20 %",
+		"Exportation : cible 85 % du stock, taxe 30 %"], str(pos))
+	var atre: PackedStringArray = VText.atre_lines(1, 5)
+	_check("atre_lines(1, 5)", atre == PackedStringArray(["Grand Âtre niveau 1 : rayon 12 tuiles", "PNJ 5/5, postes occupés 5/6"]), str(atre))
+	# DAG : réglage différé, effet au prochain tick
+	var day: int = 86400
+	var v0: Dictionary = NewGameS.village(18, D0, 0)
+	var vk: Dictionary = v0.duplicate(true)
+	Dag.set_next(vk["npcs"][0], "cadence", "FORGE_ARDENTE")
+	Dag.set_next(vk["shops"]["MAT"], "posture", "EXPORTATION")
+	var same: Dictionary = Dag.resume(vk, D0 + 3600)
+	_check("dag: reprise le même jour -> cadence NORMAL et posture EQUILIBRE, clés conservées", not same["ticked"]
+		and same["village"]["npcs"][0]["cadence"] == "NORMAL" and same["village"]["npcs"][0]["cadence_next"] == "FORGE_ARDENTE"
+		and same["village"]["shops"]["MAT"]["posture"] == "EQUILIBRE" and same["village"]["shops"]["MAT"]["posture_next"] == "EXPORTATION")
+	var ctrl: Dictionary = Dag.resume(v0, D0 + day + 3600)
+	var nxt: Dictionary = Dag.resume(vk, D0 + day + 3600)
+	var n0: Dictionary = nxt["village"]["npcs"][0]
+	var m_before: int = ctrl["village"]["npcs"][0]["moral"]
+	var back: Dictionary = nxt["village"].duplicate(true)
+	back["npcs"][0]["cadence"] = "NORMAL"
+	back["shops"]["MAT"]["posture"] = "EQUILIBRE"
+	print("      tick : Moral %d (témoin %d), cadence %s, posture %s, clés %s / %s" % [n0["moral"], m_before, n0["cadence"],
+		nxt["village"]["shops"]["MAT"]["posture"], n0.has("cadence_next"), nxt["village"]["shops"]["MAT"].has("posture_next")])
+	_check("dag: tick du lendemain calculé en NORMAL / EQUILIBRE (identique au témoin sans clé), puis FORGE_ARDENTE / EXPORTATION, clés effacées",
+		nxt["ticked"] and back == ctrl["village"] and nxt["dag"] == ctrl["dag"] and n0["cadence"] == "FORGE_ARDENTE" and not n0.has("cadence_next")
+		and nxt["village"]["shops"]["MAT"]["posture"] == "EXPORTATION" and not nxt["village"]["shops"]["MAT"].has("posture_next"))
+	# Moral du témoin = Eco.npc_daily_tick en NORMAL, depuis le Moral d'avant tick (bonus de stock plein compris)
+	var pre: Dictionary = v0.duplicate(true)
+	var pre_r: Dictionary = Dag.resume(pre, D0 + day + 3600)
+	var npc0: Dictionary = v0["npcs"][0]
+	var t0: Array[int] = []
+	t0.assign(npc0["traits"])
+	var mgr: Array = []
+	for n: Dictionary in v0["npcs"]:
+		if n["manages"] != "":
+			mgr.append(n["traits"])
+	var m_in: int = mini(npc0["moral"] + pre_r["dag"]["MAT"]["moral_bonus"], int(BB.MORAL_MAX))
+	var want_m: int = Eco.npc_daily_tick(m_in, false, "NORMAL", "EATEN" if 0 < pre_r["dag"]["meals"] else "OFFLINE", npc0["house_lvl"], t0, Eco.griffe_moral_bonus(mgr))["moral"]
+	_check("dag: Moral du PNJ 0 au tick = Eco.npc_daily_tick(... \"NORMAL\" ...)", n0["moral"] == want_m, "%d %d" % [n0["moral"], want_m])
+	# La reprise suivante utilise la nouvelle posture et la nouvelle cadence
+	var v_new: Dictionary = ctrl["village"].duplicate(true)
+	v_new["npcs"][0]["cadence"] = "FORGE_ARDENTE"
+	v_new["shops"]["MAT"]["posture"] = "EXPORTATION"
+	_check("dag: reprise suivante = celle d'un village réglé directement", Dag.resume(nxt["village"], D0 + day + 7200) == Dag.resume(v_new, D0 + day + 7200))
+	var eq: Dictionary = v0.duplicate(true)
+	Dag.set_next(eq["npcs"][0], "cadence", "FORGE_ARDENTE")
+	Dag.set_next(eq["npcs"][0], "cadence", "NORMAL")
+	var raw: Dictionary = v0.duplicate(true)
+	raw["npcs"][0]["cadence_next"] = "NORMAL"
+	var raw_r: Dictionary = Dag.resume(raw, D0 + day + 3600)
+	_check("dag: choisir la valeur en cours efface l'attente ; clé égale à la cadence -> effacée au tick, sans effet",
+		not eq["npcs"][0].has("cadence_next") and raw_r["village"] == ctrl["village"])
+	var st: Dictionary = SaveS.new_state(18, D0, 0)
+	st["seq"] = 1 # new_state part de 0 ; une sauvegarde écrite a seq >= 1
+	st["village"]["npcs"][0]["cadence_next"] = "TURBO"
+	st["village"]["npcs"][1]["cadence_next"] = "PAISIBLE"
+	st["village"]["shops"]["MAT"]["posture_next"] = "PANIQUE"
+	var un: Dictionary = SaveS.unpack(SaveS.pack(st))
+	_check("unpack: cadence_next TURBO et posture_next PANIQUE effacées, PAISIBLE gardée", not un.is_empty()
+		and not un["village"]["npcs"][0].has("cadence_next") and un["village"]["npcs"][1]["cadence_next"] == "PAISIBLE"
+		and not un["village"]["shops"]["MAT"].has("posture_next"))
+	# Scène réelle
+	var uu: CanvasLayer = _ui_ready("res://scenes/ui/ui_unfolded.tscn")
+	var cards: Array = uu.get_node(UiS.PAGES + "PNJ").get_children().filter(func(c: Node) -> bool: return c is VBoxContainer)
+	var rows: int = 0
+	for c: Node in cards:
+		rows += c.get_children().filter(func(n: Node) -> bool: return n is HBoxContainer).size()
+	var shops: Array = uu.get_node(UiS.PAGES + "Village").get_children().filter(func(c: Node) -> bool: return c is VBoxContainer)
+	var prow: int = 0
+	for c: Node in shops:
+		prow += c.get_children().filter(func(n: Node) -> bool: return n is HBoxContainer).size()
+	_check("scenes: 5 cartes PNJ, 3 rangées de cadence, 3 blocs de boutique à 3 postures", cards.size() == 5 and rows == 3 and shops.size() == 3 and prow == 3,
+		"%d %d %d %d" % [cards.size(), rows, shops.size(), prow])
+	var emitted: Array = []
+	uu.cadence_chosen.connect(func(i: int, c: String) -> void: emitted.append([i, c]))
+	uu.posture_chosen.connect(func(k: String, p: String) -> void: emitted.append([k, p]))
+	var row0: Node = cards[0].get_children().filter(func(n: Node) -> bool: return n is HBoxContainer)[0]
+	row0.get_child(2).pressed.emit()
+	shops[0].get_children().filter(func(n: Node) -> bool: return n is HBoxContainer)[0].get_child(0).pressed.emit()
+	_check("scenes: Forge ardente de la carte 0 -> cadence_chosen(0, FORGE_ARDENTE) ; Solidaire de Matériaux -> posture_chosen(MAT, SOLIDAIRE)",
+		emitted == [[0, "FORGE_ARDENTE"], ["MAT", "SOLIDAIRE"]], str(emitted))
+	vk["npcs"][0]["cadence_next"] = "PAISIBLE"
+	uu.show_village(vk, 10, false, "Réglages au village seulement")
+	var reason: Label = uu.get_node(UiS.PAGES + "PNJ/Raison")
+	var grey: bool = true
+	for b: Button in row0.get_children():
+		grey = grey and b.disabled
+	var lit: Array = row0.get_children().map(func(b: Button) -> bool: return b.button_pressed)
+	var help0: String = cards[0].get_child(cards[0].get_child_count() - 1).text
+	_check("scenes: can_set faux -> boutons grisés, raison en tête des 2 pages ; bouton allumé = attente, aide « Demain : Paisible »",
+		grey and reason.visible and reason.text == "Réglages au village seulement" and uu.get_node(UiS.PAGES + "Village/Raison").visible
+		and lit == [true, false, false] and help0 == "Demain : Paisible (production ×0,80, Moral -6/jour)", "%s %s %s" % [grey, str(lit), help0])
+	var lit_style: bool = row0.get_child(0).get_theme_stylebox("disabled") == row0.get_child(0).get_theme_stylebox("pressed") 		and row0.get_child(1).get_theme_stylebox("disabled") != row0.get_child(1).get_theme_stylebox("pressed")
+	uu.show_village(vk, 10, true, "")
+	_check("scenes: grisé, le bouton choisi garde le fond « pressed », les autres non (AC4)", lit_style)
+	_check("scenes: can_set vrai -> boutons actifs, raison masquée", not row0.get_child(0).disabled and not reason.visible)
 	uu.free()
 
 # Jalon 17 bis : feu de camp animé (4 images de 125 ms). Références : prompt d'Antho (prep_jalon_17bis.py).
@@ -1740,6 +1955,7 @@ func _jalon_11(vd: Dictionary, solid1: Dictionary) -> void:
 	_jalon_16b()
 	_jalon_17()
 	_jalon_17b()
+	_jalon_18()
 	# Scènes et données
 	var vil: Node = load("res://scenes/village/village.tscn").instantiate()
 	var sg: Node2D = vil.get_node_or_null("Entites/Segment")

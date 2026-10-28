@@ -535,3 +535,33 @@ Le prompt indiquait « 416 × 657 déplié » : 416 × 657 donne le mode plié (
 | Après 3 pliages / dépliages, toujours animé, sans saccade ni clignotement | OUI | Antho : « C'est parfait » |
 | Rythme | OUI | Antho : « C'est parfait » |
 
+## Jalon 18 (APK 0.18.0)
+
+Premier « gérer » du déplié : onglets PNJ (TD 99) et Village (TT 104, le puits) entre Forge et Options, 6 onglets. Page PNJ : 5 cartes créées une fois dans _ready (lignes VillageText.npc_lines, 3 boutons de cadence pour les producteurs, aide atténuée) ; page Village : atre_lines puis 3 blocs de boutique (shop_lines, 3 postures, aide). Réglage différé : clés optionnelles cadence_next / posture_next, appliquées à la fin du tick (OfflineDag, étape g'), effacées par unpack si inconnues ; OfflineDag.set_next efface l'attente quand on rechoisit la valeur en cours (PROPOSÉ, à valider). Réglages au village seulement, jamais sans sauvegarde ; lecture partout. Noms : après Z7 (5), tirés de la graine (VillageText.npc_identities : un RNG par PNJ « npc/name/i », jamais « npc/i », traits des sauvegardes inchangés ; genre imposé par le sprite via sprite_genders : mineur TD 86 M, aubergiste TD 99 F, forgeron TD 87 M, chevaliers libres ; 5 noms distincts par village ; réservoir de data/village/npcs.json, 30 noms masculins et 30 féminins, chacun 15 vrais prénoms et 15 noms fantasy inventés (demande d'Antho après Z7), le genre suit le nom, rien de sauvegardé ; réservoir PROPOSÉ). Aucune valeur créée. Simulateur : 724 PASS, 0 FAIL (+21).
+
+Export debug le 28/10 : 0 ERROR ; versionCode 20, versionName 0.18.0 ; SHA-256 cd318cc90f4edc5e9013b280424061415e6463032e0b9ebacb77fa580a5ce99c (noms fixes), puis b77cf62ef56bbdbe0bf6a40690bf4c128fb83b63c2c4919fde935eb75db20ffe (noms procéduraux), puis df372fc76397a5641e4843aa6977b4ebd334e6833c3e747ead566796bd734cb3 (noms fantasy mêlés aux vrais prénoms), puis 1a7414a8b6a9de5e2ef8a85aabb271887d3ca419d23ee2e4250dfc6c2e776dff (genre par sprite, bouton grisé sélectionné, même version). Installé par `adb install -r`, sauvegarde du Fold conservée, copie dans build/backup-fold-jalon18/ ; lancement : 0 ERROR (build/captures/jalon18-Z7-logcat.txt).
+
+### AC1 à AC4 (PC 924 × 1224, zone 308 × 408 ; script de capture hors dépôt ; sauvegarde PC restaurée ensuite)
+
+Le prompt indiquait « 416 × 657 déplié » : c'est le format plié, le déplié a été pris à 924 × 1224.
+
+| Test | Résultat | Preuve |
+|---|---|---|
+| AC1 onglet PNJ, haut puis bas | OK | cartes lisibles, défilement jusqu'à la 5e (jalon18-AC1-pnj-haut.png, jalon18-AC1-pnj-bas.png) |
+| AC2 onglet Village | OK | Âtre, 3 boutiques, postures (jalon18-AC2-village.png) |
+| AC3 cadence et posture en attente | OK | « Demain : Paisible (…) », Taverne : Exportation allumée, « Demain : Exportation (…) » ; journal [VILLAGE] reglage (jalon18-AC3-*.png) |
+| AC4 en Brume | OK | « Réglages au village seulement » en tête, boutons grisés ; correctif : le bouton choisi garde le fond « pressed » une fois grisé, refait (jalon18-AC4-brume-grise.png) |
+
+Aucun Label visible ne passe à la ligne à 308 px.
+
+### Z7 (Fold 8, APK 0.18.0, sauvegarde conservée)
+
+| Test | Résultat | Preuve |
+|---|---|---|
+| (1) état de chaque PNJ compris sans aide (Moral, activité, outil) | OUI | Antho |
+| (2) stock, cible et prix lus dans Village | OUI | Antho |
+| (3) « Demain : … » visible après un réglage | OUI | Antho |
+| (4) le lendemain, cadence et posture changées | à vérifier le 29/10 | |
+| (5) noms des PNJ | OUI (après correctifs) | Antho : non sur les noms fixes, puis noms procéduraux, fantasy mêlés aux vrais prénoms, genre par sprite ; oui sur 0.18.0 1a7414a8 |
+| Lisibilité à 48 px par tuile | OUI | Antho |
+

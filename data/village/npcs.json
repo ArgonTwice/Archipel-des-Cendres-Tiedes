@@ -1,0 +1,128 @@
+{
+	"sprite_genders": {
+		"pnj_mineur": "M",
+		"pnj_aubergiste": "F",
+		"pnj_forgeron": "M"
+	},
+	"name_pool": {
+		"M": [
+			"Aubin",
+			"Bastien",
+			"Bertrand",
+			"Clovis",
+			"Eudes",
+			"Évrard",
+			"Gaspard",
+			"Gauvain",
+			"Hugues",
+			"Jehan",
+			"Lambert",
+			"Perceval",
+			"Séverin",
+			"Thibaut",
+			"Ulric",
+			"Aldric",
+			"Brannoc",
+			"Caelan",
+			"Corvel",
+			"Dorvan",
+			"Eldrin",
+			"Faelor",
+			"Hadrak",
+			"Isendor",
+			"Kael",
+			"Maeron",
+			"Orvald",
+			"Tavrin",
+			"Thorvin",
+			"Varlan"
+		],
+		"F": [
+			"Adèle",
+			"Aude",
+			"Béatrix",
+			"Blanche",
+			"Clémence",
+			"Douce",
+			"Ermengarde",
+			"Esclarmonde",
+			"Isabeau",
+			"Iseut",
+			"Jeanne",
+			"Mahaut",
+			"Margaux",
+			"Odile",
+			"Tiphaine",
+			"Aelys",
+			"Ambrelle",
+			"Brasille",
+			"Caelia",
+			"Faelis",
+			"Ilyra",
+			"Kaelys",
+			"Lunessa",
+			"Nyssa",
+			"Orlaine",
+			"Selwynne",
+			"Sylvara",
+			"Thessa",
+			"Vaelith",
+			"Yselle"
+		]
+	},
+	"posts": {
+		"EXTRACTION": "Extraction",
+		"TAVERN": "Taverne",
+		"FORGE": "Forge",
+		"GUARD": "Garde"
+	},
+	"shops": {
+		"MAT": "Matériaux",
+		"TAVERN": "Taverne",
+		"FORGE": "Forge"
+	},
+	"traits": {
+		"NOCTAMBULE": [
+			"Noctambule",
+			"Noctambule"
+		],
+		"COSTAUD": [
+			"Costaud",
+			"Costaude"
+		],
+		"PERFECTIONNISTE": [
+			"Perfectionniste",
+			"Perfectionniste"
+		],
+		"TETE_EN_L_AIR": [
+			"Tête-en-l'air",
+			"Tête-en-l'air"
+		],
+		"BOSSEUR": [
+			"Bosseur",
+			"Bosseuse"
+		],
+		"BOUT_EN_TRAIN": [
+			"Bout-en-train",
+			"Bout-en-train"
+		]
+	},
+	"griffes": {
+		"NOCTAMBULE": "Lanterne de Veille",
+		"COSTAUD": "Charpente Renforcée",
+		"PERFECTIONNISTE": "Comptoir Méticuleux",
+		"TETE_EN_L_AIR": "Tarif Étourdi",
+		"BOSSEUR": "Service Express",
+		"BOUT_EN_TRAIN": "Auberge Chaleureuse"
+	},
+	"cadences": {
+		"PAISIBLE": "Paisible",
+		"NORMAL": "Normal",
+		"FORGE_ARDENTE": "Forge ardente"
+	},
+	"postures": {
+		"SOLIDAIRE": "Solidaire",
+		"EQUILIBRE": "Équilibre",
+		"EXPORTATION": "Exportation"
+	}
+}
