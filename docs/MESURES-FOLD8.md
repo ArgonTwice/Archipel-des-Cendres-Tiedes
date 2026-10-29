@@ -561,7 +561,7 @@ Aucun Label visible ne passe à la ligne à 308 px.
 | (1) état de chaque PNJ compris sans aide (Moral, activité, outil) | OUI | Antho |
 | (2) stock, cible et prix lus dans Village | OUI | Antho |
 | (3) « Demain : … » visible après un réglage | OUI | Antho |
-| (4) le lendemain, cadence et posture changées | à vérifier le 29/10 | |
+| (4) le lendemain, cadence et posture changées | OUI | Antho, constaté le 29/10 |
 | (5) noms des PNJ | OUI (après correctifs) | Antho : non sur les noms fixes, puis noms procéduraux, fantasy mêlés aux vrais prénoms, genre par sprite ; oui sur 0.18.0 1a7414a8 |
 | Lisibilité à 48 px par tuile | OUI | Antho |
 
@@ -593,7 +593,7 @@ Aucun Label visible ne passe à la ligne à 308 px (ligne la plus large : 277 px
 | (1) saisir un PNJ sur la carte et le lâcher sur un bâtiment est naturel | OUI | Antho |
 | (2) l'échange sur un poste plein est compréhensible | OUI | Antho |
 | (3) « Libérer » rend le PNJ à l'auto-assignation | OUI | Antho |
-| (4) le lendemain, les PNJ travaillent à leur nouveau poste | OUI | Antho |
+| (4) le lendemain, les PNJ travaillent à leur nouveau poste | OUI | Antho, constaté le 29/10 |
 | (5) lignes d'aptitudes lisibles | NON puis OUI | Antho : « brouillon, entassé » -> page PNJ façon Kairosoft (726431fa) |
 | Lisibilité à 48 px par tuile | NON puis OUI | idem ; Antho demande un vrai défilement tactile |
 
