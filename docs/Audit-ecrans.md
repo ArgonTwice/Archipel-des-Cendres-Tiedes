@@ -35,6 +35,8 @@ Cadence 1,20/s  Critique 5 % ×1,5
 ```
 Vocations = `_line`. Équipement = 4 `_card` (une seule ouverte). Maquette rendue : jalon-20/maquette-jalon20.png.
 
+École expliquée (jalon 20 quater).
+
 ### Sacoche (jalon 20) — fait (jalon 20)
 **Actuel** : un Label de 3 lignes (Lanterne, Éclats, Coffre), le bouton Purifier et sa raison. L'ilvl des Éclats n'est visible nulle part.
 **Cible** :
@@ -72,6 +74,8 @@ FORGER {TITLE}
 Il manque 2 minerais {MUTED, si grisé}
 ```
 Les 4 boutons d'action prennent l'icône de leur emplacement et rappellent la pièce équipée. Les textes de l'aide ne changent pas : ils viennent de forge_help.
+
+École expliquée (jalon 20 quater).
 
 ### Carte d'Aperçu (jalon 20 bis) — fait (jalon 20 bis)
 **Actuel** : Supérieure et verdict en couleur, puis un Label qui empile la nouvelle pièce, « Équipée », l'ancienne pièce et la ligne d'écart, avec les boutons Équiper et Jeter.

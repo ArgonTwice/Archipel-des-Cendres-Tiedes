@@ -2215,11 +2215,90 @@ func _jalon_20t() -> void:
 			ui.show_perso(p, EquipmentS.player_stats(1, p["equipment"]))
 			var card: Node = ui.get_node(UiS.PAGES + "Perso").get_children().filter(func(c: Node) -> bool: return c is VBoxContainer)[0]
 			var ecoles: Label = card.find_child("Ecoles", true, false)
-			var atk: Label = ecoles.get_parent().get_child(ecoles.get_index() + 1)
+			var atk: Label = ecoles.get_parent().get_child(ecoles.get_index() + 2) # après Bonus (jalon 20 quater)
 			_check("perso: Enclume 3/3 en school_color(FOYER), ligne d'ATK d'arme en TEXT", ecoles.text == "Enclume 3/3"
 				and ecoles.get_theme_color("font_color") == UiStyle.school_color(BC.SchoolId.FOYER) and atk.text.begins_with("ATK d'arme ")
 				and atk.get_theme_color("font_color") == UiStyle.TEXT, ecoles.text + " | " + atk.text)
 		ui.free()
+
+# Jalon 20 quater : École de l'Arme expliquée dans la Forge et dans Perso. Références : sortie de prep_jalon_20quater.py.
+func _jalon_20q() -> void:
+	var help: PackedStringArray = EqText.school_help()
+	for l: String in help:
+		print("      " + l)
+	_check("school_help : 5 lignes de référence", help == PackedStringArray(["École de la Lame : Enclume 70 %, Brasier 30 %",
+		"Garde et Pommeau : École de la Lame à 70 %", "Bonus 3/3 : +3,5 % d'ATK d'arme (49 % des armes)",
+		"Affixes : Brasier vise l'ATK, Enclume les PV et la DEF", "Casque, Plastron, Bottes : sans École"]), str(help))
+	var F: int = BC.SchoolId.FOYER
+	var Br: int = BC.SchoolId.BRASIER
+	var w0: Dictionary = EquipmentS.new_equipment()[0]
+	var wb: Dictionary = w0.duplicate(true)
+	wb["schools"] = [Br, Br, Br]
+	var wm: Dictionary = w0.duplicate(true)
+	wm["schools"] = [F, Br, F]
+	var bl: Array = [EqText.school_bonus_line(w0), EqText.school_bonus_line(wb), EqText.school_bonus_line(wm)]
+	for x: Array in bl:
+		print("      " + str(x))
+	_check("school_bonus_line : arme de départ Enclume 3/3 et Brasier 3/3 en TEXT, Écoles mêlées en MUTED", w0["schools"] == [F, F, F]
+		and bl[0] == ["Bonus 3/3 : +3,5 % d'ATK d'arme", "TEXT"] and bl[1] == bl[0]
+		and bl[2] == ["Pas de bonus 3/3 : +3,5 % d'ATK d'arme si Lame, Garde et Pommeau ont la même École", "MUTED"], str(bl))
+	# La ligne Affixes reste vraie tant que les poids d'Argon ne changent pas
+	var share: Callable = func(sid: int, keys: Array, pool: Array) -> float:
+		var wt: Dictionary = BC.SCHOOL_COMBAT_AFFIX_WEIGHTS[sid]
+		var num: float = 0.0
+		var den: float = 0.0
+		for k: String in pool:
+			den += wt[k]
+			if k in keys:
+				num += wt[k]
+		return num / den
+	var shares: Array = []
+	for pool: Array in [BC.SCHOOL_COMBAT_AFFIX_WEIGHTS[F].keys(), Array(BF.COMMON_ALLOWED_AFFIXES)]:
+		shares.append([share.call(Br, ["FLAT_ATK", "PCT_ATK"], pool), share.call(F, ["FLAT_ATK", "PCT_ATK"], pool),
+			share.call(F, ["FLAT_HP", "FLAT_DEF"], pool), share.call(Br, ["FLAT_HP", "FLAT_DEF"], pool)])
+	print("      affixes (ATK Brasier, ATK Enclume, PV+DEF Enclume, PV+DEF Brasier) : " + str(shares.map(func(x: Array) -> Array: return x.map(func(v: float) -> int: return roundi(v * 100.0)))))
+	_check("ligne Affixes vraie : ATK Brasier > Enclume et PV+DEF Enclume > Brasier, tirage complet et Commun (si ce test tombe, revoir la ligne)",
+		shares.all(func(x: Array) -> bool: return x[0] > x[1] and x[2] > x[3]), str(shares))
+	var font: Font = load(FONT_PATH)
+	var fw: Callable = func(t: String) -> float: return font.get_string_size(t, HORIZONTAL_ALIGNMENT_LEFT, -1, 8).x
+	var forge_w: float = (Array(help) + ["École de l'Arme"]).map(func(t: String) -> float: return fw.call(t)).max()
+	var b3: float = fw.call(bl[0][0])
+	var mixed: float = fw.call(bl[2][0])
+	print("      largeurs : Forge %d px, Bonus 3/3 %d px, ligne mêlée %d px (sur 2 lignes)" % [forge_w, b3, mixed])
+	_check("largeurs : Forge <= 288, Bonus 3/3 <= 288, ligne mêlée <= 2 x 288", forge_w <= 288.0 and b3 <= 288.0 and mixed <= 576.0, "%d %d %d" % [forge_w, b3, mixed])
+	# UI instanciée
+	var uu: CanvasLayer = _ui_ready("res://scenes/ui/ui_unfolded.tscn")
+	var forge: Node = uu.get_node(UiS.PAGES + "Forge")
+	var title: Label = forge.get_child(-2)
+	var text: Label = forge.get_child(-1)
+	var n: int = forge.get_child_count()
+	var p: Dictionary = ProgressionS.new_player()
+	uu.set_forge_help_source(func(c: bool) -> PackedStringArray: return EqText.forge_help(c, 1, 50))
+	uu.show_forge(8, 100, p["equipment"])
+	var modes: Array = forge.find_child("Mode", true, false).get_children()
+	for k in [0, 1]:
+		modes[k].button_pressed = true
+		modes[k].pressed.emit()
+	_check("Forge : « École de l'Arme » et son texte en derniers, en MUTED ; show_forge et 2 bascules sans nœud créé ni texte changé",
+		title.text == "École de l'Arme" and title.get_theme_color("font_color") == UiStyle.TITLE and text.text == "\n".join(help)
+		and text.get_theme_color("font_color") == UiStyle.MUTED and forge.get_child_count() == n and forge.get_child(-1) == text
+		and forge.get_child(-3).name == "Raison", "%d %d" % [n, forge.get_child_count()])
+	var card: Node = uu.get_node(UiS.PAGES + "Perso").get_children().filter(func(c: Node) -> bool: return c is VBoxContainer)[0]
+	var box: Node = card.find_child("Ecoles", true, false).get_parent()
+	var nb: int = box.get_child_count()
+	var st: Dictionary = EquipmentS.player_stats(1, p["equipment"])
+	uu.show_perso(p, st)
+	var bonus: Label = box.get_node("Bonus")
+	var s1: Array = [bonus.visible, bonus.text, bonus.get_theme_color("font_color"), bonus.get_index() == box.get_node("Ecoles").get_index() + 1]
+	p["equipment"][0]["schools"] = [F, Br, F]
+	uu.show_perso(p, st)
+	uu.show_perso(p, st)
+	var s2: Array = [bonus.text, bonus.get_theme_color("font_color"), box.get_node("Ecoles").get_theme_color("font_color")]
+	var others: int = uu.get_node(UiS.PAGES + "Perso").find_children("Bonus", "Label", true, false).size()
+	_check("Perso : Bonus sous les Écoles, arme seulement ; 3/3 en TEXT, mêlée en MUTED (Écoles en TEXT) ; 3 show_perso sans nœud créé",
+		s1 == [true, "Bonus 3/3 : +3,5 % d'ATK d'arme", UiStyle.TEXT, true] and s2 == [bl[2][0], UiStyle.MUTED, UiStyle.TEXT]
+		and box.get_child_count() == nb and others == 1, str(s1) + str(s2))
+	uu.free()
 
 # Jalon 17 bis : feu de camp animé (4 images de 125 ms). Références : prompt d'Antho (prep_jalon_17bis.py).
 func _jalon_17b() -> void:
@@ -2790,6 +2869,7 @@ func _jalon_11(vd: Dictionary, solid1: Dictionary) -> void:
 	_jalon_20b()
 	_mode_debug()
 	_jalon_20t()
+	_jalon_20q()
 	# Scènes et données
 	var vil: Node = load("res://scenes/village/village.tscn").instantiate()
 	var sg: Node2D = vil.get_node_or_null("Entites/Segment")

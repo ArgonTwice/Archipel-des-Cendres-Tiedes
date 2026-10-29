@@ -754,3 +754,30 @@ Export debug le 29/10 : 0 ERROR ; versionCode 26, versionName 0.20.3 ; SHA-256 2
 | (2) les toasts à icône se lisent en marchant | OUI | Antho |
 | (3) la jauge pleine en rouge, avec « L'Élite s'éveille ! », est claire | OUI | Antho |
 | (4) dans Perso, seules les Écoles sont en couleur | OUI | Antho : arme du Fold mêlée (Enclume / Brasier / Enclume, en blanc) ; arme 3/3 forgée avec le mode debug, Enclume en ambre |
+
+## Jalon 20 quater (APK 0.20.4)
+
+École de l'Arme expliquée, texte seul (aucune règle changée, n°35). EqText.school_help() : 5 lignes lues dans BalanceC (VERTICAL_SLICE_SCHOOLS et VERTICAL_SLICE_DROP_WEIGHTS pour la Lame, DROP_PART_SAME_SCHOOL_PROB pour Garde et Pommeau, SCHOOL_SET_3_WEAPON_ATK_BONUS et 0,70² pour le 3/3), plus « Affixes : Brasier vise l'ATK, Enclume les PV et la DEF » (PROPOSÉ par Antho, vérifié par le simulateur sur SCHOOL_COMBAT_AFFIX_WEIGHTS : ATK 44 % contre 30 %, PV + DEF 50 % contre 40 % ; Commun 39 % contre 29 %, 71 % contre 61 %) et « Casque, Plastron, Bottes : sans École ». Forge : section « École de l'Arme » en bas, après la raison, Label MUTED rempli une fois dans _build_forge. Perso : Label « Bonus » créé une fois dans la fiche de l'Arme, sous les Écoles ; EqText.school_bonus_line : « Bonus 3/3 : +3,5 % d'ATK d'arme » en TEXT, ou « Pas de bonus 3/3 : … même École » en MUTED.
+
+Largeurs mesurées dans Godot (identiques au jumeau) : Forge 275 px au plus (ligne Affixes), Bonus 3/3 164 px, ligne mêlée 435 px sur 2 lignes (limite 288 par ligne).
+
+Tests : 847 PASS, 0 échec (841 + 6 ; le test « perso: … ligne d'ATK d'arme en TEXT » du 20 ter lit maintenant le Label après Bonus).
+
+Export debug le 29/10 : 0 ERROR ; versionCode 27, versionName 0.20.4 ; SHA-256 21b4303fe1ca869845676dd37d996ca22701a22ef66a8d1657c29160293ba314. Sauvegarde du Fold copiée dans build/backup-fold-jalon20quater/ avant `adb install -r`, save_a.dat identique après.
+
+### AJ1 à AJ3 (PC 924 × 1224, --hour=10 ; Écoles de l'arme posées en mémoire par le script de capture ; sauvegarde PC restaurée ensuite)
+
+| Test | Résultat | Preuve |
+|---|---|---|
+| AJ1 Forge défilée en bas, section École de l'Arme | OK | titre en bleu, 5 lignes atténuées, sous « Il manque 4 minerais » (jalon20quater-AJ1-forge-ecole.png) |
+| AJ2 Perso, arme Enclume 3/3 ouverte | OK | « Enclume 3/3 » en ambre, « Bonus 3/3 : +3,5 % d'ATK d'arme » en blanc, puis ATK d'arme et affixes (jalon20quater-AJ2-perso-enclume-3-3.png) |
+| AJ3 Perso, arme aux Écoles mêlées ouverte | OK | « Enclume / Brasier / Enclume » en blanc, « Pas de bonus 3/3 … même École » atténué sur 2 lignes (jalon20quater-AJ3-perso-ecoles-melees.png) |
+
+### Z14 (Fold 8, APK 0.20.4, sauvegarde copiée dans build/backup-fold-jalon20quater/)
+
+| Test | Résultat | Preuve |
+|---|---|---|
+| (1) en bas de la Forge, je comprends d'où vient l'École de mon arme | OUI | Antho |
+| (2) je comprends ce que rapporte le 3/3 | OUI | Antho |
+| (3) dans Perso, je vois tout de suite si mon arme a le bonus ou non | OUI | Antho |
+| (4) la ligne « Affixes : Brasier vise l'ATK, Enclume les PV et la DEF » m'aide (si non, on la retire) | OUI | Antho |

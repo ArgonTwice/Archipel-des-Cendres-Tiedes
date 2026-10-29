@@ -104,6 +104,30 @@ static func piece_summary(slot: int, piece: Variant) -> String:
 	var head: String = column_head(slot, piece)
 	return head + ", " + weapon_lines(piece)[0] if piece != null and slot == 0 else head
 
+# École de l'Arme (jalon 20 quater), aide en bas de la Forge : valeurs lues dans BalanceC. La ligne Affixes est un résumé
+# PROPOSÉ de SCHOOL_COMBAT_AFFIX_WEIGHTS, vérifié par le simulateur (à revoir si Argon change ces poids).
+static func school_help() -> PackedStringArray:
+	var total: int = 0
+	for s: int in BC.VERTICAL_SLICE_SCHOOLS:
+		total += BC.VERTICAL_SLICE_DROP_WEIGHTS[s]
+	var lame: PackedStringArray = []
+	for s: int in BC.VERTICAL_SLICE_SCHOOLS:
+		lame.append("%s %d %%" % [SCHOOL_NAMES[s], roundi(BC.VERTICAL_SLICE_DROP_WEIGHTS[s] * 100.0 / total)])
+	var same: float = BC.DROP_PART_SAME_SCHOOL_PROB
+	return PackedStringArray(["École de la Lame : " + ", ".join(lame),
+		"Garde et Pommeau : École de la Lame à %d %%" % roundi(same * 100.0),
+		"Bonus 3/3 : +%s %% d'ATK d'arme (%d %% des armes)" % [dec1(BC.SCHOOL_SET_3_WEAPON_ATK_BONUS * 100.0), roundi(same * same * 100.0)],
+		"Affixes : Brasier vise l'ATK, Enclume les PV et la DEF",
+		"Casque, Plastron, Bottes : sans École"])
+
+# Ligne sous les Écoles de l'arme dans Perso : [texte, rôle de UiStyle.ROLES]. 3/3 : bonus actif en TEXT ; mêlées : absent en MUTED.
+static func school_bonus_line(piece: Dictionary) -> Array:
+	var s: Array = piece["schools"]
+	var b: String = dec1(BC.SCHOOL_SET_3_WEAPON_ATK_BONUS * 100.0)
+	if s[0] == s[1] and s[1] == s[2]:
+		return ["Bonus 3/3 : +%s %% d'ATK d'arme" % b, "TEXT"]
+	return ["Pas de bonus 3/3 : +%s %% d'ATK d'arme si Lame, Garde et Pommeau ont la même École" % b, "MUTED"]
+
 # 1re ligne de la fiche de l'arme en 2 morceaux (jalon 20 ter) : Écoles (seules en couleur d'École), puis « ATK d'arme 10,4 ».
 static func weapon_lines(piece: Dictionary) -> PackedStringArray:
 	return PackedStringArray([schools(piece), "ATK d'arme " + dec1(EquipmentS.weapon_atk(piece))])

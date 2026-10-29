@@ -264,9 +264,15 @@ func _build_perso() -> void:
 		var schools: Label = Label.new() # 1re ligne de la fiche de l'arme : Écoles et ATK d'arme
 		schools.name = "Ecoles"
 		c[1].add_child(schools)
+		var bonus: Label = null # arme seulement : bonus 3/3 actif ou absent (jalon 20 quater)
+		if slot == 0:
+			bonus = Label.new()
+			bonus.name = "Bonus"
+			bonus.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+			c[1].add_child(bonus)
 		var lines: Label = Label.new()
 		c[1].add_child(lines)
-		_slot_cards.append({"head": c[0], "tag": c[2], "schools": schools, "lines": lines})
+		_slot_cards.append({"head": c[0], "tag": c[2], "schools": schools, "bonus": bonus, "lines": lines})
 
 # Sacoche (jalon 20) : Cendre, Éclats (fiche par ilvl), coffre, au-dessus du bouton Purifier et de sa raison.
 func _build_sacoche() -> void:
@@ -322,6 +328,13 @@ func _build_forge() -> void:
 		b.disabled = true
 		b.pressed.connect(func() -> void: forge_requested.emit(slot, _forge_with_cendre))
 		_forge_buttons.append(b)
+	_section(_forge, "École de l'Arme") # en bas, après la raison : texte fixe, rempli une fois (jalon 20 quater)
+	var help: Label = Label.new()
+	help.name = "Ecole"
+	help.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	help.add_theme_color_override("font_color", UiStyle.MUTED)
+	help.text = "\n".join(EqText.school_help())
+	_forge.add_child(help)
 
 # Carte d'Aperçu, sous Apercu/Box : tête, Verdict, Pieces (Nouvelle et Équipée en une ligne chacune), Stats (une ligne par
 # stat du personnage : avec l'équipée, avec la nouvelle, écart en couleur), puis Choix.
@@ -678,6 +691,12 @@ func show_perso(player: Dictionary, stats: Dictionary) -> void:
 		c["tag"].text = EqText.piece_tag(slot, piece)
 		c["tag"].add_theme_color_override("font_color", UiStyle.SUPERIOR)
 		c["schools"].visible = piece != null and slot == 0
+		if c["bonus"] != null:
+			c["bonus"].visible = piece != null
+			if piece != null:
+				var bl: Array = EqText.school_bonus_line(piece)
+				c["bonus"].text = bl[0]
+				c["bonus"].add_theme_color_override("font_color", UiStyle.ROLES[bl[1]])
 		if piece == null:
 			c["lines"].text = EqText.empty_detail(slot)
 			continue
