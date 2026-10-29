@@ -816,3 +816,36 @@ Export debug le 29/10 : 0 ERROR ; versionCode 28, versionName 0.21.0 ; SHA-256 6
 | (4) « Finir le chantier » : toast, arbres retirés, brume repoussée, Postes sur 10 ; la règle « 40 Matériaux pris dans le stock » convient | OUI | Antho |
 | (5) en glissant un PNJ, le bâtiment visé s'encadre avec « libre » ou « échange », rien sur l'herbe ni sur son propre poste | OUI | Antho |
 | (6) au Nv2, la Vision d'architecte montre tout le cercle, fenêtre fermée | OUI | Antho |
+
+## Jalon 22 (APK 0.22.0)
+
+Agrandissement des boutiques (Matériaux, Forge, Taverne) par chantier, niveaux 1 à 10 ; aucune valeur de jeu créée (Volet B §3 et §5, SOCLE §A7). scripts/village/shop_upgrade.gd (statiques pures) : cost (BalanceB : Or 250 L², Tier 0 15 L, min(1440, 60 L²) min, L = niveau de départ), block_reason (lieu, chantier de cette boutique avec AtreS.end_text réutilisé, niveau maximal, Or par EqText.num, Matériaux ; le chantier d'un autre bâtiment ne bloque pas), start, finish_if_due, sanitize (SaveManager.unpack, à côté d'AtreS.sanitize). MAX_LEVEL = 10 posé dans shop_upgrade.gd (SOCLE §A7, à reporter dans balance_b.gd au prochain delta Argon). Clé optionnelle shops[k].chantier_end, SAVE_FORMAT_VERSION 1 inchangé. Règles validées par Antho (Z16, 29/10) : celles du Grand Âtre, un chantier par bâtiment, boutique ouverte pendant son chantier (SOCLE §A7) ; fin hors-ligne appliquée au lancement suivant (le DAG de l'absence garde l'ancien niveau).
+
+Onglet Village : dans chaque carte de boutique, après la Posture, section Agrandir créée une fois (effet en MUTED « Niveau 2 : stock max 100, frais 16 Or/jour », bouton d'action à l'icône de la boutique, raison dessous), étiquette « Chantier » en NEXT, section cachée au Nv10 ; set_shop_reasons relu à chaque image, ne touche que ce qui change. VText.duration factorisé (upgrade_button de l'Âtre inchangé). main.gd : _on_shop_upgrade_requested, fin en session dans _process et au lancement après SaveManager.start, _shop_done (toast à l'icône de la boutique, [VILLAGE] {"event": "boutique"}, _sync). Debug : « Finir le chantier » finit tous les chantiers en cours (entrée fin_chantier avec la liste des bâtiments).
+
+Références du jumeau toutes retrouvées : coûts Nv1, Nv2, Nv5 (1 440 min), Nv9, total 71 250 Or ; 10 raisons ; start Forge (300 -> 50 Or, 20 -> 5 Matériaux, fin T0 + 3 600) ; Matériaux sur son propre stock (15 -> 0) ; « fini demain à 3 h 10 » ; finish_if_due ; sanitize 7 cas ; textes ; Griffes et stock max des graines 1, 2, 3, 42 ; prix Forge 10 -> 12 Or. Test du jalon 21 (carte Âtre) restreint à la section Agrandir de l'Âtre, la page en compte maintenant 4.
+
+Debug, groupe « Remise à zéro » (demande d'Antho après Z16 : un bouton par section, au village seulement) : Joueur à zéro (ProgressionS.new_player en place : XP 0, arme de départ, Sacoche, coffre, Cendre), Ressources à zéro (Or et stock de Matériaux), Bâtiments à zéro (Âtre et boutiques Nv1, chantiers annulés ; village.gd.set_atre_level remet dans solid les arbres qui reviennent ; joueur dont la boîte des pieds chevauche une cellule devenue pleine ramené devant l'Âtre, Player.unstick, [VILLAGE] joueur_ramene), PNJ à zéro (PNJ d'une partie neuve de la même graine ; heure et graine gardées), Postes au plafond (après un Âtre redescendu, le PNJ en trop part demain vers le premier poste libre, verrou rendu tel quel).
+
+Tests : 877 PASS, 0 échec (862 + 15 ; la raison grisée des boutiques est vérifiée en REASON ; le test de grisé du debug compte 20 boutons).
+
+Export debug le 29/10 : 0 ERROR ; versionCode 29, versionName 0.22.0 ; SHA-256 dbea337f20f7e717a1b8a2b61915c930aaee799766a9cb99f80f23e3b9980354. Sauvegarde du Fold copiée dans build/backup-fold-jalon22/ avant `adb install -r`, save_a.dat identique après.
+
+### BF1 à BF3 du jalon 22 (PC 924 × 1224, --hour=10 ; Or et stock posés en mémoire ; sauvegarde PC restaurée ensuite)
+
+| Test | Résultat | Preuve |
+|---|---|---|
+| BF1 carte Forge, bouton grisé | OK | « Niveau 2 : stock max 50, frais 16 Or/jour », bouton « 250 Or, 15 Matériaux, 1 h » grisé, « Il manque 250 Or » (jalon22-BF1-forge-grise.png) |
+| BF2 chantier de la Forge, Taverne active | OK | « Chantier en cours, fini à 15 h 23 » (jalon22-BF2-forge-chantier.png) ; carte Taverne, bouton actif (jalon22-BF2b-taverne-active.png) ; une seule carte ouverte à la fois, d'où 2 captures |
+| BF3 Forge Nv2 | OK | toast « Forge niveau 2 ! », « Forge, niveau 2 », « Stock 2/50 », « Niveau 3 : stock max 70, frais 24 Or/jour », « 1 000 Or, 30 Matériaux, 4 h » (jalon22-BF3-forge-nv2.png) |
+
+### Z16 (Fold 8, APK 0.22.0, sauvegarde copiée dans build/backup-fold-jalon22/)
+
+| Test | Résultat | Preuve |
+|---|---|---|
+| (1) sur chaque boutique, le bouton grisé dit clairement ce qui manque | OUI après correction (rouge REASON validé, Antho) | Antho : « mettre en rouge pour montrer ce qui manque, faire pareil de partout » : toutes les raisons de grisé passent de MUTED au rouge (Sacoche, Forge, PNJ, Village, Âtre, boutiques, Debug), Charte-UI.md mise à jour ; APK 0.22.0 réinstallé (SHA-256 d71694fc4050a734d2d9d9a9b1a7934534759450fe40c6648dfd22263d335b6f), puis « plus rouge » : couleur dédiée UiStyle.REASON #FF4D4D (BAD #D55E00 reste pour grève et pièces) ; à revoir sur Fold |
+| (2) avec le debug (+100 Or × 3, Matériaux au max), agrandir la Forge est naturel : Or et stock baissent, « Chantier » et l'heure de fin se lisent | OUI | Antho |
+| (3) pendant ce chantier, la Taverne et l'Âtre restent lançables ; la règle « un chantier par bâtiment » convient | OUI | Antho |
+| (4) fermer puis rouvrir l'appli pendant le chantier : toujours là, même heure | OUI | Antho |
+| (5) « Finir le chantier » : toast « Forge niveau 2 ! », tête et stock max à jour ; la boutique a vendu pendant le chantier, la règle convient | OUI | Antho, 29/10 : toast et niveau OUI ; la boutique reste ouverte pendant son chantier (SOCLE §A7), règle validée. Les ventes passent par le DAG vers les PNJ (tick du jour) et ne se voient pas encore à l'écran |
+| (6) la ligne d'effet (stock max, frais par jour) suffit pour décider d'agrandir | OUI | Antho |

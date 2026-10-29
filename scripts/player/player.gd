@@ -72,6 +72,13 @@ func setup(pos: Vector2, texture: Texture2D, shadow: Texture2D, solid: Dictionar
 	_apply_stats()
 	_set_hp(max_hp)
 
+# Pieds sur une cellule devenue pleine (arbre revenu quand l'Âtre redescend, debug) : retour devant l'Âtre. -> vrai si déplacé.
+func unstick() -> bool:
+	if not PM.overlaps(position, _solid, _bounds):
+		return false
+	position = _spawn
+	return true
+
 func set_level(value: int) -> void:
 	level = value
 	_restat()

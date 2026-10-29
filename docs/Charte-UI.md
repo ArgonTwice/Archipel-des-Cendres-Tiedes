@@ -10,11 +10,12 @@ Une constante par rôle, toutes dans `scripts/ui/ui_style.gd`. Aucune couleur n'
 | Rôle | Constante | Valeur | Usage |
 |---|---|---|---|
 | Texte | `TEXT` | blanc | texte courant, état neutre |
-| Secondaire | `MUTED` | blanc à 60 % | raisons de grisé, aides, résumés |
+| Secondaire | `MUTED` | blanc à 60 % | aides, résumés |
 | Titre | `TITLE` | #56B4E9 | intertitres de section |
 | Attente | `NEXT` | #009E73 | « Demain : … », « demain X » sur une tête |
 | Bon | `GOOD` | #009E73 | meilleure pièce, Moral haut, rattrapage actif, gain |
 | Mauvais | `BAD` | #D55E00 | moins bonne pièce, grève, perte |
+| Raison | `REASON` | #FF4D4D | raisons de grisé (rouge franc, Z16, PROPOSÉ) |
 | Alerte | `ALERT` | #E69F00 | Moral bas, manque proche |
 | Qualité Supérieure | `SUPERIOR` | #E69F00 | étiquette « Supérieure » |
 | Fond de fiche | `DETAIL_BG` | blanc à 6 %, marge 4 px | panneau sous une tête ouverte |
@@ -45,14 +46,14 @@ Règles :
 | Un objet sans détail (vocation, Cendre, coffre) | **ligne simple** : même rendu qu'une tête fermée, sans bascule | `_line` |
 | Un choix exclusif parmi 2 à 4 valeurs (poste, cadence, posture, mode de craft) | **rangée de choix** : boutons à bascule, choix en cours enfoncé, aide en MUTED dessous | `_block` |
 | Découper une fiche ou une page | **intertitre** en TITLE | `_section` |
-| Une action principale de page (Purifier, Forger) | **bouton d'action** en bas de la page, avec sa raison en MUTED juste dessous s'il est grisé | — |
+| Une action principale de page (Purifier, Forger) | **bouton d'action** en bas de la page, avec sa raison en REASON juste dessous s'il est grisé | — |
 | Une décision qui bloque tout le reste (Équiper ou Jeter) | **carte plein écran** : onglets grisés jusqu'au choix | Apercu |
 | Un retour bref, sans décision (montée de niveau, changement de poste) | **toast à icône** de 2,5 s, qui ne bloque rien | `show_toast` |
 
 Règles communes :
 - Une seule fiche ouverte par page (ButtonGroup allow_unpress), et toutes fermées au lancement.
 - Défilement au doigt partout (`touch_scroll`) : un glissé fait défiler, un appui ouvre.
-- Grisé : une raison qui grise toute la page va en tête de page. La raison d'un seul bouton va juste sous ce bouton. Le bouton choisi garde son fond « pressed ».
+- Grisé : la raison est en REASON (rouge franc, Antho, Z16) : elle montre ce qui manque. Une raison qui grise toute la page va en tête de page. La raison d'un seul bouton va juste sous ce bouton. Le bouton choisi garde son fond « pressed ».
 - Tout est créé une fois dans `_ready`. Les `show_*` ne changent que des textes, des couleurs, des états et la visibilité.
 
 ## 3. Iconographie

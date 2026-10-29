@@ -58,6 +58,8 @@ L'ordre de la fiche est celui de Purification.next_index : Élite d'abord, puis 
 ### Village
 Grand Âtre niveau 2 (jalon 21).
 
+Agrandir une boutique (jalon 22).
+
 ### Forge (jalon 20 bis) — fait (jalon 20 bis)
 **Actuel** : une ligne « Tu as », un CheckButton « Avec Cendre (25) », une aide de 5 lignes, 4 boutons « Forger l'Arme… » et la raison.
 **Cible** :

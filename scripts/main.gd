@@ -15,6 +15,7 @@ const Dag = preload("res://scripts/offline_dag.gd")
 const AssignS = preload("res://scripts/village/assignment.gd")
 const DebugS = preload("res://scripts/debug/debug_tools.gd")
 const AtreS = preload("res://scripts/village/atre.gd")
+const ShopUpS = preload("res://scripts/village/shop_upgrade.gd")
 const VText = preload("res://scripts/ui/village_text.gd")
 const UiStyle = preload("res://scripts/ui/ui_style.gd")
 const BB = preload("res://balance/balance_b.gd")
@@ -48,6 +49,11 @@ func _ready() -> void:
 	# Grand Âtre (jalon 21) : chantier fini hors-ligne, puis rayon au niveau courant, avant de construire le village.
 	var atre_done: bool = not r.is_empty() and AtreS.finish_if_due(r["state"]["village"], now)
 	VL.atre_level = 1 if r.is_empty() else AtreS.level(r["state"]["village"])
+	var shops_done: Array[String] = [] # boutiques (jalon 22) : chantiers finis hors-ligne
+	if not r.is_empty():
+		for key: String in r["state"]["village"]["shops"]:
+			if ShopUpS.finish_if_due(r["state"]["village"], key, now):
+				shops_done.append(key)
 	_ui_unfolded.set_world_seed(0 if r.is_empty() else r["state"]["world_seed"]) # avant le premier _show : noms et aptitudes
 	if r.is_empty(): # state reste vide : plus aucune sauvegarde
 		_world.setup(0, {}, now, _player_state)
@@ -59,6 +65,8 @@ func _ready() -> void:
 		_auto_assign()
 		if atre_done:
 			_atre_done(false)
+		for key: String in shops_done:
+			_shop_done(key)
 	var player: Node2D = _world.player() # player.gd
 	player.set_equipment(_player_state()["equipment"])
 	player.set_level(ProgressionS.combat_level(_player_state()))
@@ -88,6 +96,7 @@ func _ready() -> void:
 	_ui_unfolded.npc_freed.connect(_on_npc_freed)
 	_ui_unfolded.debug_requested.connect(_on_debug)
 	_ui_unfolded.atre_requested.connect(_on_atre_requested)
+	_ui_unfolded.shop_upgrade_requested.connect(_on_shop_upgrade_requested)
 	_ui_unfolded.debug_invincible.connect(func(on: bool) -> void:
 		player.debug_invincible = on
 		_debug_done(DebugS.entry("invincible", not on, on), "Debug : invincible" if on else "Debug : invincible coupé"))
@@ -125,11 +134,16 @@ func _process(_delta: float) -> void:
 		_ui_unfolded.set_purify_reason(_purify_block_reason())
 		_ui_unfolded.set_forge_enabled(_forge_block_reason)
 		_ui_unfolded.set_atre_reason(_atre_block_reason())
+		_ui_unfolded.set_shop_reasons(_shop_block_reasons())
 		if not SaveManager.state.is_empty():
 			_ui_unfolded.set_debug_state(CombatS.in_village(player.position), _world.segment().expedition != null, DebugS.bag_full(_player_state()))
 	if not SaveManager.state.is_empty() and SaveManager.state["village"].has("atre_chantier_end") \
 			and AtreS.finish_if_due(SaveManager.state["village"], ClockS.now_utc()):
 		_atre_done(true)
+	if not SaveManager.state.is_empty():
+		for k: String in SaveManager.state["village"]["shops"]:
+			if SaveManager.state["village"]["shops"][k].has("chantier_end") and ShopUpS.finish_if_due(SaveManager.state["village"], k, ClockS.now_utc()):
+				_shop_done(k)
 	var key: Vector2i = Vector2i(_world.hour_at(ClockS.now_utc()), int(CombatS.in_village(player.position)))
 	if key != _village_key: # heure locale ou entrée / sortie du village
 		_show_village()
@@ -454,6 +468,35 @@ func _atre_done(in_session: bool) -> void:
 	_sync()
 	_show_village()
 
+# Boutiques (jalon 22) : raison par boutique, relue à chaque image.
+func _shop_block_reasons() -> Dictionary:
+	var out: Dictionary = {}
+	if SaveManager.state.is_empty():
+		return out
+	var v: Dictionary = SaveManager.state["village"]
+	var in_village: bool = CombatS.in_village(_world.player().position)
+	for key: String in v["shops"]:
+		out[key] = ShopUpS.block_reason(v, key, in_village, ClockS.now_utc(), _names)
+	return out
+
+func _on_shop_upgrade_requested(key: String) -> void:
+	if SaveManager.state.is_empty() or _shop_block_reasons()[key] != "":
+		return
+	_log_json("[VILLAGE] ", ShopUpS.start(SaveManager.state["village"], key, ClockS.now_utc()))
+	_sync()
+	for layer in [_ui_folded, _ui_unfolded]: # ui_layer.gd
+		layer.show_gold(SaveManager.state["village"]["player_gold"])
+	_show_village()
+
+# Fin du chantier d'une boutique : stock max et frais lus par le niveau, rien à changer sur la carte.
+func _shop_done(key: String) -> void:
+	var lvl: int = SaveManager.state["village"]["shops"][key]["lvl"]
+	for layer in [_ui_folded, _ui_unfolded]: # ui_layer.gd
+		layer.show_toast(VText.shop_toast(key, lvl, _names), key)
+	_log_json("[VILLAGE] ", {"event": "boutique", "boutique": key, "niveau": lvl})
+	_sync()
+	_show_village()
+
 # Bouton de poste ou lâcher sur un bâtiment : verrouille ; poste plein = échange (Assignment.move).
 func _on_post_chosen(index: int, post: String, source: String) -> void:
 	if _village_block_reason() != "":
@@ -502,13 +545,19 @@ func _on_debug(action: String) -> void:
 		"or": d = DebugS.add_gold(st)
 		"chantier": d = DebugS.finish_chantier(st, ClockS.now_utc())
 		"materiaux": d = DebugS.materials_max(st)
+		"zero_joueur": d = DebugS.reset_player(st)
+		"zero_ressources": d = DebugS.reset_resources(st)
+		"zero_batiments": d = DebugS.reset_buildings(st)
+		"zero_pnj": d = DebugS.reset_npcs(st)
+		"postes": d = DebugS.fit_posts(st)
 		_: d = DebugS.level_up(st, action)
 	if d.is_empty():
 		return
 	var leveled: bool = ProgressionS.VOCATIONS.has(action)
 	_debug_done(d, "" if leveled else "Debug : " + {"tick": "tick du jour", "absence": "+%d h d'absence" % int(BB.OFFLINE_MAX_HOURS),
 		"cendre": "Cendre au max", "eclat": "+1 Éclat", "eclat_elite": "+1 Éclat d'Élite", "minerai": "+%d minerais" % DebugS.DEBUG_ORE,
-		"or": "+%d Or" % DebugS.DEBUG_GOLD, "chantier": "fin du chantier", "materiaux": "Matériaux au max"}[action])
+		"or": "+%d Or" % DebugS.DEBUG_GOLD, "chantier": "fin du chantier", "materiaux": "Matériaux au max", "zero_joueur": "joueur à zéro",
+		"zero_ressources": "ressources à zéro", "zero_batiments": "bâtiments à zéro", "zero_pnj": "PNJ à zéro", "postes": "postes au plafond"}[action])
 	_sync()
 	for layer in [_ui_folded, _ui_unfolded]: # ui_layer.gd
 		layer.show_gold(SaveManager.state["village"]["player_gold"])
@@ -516,6 +565,12 @@ func _on_debug(action: String) -> void:
 			layer.show_level_up(action, d["apres"]) # toast de montée de niveau, comme en jeu
 	if action == "COMBATTANT":
 		_world.player().set_level(d["apres"])
+	if action == "zero_joueur":
+		_world.player().set_level(ProgressionS.combat_level(_player_state()))
+		_world.player().set_equipment(_player_state()["equipment"])
+	if action == "zero_batiments" and VL.atre_level != 1:
+			VL.atre_level = 1
+			_world.set_atre_level()
 	_show_player()
 	_show_village()
 

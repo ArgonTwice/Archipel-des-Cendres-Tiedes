@@ -12,6 +12,8 @@ const RngS = preload("res://autoload/Rng.gd")
 const AssignS = preload("res://scripts/village/assignment.gd")
 
 const AtreS = preload("res://scripts/village/atre.gd")
+const ShopUpS = preload("res://scripts/village/shop_upgrade.gd")
+const EqText = preload("res://scripts/ui/equipment_text.gd")
 const NAMES_PATH: String = "res://data/village/npcs.json"
 const ACTIVITY: Dictionary = {"WORK": "au travail", "MEAL": "au repas", "VEILLEE": "à la veillée", "STRIKE": "se réchauffe à l'Âtre"}
 
@@ -140,13 +142,28 @@ static func upgrade_effect(lvl: int) -> String:
 # « Agrandir le Grand Âtre », « 600 Or, 40 minerais, 40 Matériaux, 4 h ».
 static func upgrade_button(lvl: int, names: Dictionary) -> PackedStringArray:
 	var c: Dictionary = AtreS.cost(lvl)
-	var m: int = c["minutes"]
-	var d: String = "%d min" % m if m < 60 else ("%d h" % (m / 60) if m % 60 == 0 else "%d h %02d" % [m / 60, m % 60])
 	return PackedStringArray(["Agrandir le Grand Âtre", "%d Or, %d minerai%s, %d %s, %s" % [c["gold"], c["ore"], "s" if c["ore"] > 1 else "",
-		c["mat"], names["shops"]["MAT"], d]])
+		c["mat"], names["shops"]["MAT"], duration(c["minutes"])]])
+
+# Durée d'un chantier : « 45 min », « 4 h », « 1 h 30 ».
+static func duration(m: int) -> String:
+	return "%d min" % m if m < 60 else ("%d h" % (m / 60) if m % 60 == 0 else "%d h %02d" % [m / 60, m % 60])
 
 static func atre_toast(lvl: int) -> String:
 	return "Grand Âtre niveau %d !" % lvl
+
+# Agrandir une boutique (jalon 22) : « Niveau 2 : stock max 100, frais 16 Or/jour » (Griffe comprise, frais de cette boutique).
+static func shop_upgrade_effect(key: String, shop: Dictionary) -> String:
+	var lvl: int = shop["lvl"] + 1
+	return "Niveau %d : stock max %d, frais %d Or/jour" % [lvl, Eco.stock_max(key == "MAT", lvl, shop["griffe_trait"]), BB.SHOP_DAILY_FIXED_SINK_PER_LVL * lvl]
+
+# « Agrandir la boutique », « 250 Or, 15 Matériaux, 1 h ».
+static func shop_upgrade_button(lvl: int, names: Dictionary) -> PackedStringArray:
+	var c: Dictionary = ShopUpS.cost(lvl)
+	return PackedStringArray(["Agrandir la boutique", "%s Or, %d %s, %s" % [EqText.num(c["gold"]), c["mat"], names["shops"]["MAT"], duration(c["minutes"])]])
+
+static func shop_toast(key: String, lvl: int, names: Dictionary) -> String:
+	return "%s niveau %d !" % [names["shops"][key], lvl]
 
 # Surbrillance du bâtiment visé (jalon 21) : [texte, rôle] ou [] (herbe, maison, Âtre, ou poste de demain du PNJ saisi).
 static func drop_hint(village: Dictionary, index: int, site: String, lvl: int, names: Dictionary) -> Array:

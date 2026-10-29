@@ -125,8 +125,12 @@ func set_atre_level() -> void:
 	for c: Vector2i in deco:
 		if _deco_map.get(c) != deco[c]:
 			_paint_deco(c, deco[c])
+			if deco[c][0] == "tree": # Âtre redescendu (debug, remise à zéro)
+				_solid[c] = true
 	_deco_map = deco
 	_set_fog_radius()
+	if _player.unstick() and OS.is_debug_build():
+		print("[VILLAGE] " + JSON.stringify({"event": "joueur_ramene", "raison": "arbre revenu"}))
 
 # Brume de la Cendre Grise (ShaderMaterial partagé par les calques) au bord du rayon de l'Âtre.
 func _set_fog_radius() -> void:

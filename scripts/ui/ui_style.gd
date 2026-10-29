@@ -6,11 +6,12 @@ const BC = preload("res://balance/balance_c.gd")
 
 # Couleurs par rôle (Charte §1, palette Okabe-Ito)
 const TEXT: Color = Color(1, 1, 1) # texte courant, état neutre
-const MUTED: Color = Color(1, 1, 1, 0.6) # raisons de grisé, aides, résumés ; PROPOSÉ, à valider (jalon 16 bis)
+const MUTED: Color = Color(1, 1, 1, 0.6) # aides, résumés ; PROPOSÉ, à valider (jalon 16 bis)
 const TITLE: Color = Color("#56B4E9") # intertitres ; validé sur Fold (jalon 19)
 const NEXT: Color = Color("#009E73") # attente, « Demain : … » ; validé sur Fold (jalon 19)
 const GOOD: Color = Color("#009E73") # meilleure pièce, Moral haut, rattrapage ; validé sur Fold (jalon 19 bis)
 const BAD: Color = Color("#D55E00") # moins bonne pièce, grève ; validé sur Fold (jalon 19 bis)
+const REASON: Color = Color("#FF4D4D") # raisons de grisé, « plus rouge » que BAD (Antho, Z16) ; PROPOSÉ
 const ALERT: Color = Color("#E69F00") # Moral bas, manque proche ; validé sur Fold (jalon 19 bis)
 const SUPERIOR: Color = Color("#E69F00") # Qualité Supérieure ; PROPOSÉ, à valider (jalon 16 bis)
 const DETAIL_BG: Color = Color(1, 1, 1, 0.06) # fond de fiche ; validé sur Fold (jalon 19)

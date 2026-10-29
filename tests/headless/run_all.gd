@@ -35,6 +35,7 @@ const AssignS = preload("res://scripts/village/assignment.gd")
 const UiStyle = preload("res://scripts/ui/ui_style.gd")
 const DebugS = preload("res://scripts/debug/debug_tools.gd")
 const AtreS = preload("res://scripts/village/atre.gd")
+const ShopUpS = preload("res://scripts/village/shop_upgrade.gd")
 const LISIERE_SPAWNS_10: Array = [[0, 16], [0, 20], [0, 24]] # banc d'essai du jalon 10, retiré du village au jalon 11
 const FONT_PATH: String = "res://assets/fonts/silkscreen/Silkscreen-Regular.ttf"
 const OFL_PATH: String = "res://assets/fonts/silkscreen/OFL.txt"
@@ -2120,20 +2121,20 @@ func _mode_debug() -> void:
 	uu.build_debug(true) # déjà créée en build debug : rien de plus
 	var titles: Array = opts.get_children().filter(func(c: Node) -> bool: return c is Label and c.get_theme_color("font_color") == UiStyle.TITLE).map(
 		func(l: Label) -> String: return l.text)
-	_check("debug section: build_debug(false) ne crée rien ; en build debug, Debug sous Crédits avec 5 groupes", opts.find_children("*", "", true, false).size() == n
-		and opts.get_child(0).name == "CreditsButton" and titles == ["Debug", "Temps", "Ressources", "Progression", "Combat", "Sauvegarde"], str(titles))
+	_check("debug section: build_debug(false) ne crée rien ; en build debug, Debug sous Crédits avec 6 groupes", opts.find_children("*", "", true, false).size() == n
+		and opts.get_child(0).name == "CreditsButton" and titles == ["Debug", "Temps", "Ressources", "Progression", "Remise à zéro", "Combat", "Sauvegarde"], str(titles))
 	var btns: Array = opts.get_children().filter(func(c: Node) -> bool: return c is Button and c.name != "CreditsButton")
 	uu.set_debug_state(false, false, false)
 	var off: Array = btns.map(func(b: Button) -> bool: return b.disabled)
-	var reasons: Array = opts.get_children().filter(func(c: Node) -> bool: return c is Label and c.visible and c.get_theme_color("font_color") == UiStyle.MUTED).map(
+	var reasons: Array = opts.get_children().filter(func(c: Node) -> bool: return c is Label and c.visible and c.get_theme_color("font_color") == UiStyle.REASON).map(
 		func(l: Label) -> String: return l.text)
 	uu.set_debug_state(true, false, true)
 	var full: Array = btns.map(func(b: Button) -> bool: return b.disabled)
 	print("      debug %s ; Brume %s %s ; village Sacoche pleine %s" % [str(btns.map(func(b: Button) -> String: return b.text)), str(off), str(reasons), str(full)])
 	_check("debug grisé: en Brume, Temps / Ressources / Progression grisés « Au village seulement » ; Saturation grisée hors Brume ; +1 Éclat grisés Sacoche pleine",
-		btns.size() == 15 and off == [true, true, true, true, true, true, true, true, true, true, true, true, false, true, false]
-		and reasons == ["Au village seulement", "Au village seulement", "Au village seulement", "En Brume seulement"]
-		and full == [false, false, false, false, true, true, false, false, false, false, false, false, false, true, false], str(off) + str(full))
+		btns.size() == 20 and off == [true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, false, true, false]
+		and reasons == ["Au village seulement", "Au village seulement", "Au village seulement", "Au village seulement", "En Brume seulement"]
+		and full == [false, false, false, false, true, true, false, false, false, false, false, false, false, false, false, false, false, false, true, false], str(off) + str(full))
 	uu.free()
 
 func _row_texts(rows: Array) -> Array:
@@ -2417,9 +2418,9 @@ func _jalon_21() -> void:
 	# UI instanciée : carte Grand Âtre
 	var uu: CanvasLayer = _ui_ready("res://scenes/ui/ui_unfolded.tscn")
 	var page: Node = uu.get_node(UiS.PAGES + "Village")
-	var titles: Array = page.find_children("*", "Label", true, false).filter(func(l: Label) -> bool: return l.text == "Agrandir")
 	var btn: Button = page.find_child("Agrandir", true, false)
 	var card: Node = btn.get_parent()
+	var titles: Array = card.find_children("*", "Label", false, false).filter(func(l: Label) -> bool: return l.text == "Agrandir")
 	var tag: Label = card.get_parent().get_parent().find_child("Tag", true, false) # fiche -> Detail -> carte
 	var vn: Dictionary = NewGameS.village(1, D0, 0)
 	uu.show_village(vn, 10, true, "")
@@ -2466,6 +2467,202 @@ func _jalon_21() -> void:
 		rects == [Rect2(56, -56, 48, 48), Rect2(72, 88, 32, 32), Rect2(-104, -56, 48, 48), Rect2(-24, -120, 48, 48), Rect2(-24, 168, 48, 16)]
 		and h1 == [true, "Forge 1/2, libre", Vector2(2, 2)] and not cible.visible, str(rects) + str(h1))
 	vil.free()
+
+# Jalon 22 : agrandissement des boutiques par chantier. Références : sortie de prep_jalon_22.py.
+func _jalon_22() -> void:
+	var names: Dictionary = VText.load_names()
+	var costs: Array = [ShopUpS.cost(1), ShopUpS.cost(2), ShopUpS.cost(5), ShopUpS.cost(9)]
+	var total: int = 0
+	for l: int in range(1, ShopUpS.MAX_LEVEL):
+		total += ShopUpS.cost(l)["gold"]
+	print("      coûts Nv1, Nv2, Nv5, Nv9 : %s ; total 1 -> 10 : %d Or" % [str(costs), total])
+	_check("boutiques: cost(1) 250/15/60, cost(2) 1 000/30/240, cost(5) plafonné à 1 440 min, cost(9) 20 250/135/1 440, total 71 250 Or",
+		costs == [{"gold": 250, "mat": 15, "minutes": 60}, {"gold": 1000, "mat": 30, "minutes": 240}, {"gold": 6250, "mat": 75, "minutes": 1440},
+		{"gold": 20250, "mat": 135, "minutes": 1440}] and total == 71250, str(costs))
+	var t0: int = 1793268300 # 2026-10-29 10:05 UTC (11 h 05 à Paris)
+	var t1: int = 1793311800 # 2026-10-29 22:10 UTC (23 h 10 à Paris)
+	var vf: Callable = func(gold: int, mat: int, lvls: Array = [1, 1, 1], griffes: Array = [-1, -1, -1]) -> Dictionary:
+		var v: Dictionary = {"player_gold": gold, "tz_offset_sec": 3600, "atre_lvl": 1, "shops": {}}
+		var keys: Array = ["MAT", "TAVERN", "FORGE"]
+		for i in 3:
+			v["shops"][keys[i]] = {"stock": mat if keys[i] == "MAT" else 0, "lvl": lvls[i], "posture": "EQUILIBRE", "griffe_trait": griffes[i]}
+		return v
+	var va: Dictionary = vf.call(250, 15)
+	va["atre_chantier_end"] = t0 + 600
+	var cases: Array = [[vf.call(0, 0), "FORGE", false, "Chantier au village seulement"], [vf.call(0, 0), "FORGE", true, "Il manque 250 Or"],
+		[vf.call(200, 0), "FORGE", true, "Il manque 50 Or"], [vf.call(250, 10), "FORGE", true, "Il manque 5 Matériaux en stock"],
+		[vf.call(250, 15), "FORGE", true, ""], [vf.call(250, 15), "MAT", true, ""], [vf.call(999, 60, [1, 1, 2]), "FORGE", true, "Il manque 1 Or"],
+		[vf.call(0, 0, [1, 1, 3]), "FORGE", true, "Il manque 2\u00a0250 Or"], [vf.call(99999, 60, [1, 1, 10]), "FORGE", true, "Niveau maximal"],
+		[va, "FORGE", true, ""]]
+	var got: Array = cases.map(func(c: Array) -> String: return ShopUpS.block_reason(c[0], c[1], c[2], t0, names))
+	for g: String in got:
+		print("      raison « %s »" % g)
+	_check("boutiques: 10 raisons du jumeau (lieu, Or, séparateur, Matériaux, Matériaux se paie elle-même, niveau maximal, Âtre en chantier ne bloque pas)",
+		got == cases.map(func(c: Array) -> String: return c[3]), str(got))
+	var v: Dictionary = vf.call(300, 20)
+	var log: Dictionary = ShopUpS.start(v, "FORGE", t0)
+	print("      après start : Or %d, Matériaux %d ; %s" % [v["player_gold"], v["shops"]["MAT"]["stock"], str(log)])
+	var during: Array = [ShopUpS.block_reason(v, "FORGE", true, t0, names), ShopUpS.block_reason(v, "TAVERN", true, t0, names)]
+	_check("boutiques: start Forge : Or 300 -> 50, Matériaux 20 -> 5, fin = T0 + 3 600 ; « Chantier en cours, fini à 12 h 05 » ; Taverne « Il manque 200 Or »",
+		[v["player_gold"], v["shops"]["MAT"]["stock"], v["shops"]["FORGE"]["chantier_end"]] == [50, 5, t0 + 3600]
+		and log == {"event": "chantier_boutique", "boutique": "FORGE", "niveau": 2, "fin": t0 + 3600}
+		and during == ["Chantier en cours, fini à 12 h 05", "Il manque 200 Or"], str(log) + str(during))
+	var fin: Array = [ShopUpS.finish_if_due(v, "FORGE", t0 + 3599), v["shops"]["FORGE"]["lvl"], ShopUpS.finish_if_due(v, "FORGE", t0 - 86400)]
+	fin.append_array([ShopUpS.finish_if_due(v, "FORGE", t0 + 3600), v["shops"]["FORGE"]["lvl"], v["shops"]["FORGE"].has("chantier_end"),
+		ShopUpS.finish_if_due(v, "FORGE", t0 + 7200), v["shops"]["FORGE"]["lvl"]])
+	var sinks: Array = [Eco.stock_max(false, v["shops"]["FORGE"]["lvl"]), Eco.daily_fixed_sink([1, 1, 2] as Array[int]), Eco.daily_fixed_sink([1, 1, 1] as Array[int])]
+	_check("boutiques: finish_if_due : 1 s avant rien, horloge reculée rien, à la fin pile Nv2 et clé effacée, 2e appel sans effet ; stock max 50, frais 32 (24 avant)",
+		fin == [false, 1, false, true, 2, false, false, 2] and sinks == [50, 32, 24], str(fin) + str(sinks))
+	var v2: Dictionary = vf.call(1000, 60, [1, 1, 2])
+	ShopUpS.start(v2, "FORGE", t1)
+	var vm: Dictionary = vf.call(250, 15)
+	ShopUpS.start(vm, "MAT", t0)
+	var mats: Array = [vm["shops"]["MAT"]["stock"], ShopUpS.finish_if_due(vm, "MAT", t0 + 3600), Eco.stock_max(true, vm["shops"]["MAT"]["lvl"])]
+	_check("boutiques: Nv2 -> 3 lancé à 23 h 10 « fini demain à 3 h 10 » ; Matériaux paie son chantier (15 -> 0), stock max 100 à la fin",
+		ShopUpS.block_reason(v2, "FORGE", true, t1, names) == "Chantier en cours, fini demain à 3 h 10" and mats == [0, true, 100], str(mats))
+	var one: Callable = func(end: Variant, lvl: int = 1) -> bool:
+		var x: Dictionary = vf.call(0, 0, [1, 1, lvl])
+		x["shops"]["FORGE"]["chantier_end"] = end
+		ShopUpS.sanitize(x)
+		return x["shops"]["FORGE"].has("chantier_end") and x["shops"]["FORGE"]["lvl"] == lvl
+	var san: Array = [one.call(t0), one.call("12"), one.call(0), one.call(-5), one.call(1.5), one.call(t0, 10), one.call(t0, 9)]
+	_check("boutiques: sanitize, 7 cas (gardé, texte, 0, négatif, float, Nv10, Nv9)", san == [true, false, false, false, false, false, true], str(san))
+	# Sauvegarde : Forge Nv2, puis chantier en cours
+	var st: Dictionary = SaveS.new_state(7, D0, 0)
+	st["village"]["shops"]["FORGE"]["lvl"] = 2
+	var st2: Dictionary = SaveS.new_state(7, D0, 0)
+	st2["village"]["shops"]["FORGE"]["chantier_end"] = D0 + 3600
+	for x: Dictionary in [st, st2]:
+		x["seq"] = 1 # posé par save() en jeu
+	_check("save: Forge Nv2 et chantier en cours relus à l'identique", SaveS.unpack(SaveS.pack(st)) == st and SaveS.unpack(SaveS.pack(st2)) == st2)
+	# Textes
+	var sh: Dictionary = {"stock": 0, "lvl": 1, "griffe_trait": -1}
+	var shc: Dictionary = {"stock": 0, "lvl": 1, "griffe_trait": BD.TraitId.COSTAUD}
+	var tx: Array = [VText.shop_upgrade_effect("MAT", sh), VText.shop_upgrade_effect("FORGE", sh), VText.shop_upgrade_effect("MAT", shc),
+		VText.shop_upgrade_button(1, names), VText.shop_upgrade_button(2, names)[1], VText.shop_upgrade_button(3, names)[1],
+		VText.shop_upgrade_button(9, names)[1], VText.shop_toast("FORGE", 2, names), VText.upgrade_button(1, names)]
+	for t: Variant in tx:
+		print("      " + str(t))
+	_check("textes: shop_upgrade_effect (MAT, FORGE, MAT Costaud), shop_upgrade_button(1, 2, 3, 9), shop_toast ; upgrade_button de l'Âtre inchangé", tx == [
+		"Niveau 2 : stock max 100, frais 16 Or/jour", "Niveau 2 : stock max 50, frais 16 Or/jour", "Niveau 2 : stock max 115, frais 16 Or/jour",
+		PackedStringArray(["Agrandir la boutique", "250 Or, 15 Matériaux, 1 h"]), "1\u00a0000 Or, 30 Matériaux, 4 h", "2\u00a0250 Or, 45 Matériaux, 9 h",
+		"20\u00a0250 Or, 135 Matériaux, 24 h", "Forge niveau 2 !", PackedStringArray(["Agrandir le Grand Âtre", "600 Or, 40 minerais, 40 Matériaux, 4 h"])], str(tx))
+	# Villages de départ : stock max Nv1 -> Nv2, Griffe comprise
+	var seeds: Dictionary = {}
+	for sd: int in [1, 2, 3, 42]:
+		var vs: Dictionary = NewGameS.village(sd, D0, 0)
+		seeds[sd] = ["MAT", "TAVERN", "FORGE"].map(func(k: String) -> Array:
+			var g: int = vs["shops"][k]["griffe_trait"]
+			return [g, Eco.stock_max(k == "MAT", 1, g), Eco.stock_max(k == "MAT", 2, g)])
+		print("      graine %d : %s" % [sd, str(seeds[sd])])
+	var T: Dictionary = BD.TraitId
+	_check("graines 1, 2, 3, 42 : Griffes et stock max Nv1 -> Nv2 = jumeau", seeds == {
+		1: [[T.PERFECTIONNISTE, 60, 100], [T.BOSSEUR, 30, 50], [T.PERFECTIONNISTE, 30, 50]],
+		2: [[T.TETE_EN_L_AIR, 60, 100], [T.COSTAUD, 34, 57], [T.BOSSEUR, 30, 50]],
+		3: [[T.PERFECTIONNISTE, 60, 100], [T.COSTAUD, 34, 57], [T.NOCTAMBULE, 30, 50]],
+		42: [[T.COSTAUD, 69, 115], [T.PERFECTIONNISTE, 30, 50], [T.BOUT_EN_TRAIN, 30, 50]]}, str(seeds))
+	var prices: Array = [1, 2].map(func(l: int) -> int:
+		return Eco.sell_price(BB.ITEM_BASE_GOLD[Dag.SHOP_ITEM["FORGE"]], 0, 30, Eco.stock_target(Eco.stock_max(false, l), "EQUILIBRE")))
+	_check("prix Forge, stock 30, Équilibré, isolat 0 : 10 Or au Nv1, 12 Or au Nv2", prices == [10, 12], str(prices))
+	# UI instanciée : sections Agrandir des boutiques
+	var uu: CanvasLayer = _ui_ready("res://scenes/ui/ui_unfolded.tscn")
+	var page: Node = uu.get_node(UiS.PAGES + "Village")
+	var btns: Array = page.find_children("Agrandir", "Button", true, false)
+	var by: Dictionary = {}
+	for k in 3:
+		var b: Button = btns[k + 1]
+		var box: Node = b.get_parent()
+		by[Dag.SHOP_ITEM.keys()[k]] = {"button": b, "reason": box.get_child(b.get_index() + 1), "title": box.get_child(b.get_index() - 2),
+			"tag": box.get_parent().get_parent().find_child("Tag", true, false)}
+	var vn: Dictionary = NewGameS.village(1, D0, 0)
+	uu.show_village(vn, 10, true, "")
+	var n: int = page.find_children("*", "", true, false).size()
+	var reasons: Callable = func() -> Dictionary:
+		var r: Dictionary = {}
+		for k: String in vn["shops"]:
+			r[k] = ShopUpS.block_reason(vn, k, true, D0, names)
+		return r
+	uu.set_shop_reasons(reasons.call())
+	var f: Dictionary = by["FORGE"]
+	var u0: Array = [btns.size(), f["title"].text, f["button"].disabled, f["reason"].visible, f["reason"].text, f["button"].text, f["reason"].get_theme_color("font_color") == UiStyle.REASON]
+	vn["player_gold"] = 300
+	vn["shops"]["MAT"]["stock"] = 60
+	uu.set_shop_reasons(reasons.call())
+	var u1: Array = [f["button"].disabled, f["reason"].visible]
+	ShopUpS.start(vn, "FORGE", D0)
+	uu.show_village(vn, 10, true, "")
+	var u2: Array = ["MAT", "TAVERN", "FORGE"].map(func(k: String) -> String: return by[k]["tag"].text)
+	vn["shops"]["TAVERN"]["lvl"] = 10
+	uu.show_village(vn, 10, true, "")
+	var u3: Array = [by["TAVERN"]["button"].visible, by["TAVERN"]["title"].visible, by["FORGE"]["button"].visible, page.find_children("*", "", true, false).size() == n]
+	print("      cartes boutiques %s %s %s %s" % [str(u0), str(u1), str(u2), str(u3)])
+	_check("cartes boutiques: une section Agrandir par boutique ; grisé « Il manque 250 Or » en REASON puis actif ; « Chantier » sur la seule Forge ; cachée au Nv10 ; aucun nœud créé",
+		u0 == [4, "Agrandir", true, true, "Il manque 250 Or", "Agrandir la boutique\n250 Or, 15 Matériaux, 1 h", true] and u1 == [false, false]
+		and u2 == ["", "", "Chantier"] and u3 == [false, false, true, true] and by["FORGE"]["tag"].get_theme_color("font_color") == UiStyle.NEXT, str(u0) + str(u3))
+	uu.free()
+	# Debug : « Finir le chantier » finit l'Âtre et la Forge
+	var sd2: Dictionary = {"village": vf.call(0, 0)}
+	sd2["village"]["atre_chantier_end"] = t0 + 14400
+	sd2["village"]["shops"]["FORGE"]["chantier_end"] = t0 + 3600
+	var d: Dictionary = DebugS.finish_chantier(sd2, t0)
+	# Debug : remises à zéro, une par section
+	var sz: Dictionary = SaveS.new_state(7, D0, 0)
+	var fresh: Dictionary = SaveS.new_state(7, D0, 0)
+	var pz: Dictionary = sz["player"]
+	pz["voc_xp"]["COMBATTANT"] = 5000
+	pz["cendre"] = 80
+	pz["chest"][ForgeS.ORE] = 40
+	pz["shard_bag"].append({"elite": false, "ilvl": 3})
+	pz["equipment"][0] = null
+	var vz: Dictionary = sz["village"]
+	vz["player_gold"] = 900
+	vz["atre_lvl"] = 2
+	vz["atre_chantier_end"] = D0 + 60
+	vz["shops"]["FORGE"]["lvl"] = 3
+	vz["shops"]["TAVERN"]["chantier_end"] = D0 + 60
+	vz["shops"]["MAT"]["stock"] = 55
+	vz["npcs"][1]["moral"] = 10
+	vz["npcs"][4]["post"] = "FORGE" # Nv2 : Forge 2/2 ; Âtre redescendu : Forge 2/1
+	var npc0: Dictionary = vz["npcs"][0]
+	DebugS.reset_player(sz)
+	var z1: bool = is_same(sz["player"], pz) and pz == fresh["player"] and vz["player_gold"] == 900
+	DebugS.reset_resources(sz)
+	var z2: bool = vz["player_gold"] == 0 and vz["shops"]["MAT"]["stock"] == 0 and vz["shops"]["FORGE"]["lvl"] == 3
+	DebugS.reset_buildings(sz)
+	var z3: bool = not vz.has("atre_lvl") and not vz.has("atre_chantier_end") and vz["shops"].values().all(func(s: Dictionary) -> bool: return s["lvl"] == 1 and not s.has("chantier_end"))
+	var fit: Dictionary = DebugS.fit_posts(sz)
+	var occ: Dictionary = AssignS.occupancy(vz)
+	var z4: bool = fit["avant"] == [[4, "FORGE", "EXTRACTION"]] and occ["FORGE"] == 1 and not vz["npcs"][4].has("locked") and DebugS.fit_posts(sz).is_empty()
+	DebugS.reset_npcs(sz)
+	var z5: bool = vz["npcs"] == fresh["village"]["npcs"] and is_same(vz["npcs"][0], npc0)
+	_check("debug: Joueur, Ressources, Bâtiments, PNJ à zéro et Postes au plafond (Forge 2/1 -> PNJ 4 en Extraction, verrou rendu), chacun sa section",
+		[z1, z2, z3, z4, z5] == [true, true, true, true, true], str([z1, z2, z3, z4, z5]) + str(fit) + str(occ))
+	# Bâtiments à zéro : l'Âtre redescend, un arbre revient sous les pieds du joueur -> retour devant l'Âtre
+	var vil: Node2D = load("res://scenes/village/village.tscn").instantiate()
+	root.add_child(vil)
+	vil.propagate_notification(Node.NOTIFICATION_READY)
+	VL.atre_level = 2
+	vil.setup(1, {}, D0, func() -> Dictionary: return ProgressionS.new_player())
+	var pv: Node2D = vil.player()
+	var spawn: Vector2 = VL.cell_center(VL.PLAYER_SPAWN_CELL)
+	pv.position = VL.cell_center(Vector2i(-8, -16)) # arbre du Nv1 retiré au Nv2 (graine 1, jalon 21)
+	var free_at: bool = not PlayerMotionS.overlaps(pv.position, pv._solid)
+	VL.atre_level = 1
+	vil.set_atre_level()
+	var back: Array = [pv._solid.has(Vector2i(-8, -16)), pv.position == spawn, PlayerMotionS.overlaps(pv.position, pv._solid)]
+	var far: Vector2 = VL.cell_center(Vector2i(3, 5))
+	pv.position = far
+	VL.atre_level = 2
+	vil.set_atre_level()
+	VL.atre_level = 1
+	vil.set_atre_level()
+	var stay: bool = pv.position == far
+	vil.free()
+	_check("Âtre redescendu : l'arbre (-8, -16) revient plein, le joueur dessus est ramené devant l'Âtre ; ailleurs il ne bouge pas",
+		free_at and back == [true, true, false] and stay, str(back) + str(stay))
+	_check("debug: Finir le chantier fixe les fins de l'Âtre et de la Forge à now ; rien sans chantier",
+		[sd2["village"]["atre_chantier_end"], sd2["village"]["shops"]["FORGE"]["chantier_end"]] == [t0, t0]
+		and d == {"action": "fin_chantier", "avant": ["ATRE", "FORGE"], "apres": t0} and DebugS.finish_chantier({"village": vf.call(0, 0)}, t0).is_empty(), str(d))
 
 # Jalon 17 bis : feu de camp animé (4 images de 125 ms). Références : prompt d'Antho (prep_jalon_17bis.py).
 func _jalon_17b() -> void:
@@ -3038,6 +3235,7 @@ func _jalon_11(vd: Dictionary, solid1: Dictionary) -> void:
 	_jalon_20t()
 	_jalon_20q()
 	_jalon_21()
+	_jalon_22()
 	# Scènes et données
 	var vil: Node = load("res://scenes/village/village.tscn").instantiate()
 	var sg: Node2D = vil.get_node_or_null("Entites/Segment")

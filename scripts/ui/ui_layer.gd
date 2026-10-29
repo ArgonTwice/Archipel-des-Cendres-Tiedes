@@ -15,6 +15,7 @@ const AssignS = preload("res://scripts/village/assignment.gd")
 const UiStyle = preload("res://scripts/ui/ui_style.gd") # couleurs par rôle et icônes (Charte §1 et §3)
 const BB = preload("res://balance/balance_b.gd")
 const DebugS = preload("res://scripts/debug/debug_tools.gd")
+const ShopUpS = preload("res://scripts/village/shop_upgrade.gd")
 
 signal purify_requested
 signal purify_chosen(equip: bool)
@@ -24,6 +25,7 @@ signal posture_chosen(key: String, posture: String)
 signal post_chosen(index: int, post: String)
 signal npc_freed(index: int)
 signal atre_requested # Agrandir le Grand Âtre (jalon 21)
+signal shop_upgrade_requested(key: String) # Agrandir une boutique (jalon 22)
 signal debug_requested(action: String) # mode debug (build debug seulement)
 signal debug_invincible(on: bool)
 
@@ -93,7 +95,7 @@ var _npc_sprites: Array = [] # village.json : le sprite fixe le genre du nom (VT
 #  "cad_title", "row" et "buttons" (cadence), "help", "moral" (étiquette de la tête)}
 var _npc_cards: Array[Dictionary] = []
 var _world_seed: int = 0
-var _shop_blocks: Dictionary = {} # clé de boutique -> {"head", "lines", "buttons", "help"}
+var _shop_blocks: Dictionary = {} # clé de boutique -> {"head", "lines", "buttons", "help", "tag", "upgrade", "effect", "button", "reason"}
 var _atre: Dictionary = {} # {"head", "tag", "detail", "slots", "upgrade" (titre, effet, bouton, raison), "button", "effect", "reason"}
 var _detail_style: StyleBoxFlat # fond de fiche, partagé par toutes les cartes
 # Perso et Sacoche (jalon 20) : créés une fois dans _ready ; show_perso / show_player ne changent que textes, couleurs, visibilité.
@@ -155,7 +157,7 @@ func _ready() -> void:
 			for t: Button in _tabs:
 				t.button_pressed = false)
 		_purify.pressed.connect(purify_requested.emit)
-		_purify_reason.add_theme_color_override("font_color", UiStyle.MUTED)
+		_purify_reason.add_theme_color_override("font_color", UiStyle.REASON)
 		$Margin/VBox/Monde/Apercu/Box/Choix/Equiper.pressed.connect(purify_chosen.emit.bind(true))
 		$Margin/VBox/Monde/Apercu/Box/Choix/Jeter.pressed.connect(purify_chosen.emit.bind(false))
 		var credits: Button = get_node(PAGES + "Options/CreditsButton")
@@ -190,8 +192,8 @@ func _build_village_pages() -> void:
 	_names = VText.with_identities(VText.load_names(), 0, _npc_sprites) # remplacé par set_world_seed
 	var pnj: Node = get_node(PAGES + "PNJ")
 	var village: Node = get_node(PAGES + "Village")
-	get_node(PAGES + "PNJ/Raison").add_theme_color_override("font_color", UiStyle.MUTED)
-	get_node(PAGES + "Village/Raison").add_theme_color_override("font_color", UiStyle.MUTED)
+	get_node(PAGES + "PNJ/Raison").add_theme_color_override("font_color", UiStyle.REASON)
+	get_node(PAGES + "Village/Raison").add_theme_color_override("font_color", UiStyle.REASON)
 	var tip: Label = Label.new()
 	tip.text = "Astuce : fais glisser un PNJ sur un bâtiment"
 	pnj.add_child(tip)
@@ -253,7 +255,7 @@ func _build_village_pages() -> void:
 	_atre["button"].pressed.connect(atre_requested.emit)
 	_atre["reason"] = Label.new()
 	_atre["reason"].autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_atre["reason"].add_theme_color_override("font_color", UiStyle.MUTED)
+	_atre["reason"].add_theme_color_override("font_color", UiStyle.REASON)
 	a[1].add_child(_atre["reason"])
 	_atre["upgrade"] = [up_title, _atre["effect"], _atre["button"], _atre["reason"]]
 	for key: String in Dag.SHOP_ITEM:
@@ -263,6 +265,22 @@ func _build_village_pages() -> void:
 		var title: Label = _section(block["row"].get_parent(), "Posture")
 		title.get_parent().move_child(title, 1)
 		block["head"] = s[0]
+		block["tag"] = s[2]
+		block["tag"].add_theme_color_override("font_color", UiStyle.NEXT)
+		# Agrandir (jalon 22) : même section que l'Âtre, après la Posture ; cachée au niveau maximal.
+		var up: Label = _section(s[1], "Agrandir")
+		block["effect"] = Label.new()
+		block["effect"].add_theme_color_override("font_color", UiStyle.MUTED)
+		s[1].add_child(block["effect"])
+		block["button"] = _action(s[1], UiStyle.icon(key))
+		block["button"].name = "Agrandir"
+		block["button"].disabled = true
+		block["button"].pressed.connect(func() -> void: shop_upgrade_requested.emit(key))
+		block["reason"] = Label.new()
+		block["reason"].autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		block["reason"].add_theme_color_override("font_color", UiStyle.REASON)
+		s[1].add_child(block["reason"])
+		block["upgrade"] = [up, block["effect"], block["button"], block["reason"]]
 		_shop_blocks[key] = block
 
 # Perso (jalon 20) : Vocations (3 lignes simples), Stats, Équipement (4 lignes dépliables, une ouverte à la fois).
@@ -324,7 +342,7 @@ func _build_sacoche() -> void:
 # Forge (jalon 20 bis) : minerai et Cendre en lignes simples, Mode en rangée de choix (aide dessous), puis les 4 boutons
 # d'action dans Boutons et la raison.
 func _build_forge() -> void:
-	_forge_reason.add_theme_color_override("font_color", UiStyle.MUTED)
+	_forge_reason.add_theme_color_override("font_color", UiStyle.REASON)
 	var boutons: Node = _forge.get_node("Boutons")
 	_forge_rows["minerai"] = _line(_forge, UiStyle.icon("minerai"))
 	_forge_rows["cendre"] = _line(_forge, UiStyle.icon("cendre"))
@@ -400,7 +418,7 @@ func _build_preview() -> void:
 	box.move_child(box.get_node("Choix"), -1)
 
 # Mode debug, sous Crédits : créé seulement si enabled (OS.is_debug_build() en jeu) ; en release, aucun nœud.
-# Temps, Ressources et Progression au village seulement ; Combat en mémoire, Saturation en Brume seulement.
+# Temps, Ressources, Progression et Remise à zéro au village seulement ; Combat en mémoire, Saturation en Brume seulement.
 func build_debug(enabled: bool) -> void:
 	if not enabled or not _debug.is_empty():
 		return
@@ -412,11 +430,13 @@ func build_debug(enabled: bool) -> void:
 		["Ressources", [["cendre", "Cendre au max"], ["eclat", "+1 Éclat"], ["eclat_elite", "+1 Éclat d'Élite"],
 			["minerai", "+%d minerais" % DebugS.DEBUG_ORE], ["or", "+%d Or" % DebugS.DEBUG_GOLD], ["materiaux", "Matériaux au max"]]],
 		["Progression", ProgressionS.VOCATIONS.map(func(v: String) -> Array: return [v, "+1 niveau " + ProgressionS.VOCATION_NAMES[v]])],
+		["Remise à zéro", [["zero_joueur", "Joueur à zéro"], ["zero_ressources", "Ressources à zéro"], ["zero_batiments", "Bâtiments à zéro"],
+			["zero_pnj", "PNJ à zéro"], ["postes", "Postes au plafond"]]],
 		["Combat", [["saturation", "Saturation pleine"]]], ["Sauvegarde", [["copie", "Copier la sauvegarde"]]]]
 	for g: Array in groups:
 		_section(page, g[0])
 		var reason: Label = Label.new()
-		reason.add_theme_color_override("font_color", UiStyle.MUTED)
+		reason.add_theme_color_override("font_color", UiStyle.REASON)
 		reason.visible = false
 		page.add_child(reason)
 		if g[0] == "Combat":
@@ -652,6 +672,13 @@ func show_village(village: Dictionary, hour: int, can_set: bool, reason: String)
 		block["lines"].text = "\n".join(VText.shop_lines(key, shop, village["isolat"], managers.get(key, 0), _names))
 		_set_choice(block["buttons"], _names["postures"].keys().find(pending if pending != "" else shop["posture"]), can_set)
 		block["help"].text = VText.posture_help(shop["posture"], pending, _names)
+		block["tag"].text = "Chantier" if shop.has("chantier_end") else ""
+		var bigger: bool = shop["lvl"] < ShopUpS.MAX_LEVEL
+		for c: Control in block["upgrade"]:
+			c.visible = bigger
+		if bigger:
+			block["effect"].text = VText.shop_upgrade_effect(key, shop)
+			block["button"].text = "\n".join(VText.shop_upgrade_button(shop["lvl"], _names))
 
 # Grisé : Godot dessine le style « disabled » même enfoncé ; le bouton choisi garde alors le fond « pressed » (AC4).
 func _set_choice(buttons: Array[Button], on: int, enabled: bool) -> void:
@@ -673,6 +700,21 @@ func set_atre_reason(reason: String) -> void:
 		_atre["button"].disabled = not on
 	_atre["reason"].text = reason
 	_atre["reason"].visible = not on and _atre["button"].visible
+
+# Boutons « Agrandir la boutique » : clé de boutique -> raison ("" = actif) ; relu à chaque image, ne touche que ce qui change.
+func set_shop_reasons(reasons: Dictionary) -> void:
+	for key: String in reasons:
+		var block: Dictionary = _shop_blocks.get(key, {})
+		if block.is_empty():
+			continue
+		var on: bool = reasons[key] == ""
+		if block["button"].disabled == on:
+			block["button"].disabled = not on
+		if block["reason"].text != reasons[key]:
+			block["reason"].text = reasons[key]
+		var shown: bool = not on and block["button"].visible
+		if block["reason"].visible != shown:
+			block["reason"].visible = shown
 
 # Hauteur fixe de la fenêtre, ancrée en bas de Monde (juste au-dessus des onglets) : offsets seulement.
 func fit_window(zone_height: float) -> void:
