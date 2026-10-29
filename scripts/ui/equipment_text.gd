@@ -6,6 +6,7 @@ const BB = preload("res://balance/balance_b.gd")
 const BC = preload("res://balance/balance_c.gd")
 const BF = preload("res://balance/balance_f.gd")
 const EquipmentS = preload("res://scripts/loot/equipment.gd")
+const ProgressionS = preload("res://scripts/progression.gd")
 
 const SLOT_NAMES: Array[String] = ["Arme", "Casque", "Plastron", "Bottes"]
 const SLOT_GENDER: Array[String] = ["", "M", "M", "FP"] # l'arme lit son genre dans WEAPON_SPECS
@@ -13,6 +14,9 @@ const SLOT_NOUN_GENDER: Array[String] = ["F", "M", "M", "FP"] # genre du nom d'e
 const RARITY_FORMS: Array[Dictionary] = [
 	{"M": "Commun", "F": "Commune", "FP": "Communes"}, {"M": "Bon", "F": "Bonne", "FP": "Bonnes"}, {"M": "Rare", "F": "Rare", "FP": "Rares"}]
 const SCHOOL_NAMES: Dictionary = {BC.SchoolId.FOYER: "Enclume", BC.SchoolId.BRASIER: "Brasier"}
+const PRONOUNS: Dictionary = {"M": "le", "F": "la", "FP": "les"}
+const SUPERIOR_FORMS: Dictionary = {"M": "Supérieur", "F": "Supérieure", "FP": "Supérieures"}
+const NBSP: String = " " # séparateur de milliers (Charte §4) ; U+202F est absent de Silkscreen
 const PCT_LABELS: Dictionary = {"PCT_ATK": "ATK d'arme", "PCT_ASPD": "cadence", "PCT_CRIT_CHANCE": "critique", "PCT_CRIT_DMG": "dégâts critiques"}
 
 static func dec1(x: float) -> String:
@@ -139,15 +143,83 @@ static func kg(x: float) -> String:
 	var r: float = snappedf(x, 0.1)
 	return str(roundi(r)) if is_equal_approx(r, roundf(r)) else dec1(r)
 
-# Onglet Sacoche (jalon 17) : Lanterne, Éclats (dont d'Élite), coffre.
-static func sacoche_lines(player: Dictionary, ore: int) -> PackedStringArray:
+# « 1 000 », « 715 400 » : espace insécable tous les 3 chiffres.
+static func num(n: int) -> String:
+	var s: String = str(absi(n))
+	var out: String = ""
+	while s.length() > 3:
+		out = NBSP + s.right(3) + out
+		s = s.left(s.length() - 3)
+	return ("-" if n < 0 else "") + s + out
+
+# Onglet Perso (jalon 20) : « Combattant, niveau 6 », « 1 000 / 1 150 XP ».
+static func voc_head(voc: String, voc_xp: Dictionary) -> PackedStringArray:
+	var xp: int = voc_xp[voc]
+	var p: Vector2i = ProgressionS.level_progress(xp)
+	return PackedStringArray(["%s, niveau %d" % [ProgressionS.VOCATION_NAMES[voc], ProgressionS.level_of(xp)], "%s / %s XP" % [num(p.x), num(p.y)]])
+
+# « Rattrapage ×2 » si la vocation rattrape la plus haute (BalanceA.get_action_xp_catchup_mult), "" sinon.
+static func voc_tag(voc: String, voc_xp: Dictionary) -> String:
+	var top: int = 1
+	for v: String in voc_xp:
+		top = maxi(top, ProgressionS.level_of(voc_xp[v]))
+	if BA.get_action_xp_catchup_mult(ProgressionS.level_of(voc_xp[voc]), top) > 1.0:
+		return "Rattrapage ×%d" % roundi(BA.CATCHUP_ACTION_XP_MULT)
+	return ""
+
+# « Arme : Épée & Écu », « Commune, ilvl 1 » ; « Plastron », « Vide ».
+static func piece_head(slot: int, piece: Variant) -> PackedStringArray:
+	if piece == null:
+		return PackedStringArray([SLOT_NAMES[slot], "Vide"])
+	var name: String = "Arme : Épée & Écu" if slot == 0 else SLOT_NAMES[slot]
+	return PackedStringArray([name, "%s, ilvl %d" % [RARITY_FORMS[piece["rarity"]][gender(slot)], piece["ilvl"]]])
+
+# « Supérieure » accordé au genre de la pièce, "" sans Qualité Supérieure.
+static func piece_tag(slot: int, piece: Variant) -> String:
+	return SUPERIOR_FORMS[gender(slot)] if piece != null and piece.get("superior", false) else ""
+
+# Fiche d'une pièce : piece_lines sans la tête ni le retrait (Écoles et ATK d'arme d'abord pour l'arme, puis les affixes).
+static func piece_detail(slot: int, piece: Dictionary) -> PackedStringArray:
+	var out: PackedStringArray = []
+	for line: String in piece_lines(slot, piece).slice(1):
+		out.append(line.trim_prefix("    "))
+	return out
+
+# « Forge-la à la Forge, ou purifie un Éclat » : pronom par le genre du nom d'emplacement.
+static func empty_detail(slot: int) -> String:
+	return "Forge-%s à la Forge, ou purifie un Éclat" % PRONOUNS[SLOT_NOUN_GENDER[slot]]
+
+# Onglet Sacoche (jalon 20) : Lanterne niveau 1 en tranche (index 0 des tables de la Lanterne).
+static func cendre_row(cendre: int) -> PackedStringArray:
+	return PackedStringArray(["Cendre %d/%d" % [cendre, BA.LANTERN_CENDRE_CAP[0]], "Lanterne niveau 1"])
+
+static func shards_row(bag: Array) -> PackedStringArray:
 	var elite: int = 0
-	for s: Dictionary in player["shard_bag"]:
+	for s: Dictionary in bag:
 		elite += int(s["elite"])
-	var shards: String = "Éclats : %d/%d" % [player["shard_bag"].size(), BA.LANTERN_SHARD_BAG_CAP[0]]
+	var head: String = "Éclats %d/%d" % [bag.size(), BA.LANTERN_SHARD_BAG_CAP[0]]
 	if elite > 0:
-		shards += ", dont %d d'Élite" % elite
-	return PackedStringArray(["Lanterne : Cendre %d/%d" % [player["cendre"], BA.LANTERN_CENDRE_CAP[0]], shards, "Coffre : " + plural(ore, "minerai")])
+		head += ", dont %d d'Élite" % elite
+	return PackedStringArray([head, "Purification au village ou au Brasero"])
+
+# Une ligne par groupe (Élite, ilvl), dans l'ordre de Purification.next_index : Élite d'abord, puis l'ilvl le plus haut.
+static func shards_detail(bag: Array) -> PackedStringArray:
+	var groups: Dictionary = {}
+	for s: Dictionary in bag:
+		var k: Vector2i = Vector2i(int(s["elite"]), s["ilvl"])
+		groups[k] = groups.get(k, 0) + 1
+	var keys: Array = groups.keys()
+	keys.sort_custom(func(a: Vector2i, b: Vector2i) -> bool: return a.x > b.x or (a.x == b.x and a.y > b.y))
+	var out: PackedStringArray = []
+	for k: Vector2i in keys:
+		out.append("%s%s, ilvl %d" % [plural(groups[k], "Éclat"), " d'Élite" if k.x == 1 else "", k.y])
+	if out.is_empty():
+		return PackedStringArray(["Sacoche vide"])
+	out[0] += " (en premier)"
+	return out
+
+static func ore_row(ore: int) -> PackedStringArray:
+	return PackedStringArray(["Coffre : " + plural(ore, "minerai"), "%d minerais par pièce à la Forge" % BB.CRAFT_MINERAL_COST_EQUIPMENT])
 
 # Première raison qui grise « Purifier un Éclat », "" si la purification est possible. at_brazier : Brasero sous le
 # joueur pendant une expédition ; brazier_used : purifications déjà faites au Brasero dans cette expédition.

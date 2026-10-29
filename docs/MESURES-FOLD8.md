@@ -628,3 +628,31 @@ Export debug le 28/10 : 0 ERROR ; versionCode 22, versionName 0.19.1 ; SHA-256 b
 | (2) onglet Village fermé plus clair qu'avant | OUI | Antho |
 | (3) ouvrir une ligne et changer une posture est naturel (« demain » sur la ligne) | OUI | Antho |
 | (4) défilement au doigt sur Village sans ouverture par erreur | OUI | Antho |
+
+## Jalon 20 (APK 0.20.0)
+
+Charte d'interface (docs/Charte-UI.md) : scripts/ui/ui_style.gd réunit les couleurs par rôle (TEXT, MUTED, TITLE, NEXT, GOOD, BAD, ALERT, SUPERIOR, DETAIL_BG, DETAIL_MARGIN_PX ; MORAL_COLORS et VERDICT_COLORS bâties dessus, mêmes valeurs qu'avant), school_color (lue dans BalanceC) et ICONS (bandeau, onglets, Âtre, boutiques, vocations, emplacements). ui_layer.gd et village_text.gd n'ont plus aucune couleur en dur. _card rend une étiquette d'état (le Moral PNJ passe par elle) ; _line = ligne simple (fond du bouton, icône 16 px centrée, 2 lignes, étiquette dans la rangée, en haut). Perso : Vocations (3 _line, « Rattrapage ×2 » en GOOD), Stats, Équipement (4 _card, Supérieur·e·s en SUPERIOR, fiche = piece_detail, 1re ligne de l'arme en couleur d'École si 3/3, emplacement vide = empty_detail). Sacoche : Cendre, Éclats (fiche par ilvl dans l'ordre de next_index), coffre, puis Purifier. sacoche_lines supprimée. 5 icônes DB32 CC0 (assets/icons/items/), sha256 vérifiés, import par défaut identique à item_gem_quartz (filtre Nearest du projet).
+
+Largeurs mesurées dans Godot : têtes + étiquette 197 px au plus, fiches 212 px au plus (identiques au jumeau).
+
+Export debug le 28/10 : 0 ERROR ; versionCode 23, versionName 0.20.0 ; SHA-256 a0b206182fb4c2ffde164d650eeb4c2023dab618b891b2cb5cce339b6fd27429. Installé par `adb install -r`, sauvegarde du Fold conservée, copie dans build/backup-fold-jalon20/ ; 0 ERROR au lancement.
+
+### AF1 à AF5 (PC 924 × 1224, zone 308 × 408, --hour=10 ; script de capture hors dépôt, XP, pièces, Éclats et Moral posés en mémoire ; sauvegarde PC restaurée ensuite)
+
+| Test | Résultat | Preuve |
+|---|---|---|
+| AF1 Perso fermé, rattrapage visible | OK | 2 « Rattrapage ×2 » en vert sur la ligne du nom (jalon20-AF1-perso-ferme.png) |
+| AF2 Arme ouverte, Enclume 3/3 en couleur | OK | ligne « Enclume 3/3, ATK d'arme … » en #E69F00 (jalon20-AF2-arme-ouverte.png) |
+| AF3 emplacement vide ouvert | OK | « Forge-le à la Forge, ou purifie un Éclat » (jalon20-AF3-emplacement-vide.png) |
+| AF4 Sacoche, Éclats ouverts | OK | 2 d'Élite ilvl 6 (en premier), 1 ilvl 4, 2 ilvl 3 (jalon20-AF4-sacoche-eclats.png) |
+| AF5 PNJ et Village inchangés | OK | fenêtre identique au jalon 19 bis (écart max 1/255 sur quelques centaines de pixels : la carte vue à travers le fond translucide) (jalon20-AF5-pnj.png, jalon20-AF5-village.png) |
+
+### Z10 (Fold 8, APK 0.20.0, sauvegarde conservée)
+
+| Test | Résultat | Preuve |
+|---|---|---|
+| (1) Perso se lit d'un coup d'œil (vocations, rattrapage, pièces) | à tester | |
+| (2) icônes d'équipement DB32 assorties au reste | à tester | |
+| (3) liste des Éclats par ilvl utile | à tester | |
+| (4) PNJ, Village et bandeau inchangés | à tester | |
+| (5) ouvrir une pièce puis glisser pour défiler est naturel | à tester | |

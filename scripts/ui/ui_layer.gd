@@ -11,6 +11,7 @@ const NewGameS = preload("res://scripts/new_game.gd")
 const Dag = preload("res://scripts/offline_dag.gd")
 const VL = preload("res://scripts/village/village_layout.gd")
 const AssignS = preload("res://scripts/village/assignment.gd")
+const UiStyle = preload("res://scripts/ui/ui_style.gd") # couleurs par rôle et icônes (Charte §1 et §3)
 
 signal purify_requested
 signal purify_chosen(equip: bool)
@@ -21,28 +22,7 @@ signal post_chosen(index: int, post: String)
 signal npc_freed(index: int)
 
 const LEVEL_UP_TOAST_SEC: float = 2.5 # PROPOSÉ, à valider (jalon 13)
-const SUPERIOR_COLOR: Color = Color("#E69F00") # couleur de l'École Enclume ; PROPOSÉ, à valider (jalon 16 bis)
-# Verdict de la carte : vert meilleure, vermillon moins bonne, blanc mixte (palette Okabe-Ito, comme #E69F00) ; PROPOSÉ, à valider (jalon 16 bis)
-const VERDICT_COLORS: Dictionary = {1: Color("#009E73"), -1: Color("#D55E00"), 0: Color(1, 1, 1)}
-const FORGE_REASON_COLOR: Color = Color(1, 1, 1, 0.6) # raison d'un bouton grisé, atténuée ; PROPOSÉ, à valider (jalon 16 bis)
-# Fiche PNJ (jalon 19, Z8) : intertitres bleu ciel, attente verte (Okabe-Ito), fond de fiche ; PROPOSÉ, à valider
-const SECTION_COLOR: Color = Color("#56B4E9")
-const NEXT_COLOR: Color = Color("#009E73")
-const DETAIL_BG: Color = Color(1, 1, 1, 0.06)
-const DETAIL_MARGIN_PX: int = 4
-# Moral par bande de production (VText.moral_band), Okabe-Ito comme VERDICT_COLORS ; PROPOSÉ, à valider (jalon 19 bis)
-const MORAL_COLORS: Dictionary = {"STRIKE": Color("#D55E00"), "LOW": Color("#E69F00"), "NORMAL": Color(1, 1, 1), "HIGH": Color("#009E73")}
-const SHOP_ICON_TILES: Dictionary = {"MAT": "roche", "TAVERN": "tonneau", "FORGE": "enclume"} # tuiles de village.json
 const WINDOW_HEIGHT_RATIO: float = 0.5 # hauteur de la fenêtre / hauteur de la zone ; validé sur Fold (jalon 17)
-# Icônes (jalon 17), déclarées une seule fois : [planche, région en taille native]. Tuiles d'onglet : validé sur Fold (jalon 17).
-const HUD_ICONS: Dictionary = {
-	"or": [preload("res://assets/icons/hud/coin_05d.png"), Rect2(1, 1, 14, 15)],
-	"cendre": [preload("res://assets/icons/hud/campfire_16x16.png"), Rect2(2, 0, 12, 16)],
-	"eclats": [preload("res://assets/icons/hud/item_gem_quartz.png"), Rect2(1, 1, 14, 14)],
-	"minerai": [preload("res://assets/icons/hud/Stones_ores_gems_without_grass.png"), Rect2(0, 22, 15, 10)]}
-const TD = preload("res://assets/tiles/kenney_tiny_dungeon/tilemap_packed.png")
-const TT = preload("res://assets/tiles/kenney_tiny_town/tilemap_packed.png")
-const TAB_ICONS: Array = [[TD, 112], [TT, 107], [TD, 74], [TD, 99], [TT, 104], [TT, 83]] # Perso, Sacoche, Forge, PNJ, Village, Options
 const TAB_TITLES: Array[String] = ["Perso", "Sacoche", "Forge", "PNJ", "Village", "Options"]
 const PAGES: String = "Margin/VBox/Monde/Fenetre/Box/Defile/Pages/"
 # Feu de camp de la Cendre (jalon 17 bis) : 4 images côte à côte sur la planche de krial.
@@ -73,8 +53,8 @@ var _cargo: Variant = null
 @onready var _title: Label = get_node_or_null("Margin/VBox/Monde/Fenetre/Box/Barre/Ligne/Titre")
 @onready var _scroll: ScrollContainer = get_node_or_null("Margin/VBox/Monde/Fenetre/Box/Defile")
 @onready var _preview: PanelContainer = get_node_or_null("Margin/VBox/Monde/Apercu")
-@onready var _perso: Label = get_node_or_null(PAGES + "Perso")
-@onready var _sacoche: Label = get_node_or_null(PAGES + "Sacoche/Lines")
+@onready var _perso: VBoxContainer = get_node_or_null(PAGES + "Perso")
+@onready var _sacoche: VBoxContainer = get_node_or_null(PAGES + "Sacoche")
 @onready var _purify: Button = get_node_or_null(PAGES + "Sacoche/Purifier")
 @onready var _purify_reason: Label = get_node_or_null(PAGES + "Sacoche/Raison")
 @onready var _forge: Control = get_node_or_null(PAGES + "Forge")
@@ -97,27 +77,18 @@ var _npc_cards: Array[Dictionary] = []
 var _world_seed: int = 0
 var _shop_blocks: Dictionary = {} # clé de boutique -> {"head", "lines", "buttons", "help"}
 var _atre: Dictionary = {} # {"head", "detail", "slots"}
+var _detail_style: StyleBoxFlat # fond de fiche, partagé par toutes les cartes
+# Perso et Sacoche (jalon 20) : créés une fois dans _ready ; show_perso / show_player ne changent que textes, couleurs, visibilité.
+var _voc_lines: Dictionary = {} # vocation -> {"text", "tag"}
+var _stats: Label
+var _slot_cards: Array[Dictionary] = [] # {"head", "tag", "schools", "lines"}
+var _sac_rows: Dictionary = {} # "cendre", "minerai" -> {"text", "tag"} ; "eclats" -> {"head", "tag", "lines"}
 
-static func atlas(sheet: Texture2D, region: Rect2) -> AtlasTexture:
-	var t: AtlasTexture = AtlasTexture.new()
-	t.atlas = sheet
-	t.region = region
-	return t
-
-# Tuile entière d'une planche Kenney à 12 colonnes.
-static func tile_region(i: int) -> Rect2:
-	return Rect2((i % 12) * 16, (i / 12) * 16, 16, 16)
-
-# Région de l'image du feu à l'instant ms : celle de HUD_ICONS["cendre"], décalée d'une largeur d'image (planche / FIRE_FRAMES).
+# Région de l'image du feu à l'instant ms : celle de l'icône « cendre », décalée d'une largeur d'image (planche / FIRE_FRAMES).
 static func fire_region(ms: int) -> Rect2:
-	var base: Rect2 = HUD_ICONS["cendre"][1]
-	var step: float = float(HUD_ICONS["cendre"][0].get_width()) / FIRE_FRAMES
+	var base: Rect2 = UiStyle.ICONS["cendre"][1]
+	var step: float = float(UiStyle.ICONS["cendre"][0].get_width()) / FIRE_FRAMES
 	return Rect2(base.position.x + step * ((ms / FIRE_FRAME_MS) % FIRE_FRAMES), base.position.y, base.size.x, base.size.y)
-
-# Image 0 du feu, élargie à 16 px comme les tuiles : les textes des lignes Village restent alignés (jalon 19 bis).
-static func fire_icon_region() -> Rect2:
-	var base: Rect2 = HUD_ICONS["cendre"][1]
-	return Rect2(base.position.x - (VL.CELL - base.size.x) / 2.0, base.position.y, VL.CELL, base.size.y)
 
 # Horloge monotone et cosmétique (pas l'horloge de jeu). Couche masquée : process_mode DISABLED, le feu se fige.
 func _process(_delta: float) -> void:
@@ -133,16 +104,19 @@ func _animate_fire(ms: int) -> void:
 
 func _ready() -> void:
 	_report.gui_input.connect(_on_report_input)
-	for key: String in HUD_ICONS:
+	for key: String in UiStyle.HUD_KEYS:
 		var icon: TextureRect = _hud.get_node_or_null("Ligne/%s/Icone" % key.capitalize())
 		if icon != null:
-			icon.texture = atlas(HUD_ICONS[key][0], HUD_ICONS[key][1])
+			icon.texture = UiStyle.icon(key)
+	_detail_style = StyleBoxFlat.new()
+	_detail_style.bg_color = UiStyle.DETAIL_BG
+	_detail_style.set_content_margin_all(UiStyle.DETAIL_MARGIN_PX)
 	if _window != null:
 		var group: ButtonGroup = ButtonGroup.new()
 		group.allow_unpress = true
 		for i in TAB_TITLES.size():
 			var t: Button = get_node("Margin/VBox/Onglets/" + TAB_TITLES[i])
-			t.icon = atlas(TAB_ICONS[i][0], tile_region(TAB_ICONS[i][1]))
+			t.icon = UiStyle.icon("TAB_" + TAB_TITLES[i].to_upper())
 			t.button_group = group
 			t.toggled.connect(func(on: bool) -> void:
 				if on:
@@ -154,19 +128,21 @@ func _ready() -> void:
 			for t: Button in _tabs:
 				t.button_pressed = false)
 		_purify.pressed.connect(purify_requested.emit)
-		_purify_reason.add_theme_color_override("font_color", FORGE_REASON_COLOR)
+		_purify_reason.add_theme_color_override("font_color", UiStyle.MUTED)
 		$Margin/VBox/Monde/Apercu/Box/Choix/Equiper.pressed.connect(purify_chosen.emit.bind(true))
 		$Margin/VBox/Monde/Apercu/Box/Choix/Jeter.pressed.connect(purify_chosen.emit.bind(false))
 		get_node(PAGES + "Options/CreditsButton").pressed.connect($Credits.show)
 		_build_village_pages()
+		_build_perso()
+		_build_sacoche()
 		if is_inside_tree(): # hors arbre sous le simulateur headless : il appelle fit_window lui-même
 			fit_window(get_viewport().get_visible_rect().size.y)
 			get_viewport().size_changed.connect(func() -> void: fit_window(get_viewport().get_visible_rect().size.y))
 	if _forge != null:
 		_forge_cendre.text = "Avec Cendre (%d)" % BA.CENDRE_COST_STANDARD_CRAFT
 		_forge_cendre.toggled.connect(func(_on: bool) -> void: refresh_forge_help())
-		_forge_reason.add_theme_color_override("font_color", FORGE_REASON_COLOR)
-		_superior.add_theme_color_override("font_color", SUPERIOR_COLOR)
+		_forge_reason.add_theme_color_override("font_color", UiStyle.MUTED)
+		_superior.add_theme_color_override("font_color", UiStyle.SUPERIOR)
 		_superior.text = "QUALITÉ SUPÉRIEURE : +%d ilvl" % BA.SUPERIOR_QUALITY_ILVL_BONUS
 		for slot in EqText.SLOT_NAMES.size():
 			var b: Button = Button.new()
@@ -195,8 +171,8 @@ func _build_village_pages() -> void:
 	_names = VText.with_identities(VText.load_names(), 0, _npc_sprites) # remplacé par set_world_seed
 	var pnj: Node = get_node(PAGES + "PNJ")
 	var village: Node = get_node(PAGES + "Village")
-	get_node(PAGES + "PNJ/Raison").add_theme_color_override("font_color", FORGE_REASON_COLOR)
-	get_node(PAGES + "Village/Raison").add_theme_color_override("font_color", FORGE_REASON_COLOR)
+	get_node(PAGES + "PNJ/Raison").add_theme_color_override("font_color", UiStyle.MUTED)
+	get_node(PAGES + "Village/Raison").add_theme_color_override("font_color", UiStyle.MUTED)
 	var tip: Label = Label.new()
 	tip.text = "Astuce : fais glisser un PNJ sur un bâtiment"
 	pnj.add_child(tip)
@@ -205,24 +181,12 @@ func _build_village_pages() -> void:
 		post_names[p] = _names["posts"][p]
 	var group: ButtonGroup = ButtonGroup.new()
 	group.allow_unpress = true
-	var style: StyleBoxFlat = StyleBoxFlat.new()
-	style.bg_color = DETAIL_BG
-	style.set_content_margin_all(DETAIL_MARGIN_PX)
 	for i in NewGameS.START_POSTS.size():
-		var made: Array = _card(pnj, group, style, atlas(TD, tile_region(int(data["tiles"][_npc_sprites[i]][1]))))
+		var made: Array = _card(pnj, group, UiStyle.atlas(UiStyle.TD, UiStyle.tile_region(int(data["tiles"][_npc_sprites[i]][1]))))
 		var head: Button = made[0]
 		var box: VBoxContainer = made[1]
-		var moral: Label = Label.new()
+		var moral: Label = made[2]
 		moral.name = "Moral"
-		moral.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		moral.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-		var margin: StyleBox = head.get_theme_stylebox("normal")
-		moral.anchor_left = 1.0
-		moral.anchor_right = 1.0
-		moral.grow_horizontal = Control.GROW_DIRECTION_BEGIN
-		moral.offset_top = margin.get_margin(SIDE_TOP)
-		moral.offset_right = -margin.get_margin(SIDE_RIGHT)
-		head.add_child(moral)
 		_section(box, "Profil")
 		var lines: Label = Label.new()
 		box.add_child(lines)
@@ -230,8 +194,8 @@ func _build_village_pages() -> void:
 		var posts: Dictionary = _block(box, post_names, func(post: String) -> void: post_chosen.emit(i, post))
 		posts["row"].name = "Postes"
 		posts["help"].name = "Demain"
-		posts["help"].add_theme_color_override("font_color", NEXT_COLOR)
-		posts["lines"].add_theme_color_override("font_color", FORGE_REASON_COLOR)
+		posts["help"].add_theme_color_override("font_color", UiStyle.NEXT)
+		posts["lines"].add_theme_color_override("font_color", UiStyle.MUTED)
 		var free: Button = Button.new()
 		free.name = "Liberer"
 		free.text = "Libérer"
@@ -252,14 +216,14 @@ func _build_village_pages() -> void:
 			"cad_title": cad_title, "row": cad["row"], "buttons": cad["buttons"], "help": cad["help"], "moral": moral})
 	var vgroup: ButtonGroup = ButtonGroup.new()
 	vgroup.allow_unpress = true
-	var a: Array = _card(village, vgroup, style, atlas(HUD_ICONS["cendre"][0], fire_icon_region()))
+	var a: Array = _card(village, vgroup, UiStyle.icon("ATRE"))
 	_atre = {"head": a[0], "detail": Label.new(), "slots": Label.new()}
 	a[1].add_child(_atre["detail"])
 	_section(a[1], "Postes")
 	_atre["slots"].name = "Occupation"
 	a[1].add_child(_atre["slots"])
 	for key: String in Dag.SHOP_ITEM:
-		var s: Array = _card(village, vgroup, style, atlas(TD, tile_region(int(data["tiles"][SHOP_ICON_TILES[key]][1]))))
+		var s: Array = _card(village, vgroup, UiStyle.icon(key))
 		var block: Dictionary = _block(s[1], _names["postures"], func(value: String) -> void: posture_chosen.emit(key, value))
 		block["row"].name = "Posture"
 		var title: Label = _section(block["row"].get_parent(), "Posture")
@@ -267,9 +231,84 @@ func _build_village_pages() -> void:
 		block["head"] = s[0]
 		_shop_blocks[key] = block
 
-# Ligne dépliable : bouton de tête (icône, texte sur 2 lignes) et fiche cachée dessous, une ouverte par groupe.
-# -> [tête, VBox de la fiche].
-func _card(parent: Node, group: ButtonGroup, style: StyleBox, icon: Texture2D) -> Array:
+# Perso (jalon 20) : Vocations (3 lignes simples), Stats, Équipement (4 lignes dépliables, une ouverte à la fois).
+func _build_perso() -> void:
+	_section(_perso, "Vocations")
+	for voc: String in ProgressionS.VOCATIONS:
+		_voc_lines[voc] = _line(_perso, UiStyle.icon(voc))
+	_section(_perso, "Stats")
+	_stats = Label.new()
+	_perso.add_child(_stats)
+	_section(_perso, "Équipement")
+	var group: ButtonGroup = ButtonGroup.new()
+	group.allow_unpress = true
+	for slot in EqText.SLOT_NAMES.size():
+		var c: Array = _card(_perso, group, UiStyle.icon("SLOT_%d" % slot))
+		var schools: Label = Label.new() # 1re ligne de la fiche de l'arme : Écoles et ATK d'arme
+		schools.name = "Ecoles"
+		c[1].add_child(schools)
+		var lines: Label = Label.new()
+		c[1].add_child(lines)
+		_slot_cards.append({"head": c[0], "tag": c[2], "schools": schools, "lines": lines})
+
+# Sacoche (jalon 20) : Cendre, Éclats (fiche par ilvl), coffre, au-dessus du bouton Purifier et de sa raison.
+func _build_sacoche() -> void:
+	_sac_rows["cendre"] = _line(_sacoche, UiStyle.icon("cendre"))
+	var group: ButtonGroup = ButtonGroup.new()
+	group.allow_unpress = true
+	var c: Array = _card(_sacoche, group, UiStyle.icon("ECLAT"))
+	var lines: Label = Label.new()
+	c[1].add_child(lines)
+	_sac_rows["eclats"] = {"head": c[0], "tag": c[2], "lines": lines}
+	_sac_rows["minerai"] = _line(_sacoche, UiStyle.icon("minerai"))
+	for k in 3: # au-dessus de Purifier et Raison
+		_sacoche.move_child(_sacoche.get_child(_sacoche.get_child_count() - 1), 0)
+
+# Étiquette d'état à droite de la ligne du nom (Charte §5), sans capter l'appui.
+func _tag(host: Control) -> Label:
+	var tag: Label = Label.new()
+	tag.name = "Tag"
+	tag.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	tag.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	var margin: StyleBox = host.get_theme_stylebox("normal", "Button")
+	tag.anchor_left = 1.0
+	tag.anchor_right = 1.0
+	tag.grow_horizontal = Control.GROW_DIRECTION_BEGIN
+	tag.offset_top = margin.get_margin(SIDE_TOP)
+	tag.offset_right = -margin.get_margin(SIDE_RIGHT)
+	host.add_child(tag)
+	return tag
+
+# Ligne simple (Charte §2) : même rendu qu'une tête fermée (fond du bouton, icône 16 px, 2 lignes, étiquette), sans bascule.
+func _line(parent: Node, icon: Texture2D) -> Dictionary:
+	var panel: PanelContainer = PanelContainer.new()
+	panel.mouse_filter = Control.MOUSE_FILTER_PASS
+	parent.add_child(panel)
+	panel.add_theme_stylebox_override("panel", panel.get_theme_stylebox("normal", "Button"))
+	var row: HBoxContainer = HBoxContainer.new()
+	row.mouse_filter = Control.MOUSE_FILTER_PASS
+	row.add_theme_constant_override("separation", panel.get_theme_constant("h_separation", "Button"))
+	panel.add_child(row)
+	var pic: TextureRect = TextureRect.new()
+	pic.texture = icon
+	pic.mouse_filter = Control.MOUSE_FILTER_PASS
+	pic.custom_minimum_size = Vector2(16, 16)
+	pic.stretch_mode = TextureRect.STRETCH_KEEP_CENTERED
+	pic.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	row.add_child(pic)
+	var text: Label = Label.new()
+	text.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	row.add_child(text)
+	var tag: Label = Label.new() # sur la ligne du nom, comme l'étiquette d'une tête de carte
+	tag.name = "Tag"
+	tag.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	tag.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+	row.add_child(tag)
+	return {"text": text, "tag": tag}
+
+# Ligne dépliable : bouton de tête (icône, texte sur 2 lignes, étiquette d'état) et fiche cachée dessous, une ouverte par
+# groupe. -> [tête, VBox de la fiche, étiquette].
+func _card(parent: Node, group: ButtonGroup, icon: Texture2D) -> Array:
 	var card: VBoxContainer = VBoxContainer.new()
 	card.add_theme_constant_override("separation", 0)
 	parent.add_child(card)
@@ -284,18 +323,18 @@ func _card(parent: Node, group: ButtonGroup, style: StyleBox, icon: Texture2D) -
 	var detail: PanelContainer = PanelContainer.new()
 	detail.name = "Detail"
 	detail.visible = false
-	detail.add_theme_stylebox_override("panel", style)
+	detail.add_theme_stylebox_override("panel", _detail_style)
 	card.add_child(detail)
 	head.toggled.connect(func(on: bool) -> void: detail.visible = on)
 	var box: VBoxContainer = VBoxContainer.new()
 	box.add_theme_constant_override("separation", 2)
 	detail.add_child(box)
-	return [head, box]
+	return [head, box, _tag(head)]
 
 func _section(parent: Node, text: String) -> Label:
 	var title: Label = Label.new()
 	title.text = text
-	title.add_theme_color_override("font_color", SECTION_COLOR)
+	title.add_theme_color_override("font_color", UiStyle.TITLE)
 	parent.add_child(title)
 	return title
 
@@ -325,7 +364,7 @@ func _block(parent: Node, choices: Dictionary, on_choice: Callable) -> Dictionar
 			buttons.append(b)
 	var help: Label = Label.new()
 	help.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	help.add_theme_color_override("font_color", FORGE_REASON_COLOR)
+	help.add_theme_color_override("font_color", UiStyle.MUTED)
 	box.add_child(help)
 	return {"lines": lines, "buttons": buttons, "help": help, "row": row}
 
@@ -355,7 +394,7 @@ func show_village(village: Dictionary, hour: int, can_set: bool, reason: String)
 		var head: PackedStringArray = lines[0].split(" : ", true, 1) # nom, puis poste, étoiles et gérance
 		card["head"].text = head[0] + "\n" + head[1]
 		card["moral"].text = VText.moral_tag(npc)
-		card["moral"].add_theme_color_override("font_color", MORAL_COLORS[VText.moral_band(npc["moral"], npc["on_strike"])])
+		card["moral"].add_theme_color_override("font_color", UiStyle.MORAL_COLORS[VText.moral_band(npc["moral"], npc["on_strike"])])
 		card["lines"].text = "\n".join(lines.slice(1))
 		var apt: Dictionary = AssignS.aptitudes(_world_seed, i)
 		card["hint"].text = VText.apt_lines(apt, AssignS.favorite(i), _names)[1]
@@ -411,8 +450,12 @@ func show_player(player: Dictionary, ore: int) -> void:
 	_player = player
 	_ore = ore
 	_refresh_hud()
-	if _sacoche != null:
-		_sacoche.text = "\n".join(EqText.sacoche_lines(player, ore))
+	if _sac_rows.is_empty():
+		return
+	_sac_rows["cendre"]["text"].text = "\n".join(EqText.cendre_row(player["cendre"]))
+	_sac_rows["eclats"]["head"].text = "\n".join(EqText.shards_row(player["shard_bag"]))
+	_sac_rows["eclats"]["lines"].text = "\n".join(EqText.shards_detail(player["shard_bag"]))
+	_sac_rows["minerai"]["text"].text = "\n".join(EqText.ore_row(ore))
 
 # Couples créés dans la scène : un couple sans valeur est masqué.
 func _refresh_hud() -> void:
@@ -421,26 +464,41 @@ func _refresh_hud() -> void:
 	var shown: Dictionary = {}
 	for pair: Array in EqText.hud_values(_gold, _player, _ore, _cargo, compact):
 		shown[pair[0]] = pair[1]
-	for key: String in HUD_ICONS:
+	for key: String in UiStyle.HUD_KEYS:
 		var couple: Control = _hud.get_node_or_null("Ligne/" + key.capitalize())
 		if couple != null:
 			couple.visible = shown.has(key)
 			couple.get_node("Valeur").text = shown.get(key, "")
 
-# Onglet Perso : vocations (XP dans le niveau / XP requise), stats portées, puis une ligne par emplacement (affixes en retrait).
+# Onglet Perso : vocations (rattrapage en GOOD), stats portées, une ligne dépliable par emplacement (Supérieure en
+# SUPERIOR, Écoles de l'arme en couleur d'École quand les 3 sont identiques).
 func show_perso(player: Dictionary, stats: Dictionary) -> void:
-	if _perso == null:
+	if _voc_lines.is_empty():
 		return
-	var lines: PackedStringArray = []
 	for voc: String in ProgressionS.VOCATIONS:
-		var xp: int = player["voc_xp"][voc]
-		var p: Vector2i = ProgressionS.level_progress(xp)
-		lines.append("%s  Nv %d  %d / %d XP" % [ProgressionS.VOCATION_NAMES[voc], ProgressionS.level_of(xp), p.x, p.y])
-	lines.append("")
-	lines.append_array(EqText.stats_lines(stats))
-	lines.append("")
-	lines.append_array(EqText.equipment_lines(player["equipment"]))
-	_perso.text = "\n".join(lines)
+		var l: Dictionary = _voc_lines[voc]
+		l["text"].text = "\n".join(EqText.voc_head(voc, player["voc_xp"]))
+		l["tag"].text = EqText.voc_tag(voc, player["voc_xp"])
+		l["tag"].add_theme_color_override("font_color", UiStyle.GOOD)
+	_stats.text = "\n".join(EqText.stats_lines(stats))
+	for slot in _slot_cards.size():
+		var c: Dictionary = _slot_cards[slot]
+		var piece: Variant = player["equipment"][slot]
+		c["head"].text = "\n".join(EqText.piece_head(slot, piece))
+		c["tag"].text = EqText.piece_tag(slot, piece)
+		c["tag"].add_theme_color_override("font_color", UiStyle.SUPERIOR)
+		c["schools"].visible = piece != null and slot == 0
+		if piece == null:
+			c["lines"].text = EqText.empty_detail(slot)
+			continue
+		var detail: PackedStringArray = EqText.piece_detail(slot, piece)
+		if slot == 0:
+			var s: Array = piece["schools"]
+			c["schools"].text = detail[0]
+			c["schools"].add_theme_color_override("font_color", UiStyle.school_color(s[0]) if s[0] == s[1] and s[1] == s[2] else UiStyle.TEXT)
+			detail = detail.slice(1)
+		c["lines"].text = "\n".join(detail)
+		c["lines"].visible = not detail.is_empty()
 
 # Bouton actif si reason est vide, sinon grisé avec la raison dessous (comme la Forge) ; relu à chaque image par main.gd.
 func set_purify_reason(reason: String) -> void:
@@ -485,7 +543,7 @@ func show_preview(piece: Dictionary, current: Variant, diff: String, forged: boo
 		return
 	_superior.visible = piece.get("superior", false)
 	_verdict.text = EqText.VERDICTS[verdict]
-	_verdict.add_theme_color_override("font_color", VERDICT_COLORS[verdict])
+	_verdict.add_theme_color_override("font_color", UiStyle.VERDICT_COLORS[verdict])
 	var lines: PackedStringArray = ["Pièce forgée" if forged else "Pièce purifiée"]
 	lines.append_array(EqText.piece_lines(piece["slot"], piece))
 	lines.append("Équipée")

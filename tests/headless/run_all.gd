@@ -32,6 +32,7 @@ const EqText = preload("res://scripts/ui/equipment_text.gd")
 const UiS = preload("res://scripts/ui/ui_layer.gd")
 const VText = preload("res://scripts/ui/village_text.gd")
 const AssignS = preload("res://scripts/village/assignment.gd")
+const UiStyle = preload("res://scripts/ui/ui_style.gd")
 const LISIERE_SPAWNS_10: Array = [[0, 16], [0, 20], [0, 24]] # banc d'essai du jalon 10, retiré du village au jalon 11
 const FONT_PATH: String = "res://assets/fonts/silkscreen/Silkscreen-Regular.ttf"
 const OFL_PATH: String = "res://assets/fonts/silkscreen/OFL.txt"
@@ -1083,11 +1084,13 @@ func _jalon_17() -> void:
 	_check("stats_lines: 2 lignes", st == PackedStringArray(["PV 154  ATK 30  DEF 13", "Cadence 1,20/s  Critique 5 % ×1,5"]), str(st))
 	var p0: Dictionary = p.duplicate(true)
 	p0["shard_bag"] = []
-	var sac: Array = [EqText.sacoche_lines(p, 12), EqText.sacoche_lines(p0, 1)]
+	# sacoche_lines remplacée au jalon 20 par cendre_row / shards_row / ore_row (mêmes fixtures)
+	var sac: Array = [EqText.cendre_row(p["cendre"]), EqText.shards_row(p["shard_bag"]), EqText.ore_row(12), EqText.shards_row(p0["shard_bag"]), EqText.ore_row(1)]
 	print("      " + str(sac))
-	_check("sacoche_lines: (2 Éclats dont 1 d'Élite, 12 minerais) et (0 Éclat, 1 minerai)", sac == [
-		PackedStringArray(["Lanterne : Cendre 75/150", "Éclats : 2/6, dont 1 d'Élite", "Coffre : 12 minerais"]),
-		PackedStringArray(["Lanterne : Cendre 75/150", "Éclats : 0/6", "Coffre : 1 minerai"])], str(sac))
+	_check("Sacoche (jalon 20) : (2 Éclats dont 1 d'Élite, 12 minerais) et (0 Éclat, 1 minerai)", sac == [
+		PackedStringArray(["Cendre 75/150", "Lanterne niveau 1"]), PackedStringArray(["Éclats 2/6, dont 1 d'Élite", "Purification au village ou au Brasero"]),
+		PackedStringArray(["Coffre : 12 minerais", "4 minerais par pièce à la Forge"]), PackedStringArray(["Éclats 0/6", "Purification au village ou au Brasero"]),
+		PackedStringArray(["Coffre : 1 minerai", "4 minerais par pièce à la Forge"])], str(sac))
 	var why: Array = [EqText.purify_block_reason(false, false, 0, 2, false), EqText.purify_block_reason(false, true, 2, 2, false),
 		EqText.purify_block_reason(true, false, 0, 0, false), EqText.purify_block_reason(false, true, 1, 2, false),
 		EqText.purify_block_reason(true, false, 0, 2, true)]
@@ -1659,7 +1662,7 @@ func _jalon_19() -> void:
 	var icons_ok: bool = true
 	for i in 5:
 		icons_ok = icons_ok and _icon_of(heads[i].icon) == ["res://assets/tiles/kenney_tiny_dungeon/tilemap_packed.png",
-			UiS.tile_region(int(tiles[VL.load_data()["npc_sprites"][i]][1]))]
+			UiStyle.tile_region(int(tiles[VL.load_data()["npc_sprites"][i]][1]))]
 	_check("liste: sprite du PNJ en icône, « nom \\n poste » ; boutons de poste avec l'aptitude", icons_ok
 		and heads[3].text.split("\n")[1] == "Garde, 2 étoiles" and rows[3].get_children().map(func(b: Button) -> String: return b.text)
 		== ["Extraction 0", "Forge 0", "Taverne 0", "Garde 2"] and cards[3].find_child("Demain", true, false).text.begins_with("Demain : Extraction, 0 étoile"),
@@ -1740,9 +1743,9 @@ func _jalon_19b() -> void:
 	var td: String = "res://assets/tiles/kenney_tiny_dungeon/tilemap_packed.png"
 	var tiles: Dictionary = VL.load_data()["tiles"]
 	var icons: Array = vheads.map(func(h: Button) -> Array: return _icon_of(h.icon))
-	_check("village: icônes feu (image 0 du bandeau, 16 px), roche, tonneau, enclume", UiS.fire_icon_region() == Rect2(0, 0, 16, 16)
-		and icons == [[UiS.HUD_ICONS["cendre"][0].resource_path, UiS.fire_icon_region()],
-		[td, UiS.tile_region(int(tiles["roche"][1]))], [td, UiS.tile_region(int(tiles["tonneau"][1]))], [td, UiS.tile_region(int(tiles["enclume"][1]))]], str(icons))
+	_check("village: icônes feu (image 0 du bandeau, 16 px), roche, tonneau, enclume", UiStyle.ICONS["ATRE"][1] == Rect2(0, 0, 16, 16)
+		and icons == [[UiStyle.ICONS["cendre"][0].resource_path, Rect2(0, 0, 16, 16)],
+		[td, UiStyle.tile_region(int(tiles["roche"][1]))], [td, UiStyle.tile_region(int(tiles["tonneau"][1]))], [td, UiStyle.tile_region(int(tiles["enclume"][1]))]], str(icons))
 	var morals: Array = pnj.find_children("Moral", "Label", true, false)
 	_check("pnj: 5 étiquettes Moral, enfants de la tête, mouse_filter IGNORE", morals.size() == 5
 		and morals.all(func(l: Label) -> bool: return l.mouse_filter == Control.MOUSE_FILTER_IGNORE and l.get_parent().name == "Tete"))
@@ -1762,13 +1765,155 @@ func _jalon_19b() -> void:
 	var mc: Array = morals.map(func(l: Label) -> Color: return l.get_theme_color("font_color"))
 	print("      étiquettes Moral : %s" % str(mt))
 	_check("pnj: Moral 49 orange, grève vermillon « En grève », 90 vert, 80 blanc", mt[1] == "Moral 49" and mt[2] == "En grève" and mt[3] == "Moral 90"
-		and mc[1] == UiS.MORAL_COLORS["LOW"] and mc[2] == UiS.MORAL_COLORS["STRIKE"] and mc[3] == UiS.MORAL_COLORS["HIGH"]
-		and mc[0] == UiS.MORAL_COLORS[VText.moral_band(v["npcs"][0]["moral"], false)], str(mt))
+		and mc[1] == UiStyle.MORAL_COLORS["LOW"] and mc[2] == UiStyle.MORAL_COLORS["STRIKE"] and mc[3] == UiStyle.MORAL_COLORS["HIGH"]
+		and mc[0] == UiStyle.MORAL_COLORS[VText.moral_band(v["npcs"][0]["moral"], false)], str(mt))
 	var tav: String = vheads[2].text
 	var tav_help: String = vcards[2].find_child("Posture", true, false).get_parent().get_child(-1).text
 	_check("village: têtes Âtre et Taverne (« demain Exportation » sur la tête et dans l'aide), occupation dans la fiche Âtre",
 		vheads[0].text == "Grand Âtre, niveau 1\nPNJ 5/5, postes occupés 5/6" and tav.ends_with(", demain Exportation") and tav_help.begins_with("Demain : Exportation")
 		and vcards[0].find_child("Occupation", true, false).text == "Extraction 1/2, Forge 1/1, Taverne 1/1, Garde 2/2", tav + " | " + tav_help)
+	uu.free()
+
+# Jalon 20 : charte d'interface (ui_style.gd), Perso et Sacoche en lignes. Références : sortie de prep_jalon_20.py.
+func _jalon_20() -> void:
+	var nb: String = " "
+	var nums: Array = [EqText.num(0), EqText.num(999), EqText.num(1000), EqText.num(715400), EqText.num(42600)]
+	_check("num: 0, 999, 1 000, 715 400, 42 600 (U+00A0)", nums == ["0", "999", "1" + nb + "000", "715" + nb + "400", "42" + nb + "600"], str(nums))
+	var v0: Dictionary = {"COMBATTANT": 0, "MINEUR": 0, "FORGERON": 0}
+	var v1: Dictionary = {"COMBATTANT": BA.get_cumulative_xp(6) + 1000, "MINEUR": BA.get_cumulative_xp(3) + 10, "FORGERON": BA.get_cumulative_xp(2)}
+	var vh: Array = []
+	for v: Dictionary in [v0, v1]:
+		for voc: String in ProgressionS.VOCATIONS:
+			vh.append([EqText.voc_head(voc, v), EqText.voc_tag(voc, v)])
+	for h: Array in vh:
+		print("      " + str(h))
+	_check("voc_head + voc_tag: 6 fixtures du jumeau", vh == [
+		[PackedStringArray(["Combattant, niveau 1", "0 / 200 XP"]), ""], [PackedStringArray(["Mineur, niveau 1", "0 / 200 XP"]), ""],
+		[PackedStringArray(["Forgeron, niveau 1", "0 / 200 XP"]), ""],
+		[PackedStringArray(["Combattant, niveau 6", "1" + nb + "000 / 1" + nb + "150 XP"]), ""],
+		[PackedStringArray(["Mineur, niveau 3", "10 / 490 XP"]), "Rattrapage ×2"], [PackedStringArray(["Forgeron, niveau 2", "0 / 330 XP"]), "Rattrapage ×2"]], str(vh))
+	var pf: Array = [[0, {"rarity": 0, "ilvl": 1}], [1, {"rarity": 1, "ilvl": 3, "superior": true}], [2, null], [3, {"rarity": 2, "ilvl": 12, "superior": true}]]
+	var ph: Array = pf.map(func(f: Array) -> Array: return [EqText.piece_head(f[0], f[1]), EqText.piece_tag(f[0], f[1])])
+	for h: Array in ph:
+		print("      " + str(h))
+	_check("piece_head + piece_tag: 4 fixtures du jumeau", ph == [[PackedStringArray(["Arme : Épée & Écu", "Commune, ilvl 1"]), ""],
+		[PackedStringArray(["Casque", "Bon, ilvl 3"]), "Supérieur"], [PackedStringArray(["Plastron", "Vide"]), ""],
+		[PackedStringArray(["Bottes", "Rares, ilvl 12"]), "Supérieures"]], str(ph))
+	var ed: Array = [0, 1, 2, 3].map(func(s: int) -> String: return EqText.empty_detail(s))
+	_check("empty_detail: Forge-la / -le / -le / -les à la Forge, ou purifie un Éclat", ed == ["Forge-la à la Forge, ou purifie un Éclat",
+		"Forge-le à la Forge, ou purifie un Éclat", "Forge-le à la Forge, ou purifie un Éclat", "Forge-les à la Forge, ou purifie un Éclat"], str(ed))
+	var w0: Dictionary = EquipmentS.new_equipment()[0]
+	var want_d: PackedStringArray = []
+	for l: String in EqText.piece_lines(0, w0).slice(1):
+		want_d.append(l.substr(4))
+	_check("piece_detail(0, arme de départ) = piece_lines(0).slice(1) sans retrait", EqText.piece_detail(0, w0) == want_d
+		and not EqText.piece_detail(0, w0)[0].begins_with(" "), str(EqText.piece_detail(0, w0)))
+	var bag: Array = [{"elite": false, "ilvl": 3}, {"elite": true, "ilvl": 6}, {"elite": false, "ilvl": 3}, {"elite": false, "ilvl": 4}, {"elite": true, "ilvl": 6}]
+	var rows: Array = [EqText.cendre_row(120), EqText.shards_row(bag), EqText.shards_detail(bag), EqText.ore_row(12), EqText.shards_row([]),
+		EqText.shards_detail([]), EqText.ore_row(1)]
+	for r: PackedStringArray in rows:
+		print("      " + str(r))
+	_check("Sacoche: 7 fixtures du jumeau", rows == [PackedStringArray(["Cendre 120/150", "Lanterne niveau 1"]),
+		PackedStringArray(["Éclats 5/6, dont 2 d'Élite", "Purification au village ou au Brasero"]),
+		PackedStringArray(["2 Éclats d'Élite, ilvl 6 (en premier)", "1 Éclat, ilvl 4", "2 Éclats, ilvl 3"]),
+		PackedStringArray(["Coffre : 12 minerais", "4 minerais par pièce à la Forge"]),
+		PackedStringArray(["Éclats 0/6", "Purification au village ou au Brasero"]), PackedStringArray(["Sacoche vide"]),
+		PackedStringArray(["Coffre : 1 minerai", "4 minerais par pièce à la Forge"])], str(rows))
+	var pn: Dictionary = {"shard_bag": bag}
+	_check("shards_detail: 1re ligne = groupe de l'Éclat que Purification.next_index purifie", bag[PurifS.next_index(pn)]["elite"]
+		and bag[PurifS.next_index(pn)]["ilvl"] == 6 and EqText.shards_detail(bag)[0].begins_with("2 Éclats d'Élite, ilvl 6"))
+	# UiStyle
+	_check("UiStyle: rôles = anciennes constantes (SECTION, raison, attente, Supérieure, fond, marge, verdict, Moral)",
+		UiStyle.TITLE == Color("#56B4E9") and UiStyle.MUTED == Color(1, 1, 1, 0.6) and UiStyle.NEXT == Color("#009E73")
+		and UiStyle.SUPERIOR == Color("#E69F00") and UiStyle.DETAIL_BG == Color(1, 1, 1, 0.06) and UiStyle.DETAIL_MARGIN_PX == 4
+		and UiStyle.VERDICT_COLORS == {1: Color("#009E73"), -1: Color("#D55E00"), 0: Color(1, 1, 1)}
+		and UiStyle.MORAL_COLORS == {"STRIKE": Color("#D55E00"), "LOW": Color("#E69F00"), "NORMAL": Color(1, 1, 1), "HIGH": Color("#009E73")}
+		and UiStyle.GOOD == Color("#009E73") and UiStyle.BAD == Color("#D55E00") and UiStyle.ALERT == Color("#E69F00") and UiStyle.TEXT == Color(1, 1, 1))
+	_check("UiStyle: school_color(FOYER) == #E69F00 (lu dans BalanceC)", UiStyle.school_color(BC.SchoolId.FOYER) == Color("#E69F00"))
+	var hard: String = ""
+	for path: String in ["res://scripts/ui/ui_layer.gd", "res://scripts/ui/village_text.gd"]:
+		var src: String = FileAccess.get_file_as_string(path)
+		if src.contains("Color(\"") or src.contains("Color(1, 1, 1"):
+			hard += path + " "
+	_check("UiStyle: aucune couleur en dur dans ui_layer.gd ni village_text.gd", hard == "", hard)
+	var tiles: Dictionary = VL.load_data()["tiles"]
+	var td_ok: bool = (UiStyle.ICONS["MAT"][1] == UiStyle.tile_region(int(tiles["roche"][1])) and UiStyle.ICONS["TAVERN"][1] == UiStyle.tile_region(int(tiles["tonneau"][1]))
+		and UiStyle.ICONS["FORGE"][1] == UiStyle.tile_region(int(tiles["enclume"][1])) and UiStyle.ICONS["COMBATTANT"][1] == UiStyle.tile_region(112)
+		and UiStyle.ICONS["FORGERON"][1] == UiStyle.tile_region(74))
+	var items: Array = ["MINEUR", "SLOT_0", "SLOT_1", "SLOT_2", "SLOT_3"].map(func(k: String) -> String: return UiStyle.ICONS[k][0].resource_path.get_file())
+	_check("UiStyle: tuiles roche / tonneau / enclume = village.json, Combattant TD 112, Forgeron TD 74, 5 icônes DB32 16 × 16",
+		td_ok and items == ["pickaxe_iron.png", "sword_iron.png", "armor_helmet_iron.png", "armor_chest_iron.png", "armor_boots_iron.png"]
+		and ["MINEUR", "SLOT_0", "SLOT_1", "SLOT_2", "SLOT_3"].all(func(k: String) -> bool: return UiStyle.ICONS[k][0].get_size() == Vector2(16, 16)), str(items))
+	# Largeurs (pires cas du jumeau)
+	var font: Font = load(FONT_PATH)
+	var fw: Callable = func(t: String) -> float: return font.get_string_size(t, HORIZONTAL_ALIGNMENT_LEFT, -1, 8).x
+	var heads: Array = [["Combattant, niveau 50", "Rattrapage ×2"], ["Forgeron, niveau 50", "Rattrapage ×2"],
+		["%s / %s XP" % [EqText.num(BA.XP_MASTERY_STEP - 1), EqText.num(BA.XP_MASTERY_STEP)], ""], ["Arme : Épée & Écu", "Supérieure"],
+		["Communes, ilvl 12", ""], ["Éclats 15/15, dont 15 d'Élite", ""], ["Purification au village ou au Brasero", ""], ["Coffre : 9999 minerais", ""],
+		["4 minerais par pièce à la Forge", ""]]
+	var hw: float = heads.map(func(h: Array) -> float: return fw.call(h[0]) + (8.0 + fw.call(h[1]) if h[1] != "" else 0.0)).max()
+	var dw: float = ["15 Éclats d'Élite, ilvl 12 (en premier)", EqText.empty_detail(3), "Enclume / Brasier / Enclume", "+12 % dégâts critiques",
+		EqText.piece_detail(0, w0)[0]].map(func(t: String) -> float: return fw.call(t)).max()
+	print("      largeurs : têtes + étiquette <= %d px, fiches <= %d px" % [hw, dw])
+	_check("largeurs: têtes + étiquette <= 264 px, fiches <= 288 px", hw <= 264.0 and dw <= 288.0, "%d %d" % [hw, dw])
+	# UI instanciée
+	var uu: CanvasLayer = _ui_ready("res://scenes/ui/ui_unfolded.tscn")
+	var perso: Node = uu.get_node(UiS.PAGES + "Perso")
+	var sac: Node = uu.get_node(UiS.PAGES + "Sacoche")
+	var lines: Array = perso.get_children().filter(func(c: Node) -> bool: return c is PanelContainer)
+	var cards: Array = perso.get_children().filter(func(c: Node) -> bool: return c is VBoxContainer)
+	var heads_b: Array = cards.map(func(c: Node) -> Button: return c.find_child("Tete", false, false))
+	var dets: Array = cards.map(func(c: Node) -> Control: return c.find_child("Detail", false, false))
+	var closed: bool = dets.all(func(d: Control) -> bool: return not d.visible)
+	heads_b[0].button_pressed = true
+	heads_b[2].button_pressed = true
+	var open: Array = dets.map(func(d: Control) -> bool: return d.visible)
+	heads_b[2].button_pressed = false
+	var icons: Array = lines.map(func(l: Node) -> Array: return _icon_of(l.find_children("*", "TextureRect", true, false)[0].texture))
+	_check("perso: 3 lignes de vocation (Combattant, Mineur, Forgeron), 4 cartes fermées, une ouverte à la fois, ButtonGroup propre",
+		lines.size() == 3 and cards.size() == 4 and closed and open == [false, false, true, false] and heads_b[0].button_group.allow_unpress
+		and icons == ["COMBATTANT", "MINEUR", "FORGERON"].map(func(k: String) -> Array: return [UiStyle.ICONS[k][0].resource_path, UiStyle.ICONS[k][1]]),
+		"%d %d %s" % [lines.size(), cards.size(), str(open)])
+	var tags: Array = perso.find_children("Tag", "Label", true, false) + sac.find_children("Tag", "Label", true, false)
+	_check("perso + sacoche: 3 + 4 + 3 étiquettes, toutes en mouse_filter IGNORE", tags.size() == 10
+		and tags.all(func(t: Label) -> bool: return t.mouse_filter == Control.MOUSE_FILTER_IGNORE), str(tags.size()))
+	var p: Dictionary = ProgressionS.new_player()
+	p["voc_xp"] = v1.duplicate()
+	p["cendre"] = 120
+	p["shard_bag"] = bag
+	p["equipment"][0]["schools"] = [BC.SchoolId.FOYER, BC.SchoolId.FOYER, BC.SchoolId.FOYER]
+	p["equipment"][1] = {"slot": 1, "rarity": 1, "ilvl": 3, "superior": true, "affixes": []}
+	var st: Dictionary = EquipmentS.player_stats(ProgressionS.combat_level(p), p["equipment"])
+	var n_p: int = perso.find_children("*", "", true, false).size()
+	var n_s: int = sac.find_children("*", "", true, false).size()
+	for k in 2:
+		uu.show_perso(p, st)
+		uu.show_player(p, 12)
+	_check("show_perso + show_player x2 : aucun nœud créé dans Perso ni Sacoche", perso.find_children("*", "", true, false).size() == n_p
+		and sac.find_children("*", "", true, false).size() == n_s)
+	var vtags: Array = lines.map(func(l: Node) -> String: return l.find_child("Tag", true, false).text)
+	var vtext: String = lines[0].find_children("*", "Label", true, false)[0].text
+	var stag: Label = cards[1].find_child("Tag", true, false)
+	var ecoles: Label = cards[0].find_child("Ecoles", true, false)
+	print("      vocations %s / %s ; casque « %s » ; Écoles « %s »" % [vtext.replace("\n", " | "), str(vtags), stag.text, ecoles.text])
+	_check("perso: rattrapage en GOOD, Supérieur en SUPERIOR, ligne d'Écoles Enclume 3/3 en school_color(FOYER), Plastron vide",
+		vtags == ["", "Rattrapage ×2", "Rattrapage ×2"] and lines[1].find_child("Tag", true, false).get_theme_color("font_color") == UiStyle.GOOD
+		and stag.text == "Supérieur" and stag.get_theme_color("font_color") == UiStyle.SUPERIOR
+		and ecoles.text.begins_with("Enclume 3/3") and ecoles.get_theme_color("font_color") == UiStyle.school_color(BC.SchoolId.FOYER)
+		and heads_b[2].text == "Plastron\nVide" and cards[2].find_children("*", "Label", true, false).any(func(l: Label) -> bool: return l.text == EqText.empty_detail(2)),
+		vtext)
+	p["equipment"][0]["schools"] = [BC.SchoolId.FOYER, BC.SchoolId.BRASIER, BC.SchoolId.FOYER]
+	uu.show_perso(p, st)
+	_check("perso: Écoles mêlées -> ligne en TEXT", ecoles.text.begins_with("Enclume / Brasier / Enclume") and ecoles.get_theme_color("font_color") == UiStyle.TEXT, ecoles.text)
+	var order: Array = sac.get_children().map(func(c: Node) -> String: return c.get_class() if not c is Button else String(c.name))
+	var shead: Button = sac.find_child("Tete", true, false)
+	_check("sacoche: Cendre, Éclats (carte), coffre, puis Purifier et Raison ; textes du jumeau", order == ["PanelContainer", "VBoxContainer", "PanelContainer", "Purifier", "Label"]
+		and shead.text == "Éclats 5/6, dont 2 d'Élite\nPurification au village ou au Brasero" and not sac.find_child("Detail", true, false).visible
+		and sac.get_child(0).find_children("*", "Label", true, false)[0].text == "Cendre 120/150\nLanterne niveau 1"
+		and sac.get_child(2).find_children("*", "Label", true, false)[0].text == "Coffre : 12 minerais\n4 minerais par pièce à la Forge", str(order))
+	var stops: Array = uu.get_node("Margin/VBox/Monde/Fenetre/Box/Defile").find_children("*", "Control", true, false).filter(
+		func(c: Control) -> bool: return c.mouse_filter == Control.MOUSE_FILTER_STOP)
+	_check("défilement tactile: aucun Control en STOP dans Perso et Sacoche non plus", stops.is_empty(), str(stops.map(func(c: Control) -> String: return c.name)))
 	uu.free()
 
 # Jalon 17 bis : feu de camp animé (4 images de 125 ms). Références : prompt d'Antho (prep_jalon_17bis.py).
@@ -2332,6 +2477,7 @@ func _jalon_11(vd: Dictionary, solid1: Dictionary) -> void:
 	_jalon_18()
 	_jalon_19()
 	_jalon_19b()
+	_jalon_20()
 	# Scènes et données
 	var vil: Node = load("res://scenes/village/village.tscn").instantiate()
 	var sg: Node2D = vil.get_node_or_null("Entites/Segment")

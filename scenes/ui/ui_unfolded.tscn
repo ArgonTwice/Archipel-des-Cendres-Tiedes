@@ -162,18 +162,13 @@ horizontal_scroll_mode = 0
 layout_mode = 2
 size_flags_horizontal = 3
 
-[node name="Perso" type="Label" parent="Margin/VBox/Monde/Fenetre/Box/Defile/Pages"]
+[node name="Perso" type="VBoxContainer" parent="Margin/VBox/Monde/Fenetre/Box/Defile/Pages"]
 visible = false
 layout_mode = 2
-autowrap_mode = 3
 
 [node name="Sacoche" type="VBoxContainer" parent="Margin/VBox/Monde/Fenetre/Box/Defile/Pages"]
 visible = false
 layout_mode = 2
-
-[node name="Lines" type="Label" parent="Margin/VBox/Monde/Fenetre/Box/Defile/Pages/Sacoche"]
-layout_mode = 2
-autowrap_mode = 3
 
 [node name="Purifier" type="Button" parent="Margin/VBox/Monde/Fenetre/Box/Defile/Pages/Sacoche"]
 layout_mode = 2
