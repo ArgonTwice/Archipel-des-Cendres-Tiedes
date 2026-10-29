@@ -1006,8 +1006,8 @@ func _jalon_16b() -> void:
 	print("      " + str(reasons))
 	_check("forge_block_reason : village, 2 minerais, 1 minerai, 10 Cendre, \"\", choix en attente", reasons == ["Forge au village seulement",
 		"Il manque 2 minerais", "Il manque 1 minerai", "Il manque 10 Cendre", "", "Choisis d'abord : Équiper ou Jeter"], str(reasons))
-	_check("forge_reserve(12, 100) et (1, 0)", EqText.forge_reserve(12, 100) == "Tu as : 12 minerais, 100 Cendre"
-		and EqText.forge_reserve(1, 0) == "Tu as : 1 minerai, 0 Cendre")
+	_check("forge_cendre_row(100) (remplace forge_reserve, jalon 20 bis)", EqText.forge_cendre_row(100)
+		== PackedStringArray(["Cendre 100/150", "25 Cendre par pièce, mode Avec Cendre"]), str(EqText.forge_cendre_row(100)))
 	# Aperçu : même rattrapage que craft (Forgeron 1, Combattant 6 : +252 au test « forge » du jalon 16)
 	var pf: Dictionary = ProgressionS.new_player()
 	pf["voc_xp"]["COMBATTANT"] = BA.get_cumulative_xp(6)
@@ -1022,20 +1022,23 @@ func _jalon_16b() -> void:
 	var ui: CanvasLayer = load("res://scenes/ui/ui_unfolded.tscn").instantiate()
 	root.add_child(ui)
 	ui.notification(Node.NOTIFICATION_READY) # root hors de l'arbre pendant _initialize : ni @onready ni _ready sans cette notification
-	var lines: Label = ui.get_node("Margin/VBox/Monde/Apercu/Box/Lines")
-	var sup: Label = ui.get_node("Margin/VBox/Monde/Apercu/Box/Superieure")
+	# Carte en 2 colonnes (jalon 20 bis) : tête = 1re ligne de la carte, Supérieure = étiquette de la tête, verdict calculé dedans
+	var head: Label = ui.get_node("Margin/VBox/Monde/Apercu/Box").get_child(0).find_children("*", "Label", true, false)[0]
+	var sup: Label = ui.get_node("Margin/VBox/Monde/Apercu/Box").get_child(0).find_child("Tag", true, false)
 	var verdict: Label = ui.get_node("Margin/VBox/Monde/Apercu/Box/Verdict")
-	ui.show_preview(EquipmentS.craft(1, 8, 2, 1, true, 0), null, "PV +0", true, 1)
-	var card1: Array = [lines.text.get_slice("
-", 0), sup.visible, sup.text, verdict.text, verdict.get_theme_color("font_color")]
-	ui.show_preview(EquipmentS.craft(1, 0, 2, 1, true, 0), null, "PV +0", false, -1)
-	var card2: Array = [lines.text.get_slice("
-", 0), sup.visible, verdict.text, verdict.get_theme_color("font_color")]
-	_check("carte: K5 n = 8 forgée -> « Pièce forgée », QUALITÉ SUPÉRIEURE : +2 ilvl ambrée, taille des lignes, verdict vert ; n = 0 purifiée -> masquée, verdict vermillon",
-		card1 == ["Pièce forgée", true, "QUALITÉ SUPÉRIEURE : +2 ilvl", "Meilleure que l'équipée", Color("#009E73")]
-		and card2 == ["Pièce purifiée", false, "Moins bonne que l'équipée", Color("#D55E00")]
-		and sup.get_theme_color("font_color") == Color("#E69F00") and sup.get_theme_font_size("font_size") == lines.get_theme_font_size("font_size"), str(card1) + str(card2))
 	var st: Dictionary = {"hp": 100, "atk": 22, "def": 5, "period": 1.0 / 1.2, "crit_rate": 0.05, "crit_mult": 1.5}
+	var st_up: Dictionary = st.duplicate()
+	st_up["atk"] = 30
+	var st_down: Dictionary = st.duplicate()
+	st_down["hp"] = 90
+	ui.show_preview(EquipmentS.craft(1, 8, 2, 1, true, 0), null, st, st_up, true)
+	var card1: Array = [head.text.get_slice("\n", 0), sup.text != "", verdict.text, verdict.get_theme_color("font_color")]
+	ui.show_preview(EquipmentS.craft(1, 0, 2, 1, true, 0), null, st, st_down, false)
+	var card2: Array = [head.text.get_slice("\n", 0), sup.text, verdict.text, verdict.get_theme_color("font_color")]
+	_check("carte: K5 n = 8 forgée -> « Pièce forgée », Supérieure en étiquette ambrée, verdict vert ; n = 0 purifiée -> sans étiquette, verdict vermillon",
+		card1 == ["Pièce forgée", true, "Meilleure que l'équipée", Color("#009E73")]
+		and card2 == ["Pièce purifiée", "", "Moins bonne que l'équipée", Color("#D55E00")]
+		and sup.get_theme_color("font_color") == Color("#E69F00"), str(card1) + str(card2))
 	var cmp: Array = []
 	for m: Dictionary in [{"atk": 30}, {"hp": 90}, {"atk": 30, "def": 4}, {}, {"period": 1.0 / 1.3}, {"crit_rate": 0.04}]:
 		var after_st: Dictionary = st.duplicate()
@@ -1162,7 +1165,8 @@ func _jalon_17() -> void:
 	m.append([win.visible, page.call(), title.text])
 	tabs[0].button_pressed = true
 	m.append([win.visible, page.call(), title.text, tabs[2].button_pressed])
-	uu.show_preview(EquipmentS.craft(1, 8, 2, 1, true, 0), null, "PV +0", true, 0)
+	var st0: Dictionary = {"hp": 100, "atk": 22, "def": 5, "period": 1.0 / 1.2, "crit_rate": 0.05, "crit_mult": 1.5}
+	uu.show_preview(EquipmentS.craft(1, 8, 2, 1, true, 0), null, st0, st0, true)
 	m.append([win.visible, tabs[0].disabled, tabs[5].disabled])
 	uu.hide_preview()
 	m.append([win.visible, page.call(), tabs[0].disabled])
@@ -1907,13 +1911,147 @@ func _jalon_20() -> void:
 	_check("perso: Écoles mêlées -> ligne en TEXT", ecoles.text.begins_with("Enclume / Brasier / Enclume") and ecoles.get_theme_color("font_color") == UiStyle.TEXT, ecoles.text)
 	var order: Array = sac.get_children().map(func(c: Node) -> String: return c.get_class() if not c is Button else String(c.name))
 	var shead: Button = sac.find_child("Tete", true, false)
-	_check("sacoche: Cendre, Éclats (carte), coffre, puis Purifier et Raison ; textes du jumeau", order == ["PanelContainer", "VBoxContainer", "PanelContainer", "Purifier", "Label"]
+	var scard: Array = sac.get_child(1).get_children().map(func(c: Node) -> String: return String(c.name))
+	var srow: Array = sac.get_child(1).get_child(0).get_children().map(func(c: Node) -> String: return String(c.name))
+	_check("sacoche: Cendre, Éclats (rangée [tête | Purifier], Raison, fiche ; Z11), coffre ; textes du jumeau", order == ["PanelContainer", "VBoxContainer", "PanelContainer"]
+		and scard == ["Rangee", "Raison", "Detail"] and srow == ["Tete", "Purifier"]
 		and shead.text == "Éclats 5/6, dont 2 d'Élite\nPurification au village ou au Brasero" and not sac.find_child("Detail", true, false).visible
 		and sac.get_child(0).find_children("*", "Label", true, false)[0].text == "Cendre 120/150\nLanterne niveau 1"
 		and sac.get_child(2).find_children("*", "Label", true, false)[0].text == "Coffre : 12 minerais\n4 minerais par pièce à la Forge", str(order))
 	var stops: Array = uu.get_node("Margin/VBox/Monde/Fenetre/Box/Defile").find_children("*", "Control", true, false).filter(
 		func(c: Control) -> bool: return c.mouse_filter == Control.MOUSE_FILTER_STOP)
 	_check("défilement tactile: aucun Control en STOP dans Perso et Sacoche non plus", stops.is_empty(), str(stops.map(func(c: Control) -> String: return c.name)))
+	uu.free()
+
+# Jalon 20 bis : Forge, carte d'Aperçu en 2 colonnes, Purifier et Crédits à la charte. Références : sortie de prep_jalon_20bis.py.
+func _jalon_20b() -> void:
+	_check("forge_cendre_row(100)", EqText.forge_cendre_row(100) == PackedStringArray(["Cendre 100/150", "25 Cendre par pièce, mode Avec Cendre"]))
+	var fb: Array = [EqText.forge_button(0, {"rarity": 0, "ilvl": 1}), EqText.forge_button(1, null), EqText.forge_button(2, {"rarity": 1, "ilvl": 3}),
+		EqText.forge_button(3, {"rarity": 2, "ilvl": 12})]
+	for x: PackedStringArray in fb:
+		print("      " + str(x))
+	_check("forge_button: 4 fixtures du jumeau", fb == [PackedStringArray(["Forger l'Arme", "Équipée : Commune, ilvl 1"]),
+		PackedStringArray(["Forger le Casque", "Emplacement vide"]), PackedStringArray(["Forger le Plastron", "Équipé : Bon, ilvl 3"]),
+		PackedStringArray(["Forger les Bottes", "Équipées : Rares, ilvl 12"])], str(fb))
+	var ph: Array = [[EqText.preview_head(false, 0), EqText.piece_tag(0, {"superior": false})], [EqText.preview_head(true, 3), EqText.piece_tag(3, {"superior": true})]]
+	_check("preview_head + piece_tag: (purifiée, Arme, \"\") et (forgée, Bottes, Supérieures)", ph == [[PackedStringArray(["Pièce purifiée", "Arme"]), ""],
+		[PackedStringArray(["Pièce forgée", "Bottes"]), "Supérieures"]], str(ph))
+	_check("column_head: « Bonne, ilvl 6 » et « Vide »", [EqText.column_head(0, {"rarity": 1, "ilvl": 6}), EqText.column_head(2, null)] == ["Bonne, ilvl 6", "Vide"])
+	var F: int = BC.SchoolId.FOYER
+	var sm: Array = [EqText.piece_summary(0, {"rarity": 1, "ilvl": 5, "schools": [F, F, F]}), EqText.piece_summary(2, {"rarity": 1, "ilvl": 8}),
+		EqText.piece_summary(2, null)]
+	_check("piece_summary (Z11): « Bonne, ilvl 5, Enclume 3/3 », « Bon, ilvl 8 », « Vide »", sm == ["Bonne, ilvl 5, Enclume 3/3", "Bon, ilvl 8", "Vide"], str(sm))
+	var b0: Dictionary = {"hp": 154, "atk": 30, "def": 13, "period": 1.0 / 1.20, "crit_rate": 0.05, "crit_mult": 1.5}
+	var a1: Dictionary = {"hp": 154, "atk": 33, "def": 12, "period": 1.0 / 1.25, "crit_rate": 0.08, "crit_mult": 1.5}
+	var a2: Dictionary = {"hp": 190, "atk": 30, "def": 13, "period": 1.0 / 1.20, "crit_rate": 0.05, "crit_mult": 1.6}
+	var d1: Array = EqText.diff_parts(b0, a1)
+	var d2: Array = EqText.diff_parts(b0, a2)
+	print("      " + str(d1))
+	print("      " + str(d2))
+	_check("diff_parts: arme (mixte)", d1 == [["PV +0", 0], ["ATK +3", 1], ["DEF -1", -1], ["Cadence +0,05/s", 1], ["Critique +3 %", 1], ["Dégâts crit. +0,0", 0]], str(d1))
+	_check("diff_parts: armure (meilleure)", d2 == [["PV +36", 1], ["ATK +0", 0], ["DEF +0", 0], ["Cadence +0,00/s", 0], ["Critique +0 %", 0], ["Dégâts crit. +0,1", 1]], str(d2))
+	_check("verdict inchangé: arme mixte -> 0, armure -> 1", EqText.compare(b0, a1) == 0 and EqText.compare(b0, a2) == 1)
+	# Largeurs (pires cas du jumeau)
+	var font: Font = load(FONT_PATH)
+	var fw: Callable = func(t: String) -> float: return font.get_string_size(t, HORIZONTAL_ALIGNMENT_LEFT, -1, 8).x
+	var heads: Array = []
+	for x: PackedStringArray in fb + [EqText.forge_cendre_row(150), PackedStringArray(["Équipées : Communes, ilvl 12"])]:
+		heads.append_array(Array(x))
+	var hw: float = heads.map(func(t: String) -> float: return fw.call(t)).max()
+	var cw: float = ["Communes, ilvl 12", "ATK d'arme 10,4", "+12 % dégâts critiques", "+12,5 DEF", "Enclume 3/3", "Nouvelle", "Équipée"].map(
+		func(t: String) -> float: return fw.call(t)).max()
+	var worst: Array = ["PV -999", "ATK -999", "DEF -999", "Cadence -0,99/s", "Critique -99 %", "Dégâts crit. -9,9"]
+	var rw: Array = [0, 3].map(func(i: int) -> float: return fw.call(worst[i]) + fw.call(worst[i + 1]) + fw.call(worst[i + 2]) + 16.0)
+	print("      largeurs : boutons et têtes %d px, colonnes %d px, rangées d'écarts %s px, Écoles mêlées %d px" % [hw, cw, str(rw.map(func(x: float) -> int: return roundi(x))),
+		fw.call("Enclume / Brasier / Enclume")])
+	_check("largeurs: boutons et têtes <= 264, colonnes <= 144, rangées d'écarts <= 296", hw <= 264.0 and cw <= 144.0 and rw.max() <= 296.0, "%d %d %s" % [hw, cw, str(rw)])
+	var colw: Callable = func(ts: Array) -> float: return ts.map(func(t: String) -> float: return fw.call(t)).max()
+	var tw: float = (colw.call(["Si tu équipes", "Dégâts crit.", "Cadence", "Critique"]) + colw.call(["Équipée", "Nouvelle", "9999", "9,99/s", "99 %", "×9,9"]) * 2.0
+		+ colw.call(["Écart", "+0,99/s", "-999", "-99 %", "-9,9", "+9,9"]) + 3.0 * 8.0)
+	var sw: float = fw.call("Nouvelle") + 8.0 + fw.call("Communes, ilvl 12")
+	print("      tableau Si tu équipes %d px, résumé de pièce (hors arme) %d px" % [tw, sw])
+	_check("largeurs (Z11): tableau Si tu équipes et résumé de pièce <= 296", tw <= 296.0 and sw <= 296.0, "%d %d" % [tw, sw])
+	# UI instanciée
+	var uu: CanvasLayer = _ui_ready("res://scenes/ui/ui_unfolded.tscn")
+	var forge: Node = uu.get_node(UiS.PAGES + "Forge")
+	var flines: Array = forge.get_children().filter(func(c: Node) -> bool: return c is PanelContainer)
+	var modes: Array = forge.find_child("Mode", true, false).get_children()
+	var fbtn: Array = uu.get_node(UiS.PAGES + "Forge/Boutons").get_children()
+	var p: Dictionary = ProgressionS.new_player()
+	p["cendre"] = 10
+	p["shard_bag"] = [{"elite": false, "ilvl": 3}, {"elite": true, "ilvl": 6}, {"elite": false, "ilvl": 4}]
+	uu.set_forge_help_source(func(c: bool) -> PackedStringArray: return EqText.forge_help(c, 1, 50))
+	uu.show_forge(8, 10, p["equipment"])
+	uu.set_forge_enabled(func(c: bool) -> String: return EqText.forge_block_reason(true, 8, 10, c, false))
+	var help: Label = forge.find_child("Mode", true, false).get_parent().get_child(-1)
+	var reason: Label = uu.get_node(UiS.PAGES + "Forge/Raison")
+	var before: Array = [modes[1].button_pressed, help.text.get_slice("\n", 1), reason.text]
+	modes[0].pressed.emit()
+	modes[0].button_pressed = true
+	var after: Array = [modes[1].button_pressed, help.text.get_slice("\n", 1), reason.text, reason.visible]
+	print("      forge %s -> %s ; boutons %s" % [str(before), str(after), str(fbtn.map(func(b: Button) -> String: return b.text.replace("\n", " | ")))])
+	_check("forge: 2 lignes, 2 boutons de mode (Avec enfoncé), 4 boutons Forger à icône sur 2 lignes dans Boutons", flines.size() == 2 and modes.size() == 2
+		and before[0] and modes.map(func(b: Button) -> String: return b.text) == ["Sans Cendre", "Avec Cendre (25)"] and fbtn.size() == 4
+		and fbtn.all(func(b: Button) -> bool: return b.icon != null and b.text.get_slice_count("\n") == 2 and not b.toggle_mode and b.alignment == HORIZONTAL_ALIGNMENT_LEFT)
+		and fbtn[0].text == "Forger l'Arme\nÉquipée : Commune, ilvl 1", str(fbtn.map(func(b: Button) -> String: return b.text)))
+	_check("forge: passer en Sans Cendre change l'aide (toujours Commun) et la raison (plus de manque de Cendre)", before[1].begins_with("Rareté : Commun ")
+		and before[2] == "Il manque 15 Cendre" and after == [false, "Rareté : toujours Commun", "", false], str(before) + str(after))
+	var box: Node = uu.get_node("Margin/VBox/Monde/Apercu/Box")
+	var n_box: int = box.get_child_count()
+	var w: Dictionary = EquipmentS.new_equipment()[0].duplicate(true)
+	w["rarity"] = 1
+	w["ilvl"] = 6
+	uu.show_preview(w, EquipmentS.new_equipment()[0], b0, a1, false)
+	var pcs: Array = box.get_node("Pieces").get_children().map(func(l: Label) -> String: return l.text)
+	var cells: Array = box.get_node("Stats").get_children()
+	var table: Array = []
+	for r in 7:
+		table.append(cells.slice(r * 4, r * 4 + 4).map(func(l: Label) -> String: return l.text))
+	print("      aperçu %s" % str(pcs))
+	for row: Array in table:
+		print("      " + str(row))
+	var mixed: Array = [cells[7].get_theme_color("font_color"), cells[11].get_theme_color("font_color"), cells[15].get_theme_color("font_color")]
+	var armor: Dictionary = EquipmentS.craft(1, 8, 2, 1, true, 0)
+	uu.show_preview(armor, null, b0, a2, true)
+	var tag: Label = box.get_child(0).find_child("Tag", true, false)
+	_check("aperçu (Z11): 2 appels sans nœud créé, tête / Verdict / Pieces / Stats / Choix, une ligne par pièce, tableau Si tu équipes",
+		box.get_child_count() == n_box and box.get_children().map(func(c: Node) -> String: return c.get_class() if c.name.begins_with("@") else String(c.name))
+		== ["PanelContainer", "Verdict", "Pieces", "Stats", "Choix"] and pcs == ["Nouvelle", "Bonne, ilvl 6, Enclume 3/3", "Équipée", "Commune, ilvl 1, Enclume 3/3"]
+		and table == [["Si tu équipes", "Équipée", "Nouvelle", "Écart"], ["PV", "154", "154", "+0"], ["ATK", "30", "33", "+3"], ["DEF", "13", "12", "-1"],
+		["Cadence", "1,20/s", "1,25/s", "+0,05/s"], ["Critique", "5 %", "8 %", "+3 %"], ["Dégâts crit.", "×1,5", "×1,5", "+0,0"]], str(pcs) + str(table))
+	_check("aperçu: PV +0 en TEXT, ATK +3 en GOOD, DEF -1 en BAD ; armure Supérieure forgée : étiquette en SUPERIOR, verdict meilleure",
+		mixed == [UiStyle.TEXT, UiStyle.GOOD, UiStyle.BAD] and tag.text == EqText.piece_tag(armor["slot"], armor) and tag.text != ""
+		and tag.get_theme_color("font_color") == UiStyle.SUPERIOR and uu.get_node("Margin/VBox/Monde/Apercu/Box/Verdict").text == EqText.VERDICTS[1], str(mixed))
+	uu.show_player(p, 8)
+	var purify: Button = uu.get_node(UiS.PAGES + "Sacoche").find_child("Purifier", true, false)
+	var credits: Button = uu.get_node(UiS.PAGES + "Options/CreditsButton")
+	var shead: Button = purify.get_parent().get_child(0)
+	purify.pressed.emit()
+	var head_w: float = shead.get_minimum_size().x + 2.0 + purify.get_minimum_size().x
+	print("      rangée Éclats : tête %d + Purifier %d = %d px" % [shead.get_minimum_size().x, purify.get_minimum_size().x, head_w])
+	_check("Purifier (Z11) : à droite de la ligne Éclats, appui sans ouvrir la fiche, rangée <= 296 px", not shead.button_pressed and head_w <= 296.0, str(head_w))
+	_check("Purifier (bouton simple sans icône) et Crédits (icône, 2 lignes)", purify.icon == null and credits.icon != null
+		and purify.text == "Purifier" and credits.text == "Crédits\nLicences des assets"
+		and _icon_of(credits.icon) == [UiStyle.TT.resource_path, UiStyle.ICONS["TAB_OPTIONS"][1]], purify.text)
+	var tabs: Array = uu.get_node("Margin/VBox/Onglets").get_children()
+	var rep: Control = uu.find_child("Report", true, false)
+	var back: Array = []
+	uu.hide_preview() # carte laissée ouverte par les tests d'aperçu : onglets grisés
+	tabs[5].button_pressed = true
+	uu.get_node("Credits").visible = true
+	rep.visible = true
+	for k in 4:
+		back.append([uu.go_back(), uu.get_node("Credits").visible, rep.visible, tabs[5].button_pressed])
+	tabs[2].button_pressed = true
+	uu.show_preview(armor, null, b0, a2, true)
+	back.append([uu.go_back(), uu.get_node("Margin/VBox/Monde/Apercu").visible])
+	uu.hide_preview()
+	tabs[2].button_pressed = false
+	_check("Retour (Z11, choix B): Crédits, puis Rapport, puis onglet, puis rien ; la carte Équiper / Jeter ne se ferme pas",
+		back == [[true, false, true, true], [true, false, false, true], [true, false, false, false], [false, false, false, false], [false, true]], str(back))
+	var stops: Array = uu.get_node("Margin/VBox/Monde/Fenetre/Box/Defile").find_children("*", "Control", true, false).filter(
+		func(c: Control) -> bool: return c.mouse_filter == Control.MOUSE_FILTER_STOP)
+	_check("défilement tactile: aucun Control en STOP dans la Forge non plus", stops.is_empty(), str(stops.map(func(c: Control) -> String: return c.name)))
 	uu.free()
 
 # Jalon 17 bis : feu de camp animé (4 images de 125 ms). Références : prompt d'Antho (prep_jalon_17bis.py).
@@ -2478,6 +2616,7 @@ func _jalon_11(vd: Dictionary, solid1: Dictionary) -> void:
 	_jalon_19()
 	_jalon_19b()
 	_jalon_20()
+	_jalon_20b()
 	# Scènes et données
 	var vil: Node = load("res://scenes/village/village.tscn").instantiate()
 	var sg: Node2D = vil.get_node_or_null("Entites/Segment")

@@ -16,6 +16,7 @@ const RARITY_FORMS: Array[Dictionary] = [
 const SCHOOL_NAMES: Dictionary = {BC.SchoolId.FOYER: "Enclume", BC.SchoolId.BRASIER: "Brasier"}
 const PRONOUNS: Dictionary = {"M": "le", "F": "la", "FP": "les"}
 const SUPERIOR_FORMS: Dictionary = {"M": "Supérieur", "F": "Supérieure", "FP": "Supérieures"}
+const EQUIPPED_FORMS: Dictionary = {"M": "Équipé", "F": "Équipée", "FP": "Équipées"}
 const NBSP: String = " " # séparateur de milliers (Charte §4) ; U+202F est absent de Silkscreen
 const PCT_LABELS: Dictionary = {"PCT_ATK": "ATK d'arme", "PCT_ASPD": "cadence", "PCT_CRIT_CHANCE": "critique", "PCT_CRIT_DMG": "dégâts critiques"}
 
@@ -75,13 +76,50 @@ static func stats_lines(st: Dictionary) -> PackedStringArray:
 	return PackedStringArray(["PV %d  ATK %d  DEF %d" % [st["hp"], st["atk"], st["def"]],
 		"Cadence %s/s  Critique %d %% ×%s" % [("%.2f" % (1.0 / st["period"])).replace(".", ","), roundi(st["crit_rate"] * 100.0), dec1(st["crit_mult"])]])
 
-# « PV +36  ATK +0  DEF +0 »
-static func diff_line(before: Dictionary, after: Dictionary) -> String:
-	var parts: PackedStringArray = []
+# Écart stat par stat de la carte d'Aperçu (jalon 20 bis) : [texte, signe] x 6. Le signe se lit sur la valeur affichée
+# (arrondie) : un « +0 » reste neutre. Cadence en /s à 0,01 près, critique en points de %, dégâts critiques à 0,1 près.
+static func diff_parts(before: Dictionary, after: Dictionary) -> Array:
+	var out: Array = []
 	for k: Array in [["PV", "hp"], ["ATK", "atk"], ["DEF", "def"]]:
 		var d: int = after[k[1]] - before[k[1]]
-		parts.append("%s %s%d" % [k[0], "+" if d >= 0 else "", d])
-	return "  ".join(parts)
+		out.append(["%s %s%d" % [k[0], "+" if d >= 0 else "-", absi(d)], signi(d)])
+	var dc: float = snappedf(1.0 / after["period"] - 1.0 / before["period"], 0.01)
+	out.append(["Cadence %s%s/s" % ["+" if dc >= 0.0 else "-", ("%.2f" % absf(dc)).replace(".", ",")], int(signf(dc))])
+	var dr: int = roundi((after["crit_rate"] - before["crit_rate"]) * 100.0)
+	out.append(["Critique %s%d %%" % ["+" if dr >= 0 else "-", absi(dr)], signi(dr)])
+	var dm: float = snappedf(after["crit_mult"] - before["crit_mult"], 0.1)
+	out.append(["Dégâts crit. %s%s" % ["+" if dm >= 0.0 else "-", dec1(absf(dm))], int(signf(dm))])
+	return out
+
+# Tête de la carte d'Aperçu : « Pièce forgée », « Bottes ».
+static func preview_head(forged: bool, slot: int) -> PackedStringArray:
+	return PackedStringArray(["Pièce forgée" if forged else "Pièce purifiée", SLOT_NAMES[slot]])
+
+# Rareté et ilvl d'une pièce de la carte : « Bonne, ilvl 6 », « Vide ».
+static func column_head(slot: int, piece: Variant) -> String:
+	return "Vide" if piece == null else "%s, ilvl %d" % [RARITY_FORMS[piece["rarity"]][gender(slot)], piece["ilvl"]]
+
+# Résumé d'une pièce sur la carte (Z11) : « Bonne, ilvl 5, Enclume 3/3 » pour l'arme, « Bon, ilvl 8 », « Vide ».
+static func piece_summary(slot: int, piece: Variant) -> String:
+	var head: String = column_head(slot, piece)
+	return head + ", " + schools(piece) if piece != null and slot == 0 else head
+
+const STAT_LABELS: Array[String] = ["PV", "ATK", "DEF", "Cadence", "Critique", "Dégâts crit."]
+
+# Valeurs affichées d'une stat du personnage, dans l'ordre de STAT_LABELS (mêmes formats que stats_lines).
+static func stat_values(st: Dictionary) -> PackedStringArray:
+	return PackedStringArray([str(st["hp"]), str(st["atk"]), str(st["def"]), ("%.2f/s" % (1.0 / st["period"])).replace(".", ","),
+		"%d %%" % roundi(st["crit_rate"] * 100.0), "×" + dec1(st["crit_mult"])])
+
+# Tableau « Si tu équipes » de la carte (Z11) : [stat, avec l'équipée, avec la nouvelle, écart, signe] x 6 ; écart et signe de diff_parts.
+static func stat_rows(before: Dictionary, after: Dictionary) -> Array:
+	var b: PackedStringArray = stat_values(before)
+	var a: PackedStringArray = stat_values(after)
+	var parts: Array = diff_parts(before, after)
+	var out: Array = []
+	for k in STAT_LABELS.size():
+		out.append([STAT_LABELS[k], b[k], a[k], parts[k][0].trim_prefix(STAT_LABELS[k] + " "), parts[k][1]])
+	return out
 
 # Forge (jalon 16 bis) : aide avant de forger. forgeron_level déjà borné à l'isolat, xp_gain = gain réel (Forge.xp_preview) ;
 # sans isolat, le rattrapage est le seul facteur qui atteint CATCHUP_ACTION_XP_MULT (isolat ≤ ×1,48).
@@ -120,9 +158,16 @@ static func forge_block_reason(in_village: bool, ore: int, cendre_have: int, cen
 		return "Choisis d'abord : Équiper ou Jeter"
 	return ""
 
-# « Tu as : 12 minerais, 100 Cendre »
-static func forge_reserve(ore: int, cendre_have: int) -> String:
-	return "Tu as : %s, %d Cendre" % [plural(ore, "minerai"), cendre_have]
+# Forge (jalon 20 bis) : « Cendre 100/150 », « 25 Cendre par pièce, mode Avec Cendre ».
+static func forge_cendre_row(cendre: int) -> PackedStringArray:
+	return PackedStringArray(["Cendre %d/%d" % [cendre, BA.LANTERN_CENDRE_CAP[0]], "%d Cendre par pièce, mode Avec Cendre" % BA.CENDRE_COST_STANDARD_CRAFT])
+
+# « Forger l'Arme », « Équipée : Commune, ilvl 1 » ; « Emplacement vide ». Participe accordé au genre de la pièce.
+static func forge_button(slot: int, piece: Variant) -> PackedStringArray:
+	var g: String = gender(slot)
+	var l2: String = "Emplacement vide" if piece == null else "%s : %s, ilvl %d" % [EQUIPPED_FORMS[g], RARITY_FORMS[piece["rarity"]][g], piece["ilvl"]]
+	return PackedStringArray(["Forger " + with_article(slot), l2])
+
 
 # Bandeau (jalon 17) : paires [clé, texte] dans l'ordre d'affichage. cargo : [kg portés, capacité] en expédition, null sinon.
 # Plié : sans Or, minerai seulement en expédition. Déplié : minerai du coffre au village, cargaison en Brume.

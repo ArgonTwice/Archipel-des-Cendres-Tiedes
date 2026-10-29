@@ -33,6 +33,7 @@ var _drag: int = -1 # PNJ saisi sur la carte (déplié), -1 sinon
 var _drag_from: Vector2
 
 func _ready() -> void:
+	get_tree().quit_on_go_back = false # Retour ne quitte plus (Z11) : il referme (_notification)
 	var now: int = ClockS.now_utc()
 	var r: Dictionary = SaveManager.start(now)
 	var capture: String = _debug_args()
@@ -88,6 +89,11 @@ func _ready() -> void:
 		await get_tree().create_timer(1.0).timeout
 		get_viewport().get_texture().get_image().save_png(capture)
 		get_tree().quit()
+
+# Geste Retour d'Android : referme ce qui est ouvert sur la couche active, sinon ne fait rien (choix d'Antho, Z11).
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_WM_GO_BACK_REQUEST and is_node_ready():
+		(_ui_folded if _folded else _ui_unfolded).go_back()
 
 # La caméra suit sa cible au pixel près (arrondi : pas de scintillement), sauf pendant le Tween de bascule.
 # Le noir du fondu d'évacuation est appliqué plié et déplié.
@@ -213,7 +219,7 @@ func _show_player() -> void:
 	for layer in [_ui_folded, _ui_unfolded]: # ui_layer.gd
 		layer.show_player(p, ForgeS.ore(p))
 	_ui_unfolded.show_perso(p, EquipmentS.player_stats(ProgressionS.combat_level(p), p["equipment"]))
-	_ui_unfolded.show_forge(ForgeS.ore(p), p["cendre"])
+	_ui_unfolded.show_forge(ForgeS.ore(p), p["cendre"], p["equipment"])
 
 # Purification (Volet F §1, déplié) : au village sans limite, au Brasero 2 par expédition ; jamais sans sauvegarde
 # ni avec une carte ouverte.
@@ -247,7 +253,7 @@ func _show_card(piece: Dictionary, forged: bool) -> void:
 	after[piece["slot"]] = piece
 	var before_st: Dictionary = EquipmentS.player_stats(level, p["equipment"])
 	var after_st: Dictionary = EquipmentS.player_stats(level, after)
-	_ui_unfolded.show_preview(piece, p["equipment"][piece["slot"]], EqText.diff_line(before_st, after_st), forged, EqText.compare(before_st, after_st))
+	_ui_unfolded.show_preview(piece, p["equipment"][piece["slot"]], before_st, after_st, forged)
 
 # Équiper / Jeter : la carte de craft passe avant l'aperçu de purification (les deux ne coexistent jamais).
 func _on_purify_chosen(equip: bool) -> void:

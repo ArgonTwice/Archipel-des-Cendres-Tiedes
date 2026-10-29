@@ -58,12 +58,18 @@ var _cargo: Variant = null
 @onready var _purify: Button = get_node_or_null(PAGES + "Sacoche/Purifier")
 @onready var _purify_reason: Label = get_node_or_null(PAGES + "Sacoche/Raison")
 @onready var _forge: Control = get_node_or_null(PAGES + "Forge")
-@onready var _forge_cendre: CheckButton = get_node_or_null(PAGES + "Forge/AvecCendre")
-@onready var _forge_help: Label = get_node_or_null(PAGES + "Forge/Aide")
 @onready var _forge_reason: Label = get_node_or_null(PAGES + "Forge/Raison")
-@onready var _superior: Label = get_node_or_null("Margin/VBox/Monde/Apercu/Box/Superieure")
 @onready var _verdict: Label = get_node_or_null("Margin/VBox/Monde/Apercu/Box/Verdict")
 var _forge_buttons: Array[Button] = []
+# Forge (jalon 20 bis) : créée une fois dans _ready ; show_forge et refresh_forge_help ne changent que textes et états.
+var _forge_with_cendre: bool = true # mode de craft, non sauvegardé
+var _forge_rows: Dictionary = {} # "minerai", "cendre" -> {"text", "tag", "icon"}
+var _forge_mode: Dictionary = {} # _block du mode : "buttons" (Sans, Avec), "help"
+var _forge_reason_of: Callable # dernière source de raison reçue (set_forge_enabled), relue au changement de mode
+# Carte d'Aperçu (jalon 20 bis, revue après Z11) : tête, résumé des 2 pièces, tableau « Si tu équipes » ; créée une fois.
+var _preview_head: Dictionary = {} # {"text", "tag", "icon"}
+var _summaries: Array[Label] = [] # Nouvelle, Équipée
+var _stat_cells: Array = [] # 6 lignes de 4 Labels : stat, avec l'équipée, avec la nouvelle, écart
 # Onglets du bas (jalon 17, à la Kairosoft) : une seule fenêtre ouverte à la fois, aucune au lancement ; un 2e appui ou « × » referme.
 var _tabs: Array[Button] = []
 var _pages: Array[Control] = []
@@ -131,27 +137,18 @@ func _ready() -> void:
 		_purify_reason.add_theme_color_override("font_color", UiStyle.MUTED)
 		$Margin/VBox/Monde/Apercu/Box/Choix/Equiper.pressed.connect(purify_chosen.emit.bind(true))
 		$Margin/VBox/Monde/Apercu/Box/Choix/Jeter.pressed.connect(purify_chosen.emit.bind(false))
-		get_node(PAGES + "Options/CreditsButton").pressed.connect($Credits.show)
+		var credits: Button = get_node(PAGES + "Options/CreditsButton")
+		_style_action(credits, UiStyle.icon("CREDITS"))
+		credits.pressed.connect($Credits.show)
 		_build_village_pages()
 		_build_perso()
 		_build_sacoche()
+		_build_preview()
 		if is_inside_tree(): # hors arbre sous le simulateur headless : il appelle fit_window lui-même
 			fit_window(get_viewport().get_visible_rect().size.y)
 			get_viewport().size_changed.connect(func() -> void: fit_window(get_viewport().get_visible_rect().size.y))
 	if _forge != null:
-		_forge_cendre.text = "Avec Cendre (%d)" % BA.CENDRE_COST_STANDARD_CRAFT
-		_forge_cendre.toggled.connect(func(_on: bool) -> void: refresh_forge_help())
-		_forge_reason.add_theme_color_override("font_color", UiStyle.MUTED)
-		_superior.add_theme_color_override("font_color", UiStyle.SUPERIOR)
-		_superior.text = "QUALITÉ SUPÉRIEURE : +%d ilvl" % BA.SUPERIOR_QUALITY_ILVL_BONUS
-		for slot in EqText.SLOT_NAMES.size():
-			var b: Button = Button.new()
-			b.text = "Forger " + EqText.with_article(slot)
-			b.disabled = true
-			b.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
-			b.pressed.connect(func() -> void: forge_requested.emit(slot, _forge_cendre.button_pressed))
-			_forge.get_node("Boutons").add_child(b)
-			_forge_buttons.append(b)
+		_build_forge()
 	if _scroll != null:
 		touch_scroll(_scroll)
 
@@ -261,8 +258,124 @@ func _build_sacoche() -> void:
 	c[1].add_child(lines)
 	_sac_rows["eclats"] = {"head": c[0], "tag": c[2], "lines": lines}
 	_sac_rows["minerai"] = _line(_sacoche, UiStyle.icon("minerai"))
-	for k in 3: # au-dessus de Purifier et Raison
-		_sacoche.move_child(_sacoche.get_child(_sacoche.get_child_count() - 1), 0)
+	# Purifier à droite de la ligne Éclats, toujours visible (Z11) : rangée [tête | bouton], raison sous la rangée. Le bouton
+	# est le frère de la tête, pas son enfant : l'appui ne bascule pas la fiche.
+	var card: Node = c[0].get_parent()
+	var row: HBoxContainer = HBoxContainer.new()
+	row.name = "Rangee"
+	row.add_theme_constant_override("separation", 2)
+	card.add_child(row)
+	card.move_child(row, 0)
+	c[0].reparent(row)
+	c[0].size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_purify.reparent(row)
+	_purify.text = "Purifier"
+	_purify.focus_mode = Control.FOCUS_NONE
+	for st: String in ["normal", "hover"]: # fond foncé d'un choix enfoncé : se lit comme un bouton à côté de la ligne
+		_purify.add_theme_stylebox_override(st, _purify.get_theme_stylebox("pressed"))
+	_purify_reason.reparent(card)
+	card.move_child(_purify_reason, 1)
+
+# Forge (jalon 20 bis) : minerai et Cendre en lignes simples, Mode en rangée de choix (aide dessous), puis les 4 boutons
+# d'action dans Boutons et la raison.
+func _build_forge() -> void:
+	_forge_reason.add_theme_color_override("font_color", UiStyle.MUTED)
+	var boutons: Node = _forge.get_node("Boutons")
+	_forge_rows["minerai"] = _line(_forge, UiStyle.icon("minerai"))
+	_forge_rows["cendre"] = _line(_forge, UiStyle.icon("cendre"))
+	_section(_forge, "Mode")
+	_forge_mode = _block(_forge, {"SANS": "Sans Cendre", "AVEC": "Avec Cendre (%d)" % BA.CENDRE_COST_STANDARD_CRAFT}, func(value: String) -> void:
+		_forge_with_cendre = value == "AVEC"
+		refresh_forge_help()
+		_refresh_forge_reason())
+	_forge_mode["lines"].free()
+	_forge_mode["row"].name = "Mode"
+	_set_choice(_forge_mode["buttons"], 1, true)
+	_section(_forge, "Forger")
+	_forge.move_child(boutons, -1)
+	_forge.move_child(_forge_reason, -1)
+	for slot in EqText.SLOT_NAMES.size():
+		var b: Button = _action(boutons, UiStyle.icon("SLOT_%d" % slot))
+		b.text = "\n".join(EqText.forge_button(slot, null))
+		b.disabled = true
+		b.pressed.connect(func() -> void: forge_requested.emit(slot, _forge_with_cendre))
+		_forge_buttons.append(b)
+
+# Carte d'Aperçu, sous Apercu/Box : tête, Verdict, Pieces (Nouvelle et Équipée en une ligne chacune), Stats (une ligne par
+# stat du personnage : avec l'équipée, avec la nouvelle, écart en couleur), puis Choix.
+func _build_preview() -> void:
+	var box: VBoxContainer = _preview.get_node("Box")
+	_preview_head = _line(box, UiStyle.icon("SLOT_0"))
+	_preview_head["tag"].add_theme_color_override("font_color", UiStyle.SUPERIOR)
+	box.move_child(box.get_child(-1), 0)
+	var pieces: GridContainer = GridContainer.new()
+	pieces.name = "Pieces"
+	pieces.columns = 2
+	pieces.add_theme_constant_override("h_separation", 8)
+	box.add_child(pieces)
+	for title: String in ["Nouvelle", "Équipée"]:
+		var t: Label = Label.new()
+		t.text = title
+		t.add_theme_color_override("font_color", UiStyle.TITLE)
+		pieces.add_child(t)
+		var l: Label = Label.new()
+		l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART # Écoles mêlées : sur 2 lignes
+		pieces.add_child(l)
+		_summaries.append(l)
+	var stats: GridContainer = GridContainer.new()
+	stats.name = "Stats"
+	stats.columns = 4
+	stats.add_theme_constant_override("h_separation", 8)
+	box.add_child(stats)
+	for row in EqText.STAT_LABELS.size() + 1:
+		var cells: Array[Label] = []
+		for col in 4:
+			var l: Label = Label.new()
+			if col == 0:
+				l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			else:
+				l.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+			stats.add_child(l)
+			cells.append(l)
+		if row == 0: # en-tête
+			for col in 4:
+				cells[col].text = ["Si tu équipes", "Équipée", "Nouvelle", "Écart"][col]
+				cells[col].add_theme_color_override("font_color", UiStyle.TITLE)
+		else:
+			cells[0].text = EqText.STAT_LABELS[row - 1]
+			_stat_cells.append(cells)
+	box.move_child(box.get_node("Choix"), -1)
+
+# Geste Retour d'Android : ferme l'écran Crédits, sinon le Rapport, sinon l'onglet ouvert. La carte Équiper / Jeter reste
+# (décision bloquante). Rend vrai si quelque chose s'est fermé.
+func go_back() -> bool:
+	var credits: Control = get_node_or_null("Credits")
+	if credits != null and credits.visible:
+		credits.visible = false
+		return true
+	if _report.visible:
+		_report.visible = false
+		return true
+	for t: Button in _tabs:
+		if t.button_pressed and not t.disabled:
+			t.button_pressed = false
+			return true
+	return false
+
+# Bouton d'action (Charte §2) : icône 16 px, verbe puis rappel sur 2 lignes, toute la largeur, sans bascule.
+func _action(parent: Node, icon: Texture2D) -> Button:
+	var b: Button = Button.new()
+	parent.add_child(b)
+	_style_action(b, icon)
+	return b
+
+func _style_action(b: Button, icon: Texture2D) -> void:
+	b.icon = icon
+	b.alignment = HORIZONTAL_ALIGNMENT_LEFT
+	b.size_flags_horizontal = Control.SIZE_FILL
+	b.focus_mode = Control.FOCUS_NONE
+	b.toggle_mode = false
 
 # Étiquette d'état à droite de la ligne du nom (Charte §5), sans capter l'appui.
 func _tag(host: Control) -> Label:
@@ -304,7 +417,7 @@ func _line(parent: Node, icon: Texture2D) -> Dictionary:
 	tag.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	tag.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
 	row.add_child(tag)
-	return {"text": text, "tag": tag}
+	return {"text": text, "tag": tag, "icon": pic}
 
 # Ligne dépliable : bouton de tête (icône, texte sur 2 lignes, étiquette d'état) et fiche cachée dessous, une ouverte par
 # groupe. -> [tête, VBox de la fiche, étiquette].
@@ -510,25 +623,36 @@ func set_purify_reason(reason: String) -> void:
 	_purify_reason.text = reason
 	_purify_reason.visible = not on
 
-# Forge (jalons 16 et 16 bis) : réserve et aide, mises à jour par main.gd (_show_player) et à chaque bascule ; textes seulement.
+# Forge (jalons 16, 16 bis et 20 bis) : réserves, pièce équipée sur chaque bouton et aide du mode, mises à jour par main.gd
+# (_show_player) et à chaque bascule ; textes seulement.
 func set_forge_help_source(help_of: Callable) -> void:
 	_forge_help_of = help_of
 
-func show_forge(ore: int, cendre_have: int) -> void:
-	if _forge != null:
-		_forge.get_node("Reserve").text = EqText.forge_reserve(ore, cendre_have)
-		refresh_forge_help()
+func show_forge(ore: int, cendre_have: int, equipment: Array) -> void:
+	if _forge == null:
+		return
+	_forge_rows["minerai"]["text"].text = "\n".join(EqText.ore_row(ore))
+	_forge_rows["cendre"]["text"].text = "\n".join(EqText.forge_cendre_row(cendre_have))
+	for slot in _forge_buttons.size():
+		_forge_buttons[slot].text = "\n".join(EqText.forge_button(slot, equipment[slot]))
+	refresh_forge_help()
 
 func refresh_forge_help() -> void:
 	if _forge != null and _forge_help_of.is_valid():
-		_forge_help.text = "\n".join(_forge_help_of.call(_forge_cendre.button_pressed))
+		_forge_mode["help"].text = "\n".join(_forge_help_of.call(_forge_with_cendre))
 
 # 4 boutons actifs si reason_of(cendre) est vide, sinon grisés avec la raison ; relu à chaque image par main.gd
 # (la sortie du rayon de l'Âtre n'a pas d'événement). Label.text ne redessine rien si le texte est identique.
 func set_forge_enabled(reason_of: Callable) -> void:
 	if _forge == null:
 		return
-	var reason: String = reason_of.call(_forge_cendre.button_pressed)
+	_forge_reason_of = reason_of
+	_refresh_forge_reason()
+
+func _refresh_forge_reason() -> void:
+	if not _forge_reason_of.is_valid():
+		return
+	var reason: String = _forge_reason_of.call(_forge_with_cendre)
 	var on: bool = reason == ""
 	for b: Button in _forge_buttons:
 		if b.disabled == on:
@@ -536,20 +660,25 @@ func set_forge_enabled(reason_of: Callable) -> void:
 	_forge_reason.text = reason
 	_forge_reason.visible = not on
 
-# Aperçu (purification) ou carte de résultat (craft) : nouvelle pièce, pièce équipée du même emplacement, écart de stats.
-# Qualité Supérieure et verdict en tête, en couleur (jalon 16 bis). La fenêtre est masquée et les onglets grisés.
-func show_preview(piece: Dictionary, current: Variant, diff: String, forged: bool, verdict: int) -> void:
+# Aperçu (purification) ou carte de résultat (craft) : tête (Supérieure en SUPERIOR), verdict en couleur (jalon 16 bis),
+# résumé des 2 pièces, tableau stat par stat « Si tu équipes » (jalon 20 bis, Z11). La fenêtre est masquée et les onglets grisés.
+func show_preview(piece: Dictionary, current: Variant, before_st: Dictionary, after_st: Dictionary, forged: bool) -> void:
 	if _preview == null:
 		return
-	_superior.visible = piece.get("superior", false)
+	var slot: int = piece["slot"]
+	var verdict: int = EqText.compare(before_st, after_st)
+	_preview_head["icon"].texture = UiStyle.icon("SLOT_%d" % slot)
+	_preview_head["text"].text = "\n".join(EqText.preview_head(forged, slot))
+	_preview_head["tag"].text = EqText.piece_tag(slot, piece)
 	_verdict.text = EqText.VERDICTS[verdict]
 	_verdict.add_theme_color_override("font_color", UiStyle.VERDICT_COLORS[verdict])
-	var lines: PackedStringArray = ["Pièce forgée" if forged else "Pièce purifiée"]
-	lines.append_array(EqText.piece_lines(piece["slot"], piece))
-	lines.append("Équipée")
-	lines.append_array(EqText.piece_lines(piece["slot"], current))
-	lines.append(diff)
-	_preview.get_node("Box/Lines").text = "\n".join(lines)
+	_summaries[0].text = EqText.piece_summary(slot, piece)
+	_summaries[1].text = EqText.piece_summary(slot, current)
+	var rows: Array = EqText.stat_rows(before_st, after_st)
+	for k in _stat_cells.size():
+		for col in [1, 2, 3]:
+			_stat_cells[k][col].text = rows[k][col]
+		_stat_cells[k][3].add_theme_color_override("font_color", UiStyle.DIFF_COLORS[rows[k][4]])
 	_preview.visible = true
 	_apply_tabs()
 

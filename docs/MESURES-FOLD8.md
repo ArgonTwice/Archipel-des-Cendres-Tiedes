@@ -651,8 +651,50 @@ Export debug le 28/10 : 0 ERROR ; versionCode 23, versionName 0.20.0 ; SHA-256 a
 
 | Test | Résultat | Preuve |
 |---|---|---|
-| (1) Perso se lit d'un coup d'œil (vocations, rattrapage, pièces) | à tester | |
-| (2) icônes d'équipement DB32 assorties au reste | à tester | |
-| (3) liste des Éclats par ilvl utile | à tester | |
-| (4) PNJ, Village et bandeau inchangés | à tester | |
-| (5) ouvrir une pièce puis glisser pour défiler est naturel | à tester | |
+| (1) Perso se lit d'un coup d'œil (vocations, rattrapage, pièces) | OUI | Antho |
+| (2) icônes d'équipement DB32 assorties au reste | OUI | Antho |
+| (3) liste des Éclats par ilvl utile | OUI | Antho |
+| (4) PNJ, Village et bandeau inchangés | OUI | Antho |
+| (5) ouvrir une pièce puis glisser pour défiler est naturel | OUI | Antho |
+
+## Jalon 20 bis (APK 0.20.1)
+
+Forge, carte d'Aperçu, Purifier et Options à la charte (docs/Charte-UI.md §2), UI seule : aucune valeur de jeu, aucun asset, sauvegarde inchangée. Bouton d'action (_action, _style_action) : icône 16 px, verbe puis rappel sur 2 lignes, alignement à gauche, toute la largeur, sans bascule ni focus. Forge créée une fois dans _ready (_build_forge) : 2 _line (coffre = ore_row, Cendre = forge_cendre_row), Mode en _block (Sans Cendre, Avec Cendre (25) ; bool _forge_with_cendre, Avec par défaut, non sauvegardé ; aide = forge_help en MUTED), puis Forger : 4 boutons d'action dans Boutons (icônes SLOT_0 à 3, rappel = forge_button, participe accordé par EqText.gender), raison inchangée. Changer de mode relit l'aide et la raison (dernière source reçue par set_forge_enabled). Reserve, AvecCendre et Aide retirés de la scène, forge_reserve supprimée. Carte d'Aperçu créée une fois (_build_preview) : tête _line (icône de l'emplacement, preview_head, Supérieur·e·s en SUPERIOR), Verdict inchangé, 2 colonnes égales (Nouvelle, Équipée ; column_head, Écoles de l'arme en couleur d'École si 3/3, sinon TEXT ; reste de piece_detail ; autowrap), 6 écarts en grille de 3 (diff_parts, couleur UiStyle.DIFF_COLORS : GOOD, BAD, TEXT ; signe lu sur la valeur affichée). Le verdict est calculé dans show_preview (compare, règle inchangée). Superieure et Lines retirés de la scène, diff_line supprimée. Purifier : icône ECLAT, rappel purify_button (Éclat de Purification.next_index). Crédits : icône CREDITS = TT 83, « Licences des assets ».
+
+Choix d'implémentation : dans une colonne, la 1re ligne de piece_detail de l'arme (« Enclume 3/3, ATK d'arme 10,4 ») est coupée en 2 : Écoles seules en couleur, puis « ATK d'arme 10,4 » en tête du reste, comme la maquette de l'audit et les largeurs du jumeau.
+
+Largeurs mesurées dans Godot (identiques au jumeau) : boutons et têtes 201 px au plus (limite 264), colonnes 117 px (limite 144), rangées d'écarts 143 et 257 px (limite 296) ; Écoles mêlées 146 px. Sur PC 924 × 1224, la carte d'Aperçu prend toute la largeur de Monde : chaque colonne fait un peu plus de 144 px et « Enclume / Brasier / Enclume » tient sur une ligne (AG3).
+
+Tests : 812 PASS, 0 échec (798 + 14). Tests mis à jour : forge_reserve -> forge_cendre_row ; carte K5 (Supérieure = étiquette de la tête, verdict calculé à partir des stats) ; menu (nouvelle signature de show_preview).
+
+Export debug le 29/10 : 0 ERROR ; versionCode 24, versionName 0.20.1 ; SHA-256 f9a41323b18c85eecc329138001d71f4b814adc4b78d50f3f51440f1dc6e9e6c. Installé par `adb install -r`, sauvegarde du Fold conservée (copie dans build/backup-fold-jalon20bis/, save_a.dat identique après installation).
+
+### AG1 à AG5 (PC 924 × 1224, zone 308 × 408, --hour=10 ; script de capture hors dépôt, pièces, minerai, Cendre et Éclats posés en mémoire ; sauvegarde PC restaurée ensuite)
+
+| Test | Résultat | Preuve |
+|---|---|---|
+| AG1 Forge, mode Avec Cendre, boutons actifs | OK | coffre 12 minerais, Cendre 100/150, « Avec Cendre (25) » enfoncé, aide de 5 lignes, 4 boutons à icône (Équipée : Commune, ilvl 1 / Équipé : Bon, ilvl 3 / Emplacement vide / Équipées : Rares, ilvl 12) (jalon20bis-AG1-forge-avec-haut.png, jalon20bis-AG1-forge-avec-boutons.png) |
+| AG2 Forge, mode Sans Cendre, manque de minerai | OK | « Rareté : toujours Commun », boutons grisés, « Il manque 2 minerais » sous les boutons (jalon20bis-AG2-forge-sans-haut.png, jalon20bis-AG2-forge-sans-raison.png) |
+| AG3 carte d'une arme, verdict mixte | OK | « Ni meilleure ni moins bonne », Écoles mêlées en blanc, Enclume 3/3 en ambre ; PV +0 blanc, ATK +24 vert, DEF -1 vermillon, Critique +3 % vert (jalon20bis-AG3-apercu-arme-mixte.png) |
+| AG4 carte d'une armure Supérieure forgée | OK | « Pièce forgée / Plastron », « Supérieur » en ambre, « Meilleure que l'équipée » en vert, colonne Équipée « Vide », PV +12 et DEF +1 verts (jalon20bis-AG4-apercu-armure-superieure.png) |
+| AG5 Sacoche et Options | OK | « Purifier un Éclat / Prochain : Éclat d'Élite, ilvl 6 » à icône ; « Crédits / Licences des assets » à icône TT 83 (jalon20bis-AG5-sacoche-purifier.png, jalon20bis-AG5-options.png) |
+
+### Z11 (Fold 8, APK 0.20.1, sauvegarde conservée)
+
+| Test | Résultat | Preuve |
+|---|---|---|
+| (1) choisir Sans ou Avec Cendre en rangée de boutons est plus clair que l'ancien interrupteur | OUI | Antho |
+| (2) les boutons Forger, avec leur icône et la pièce équipée, sont parlants | OUI | Antho |
+| (3) la carte en 2 colonnes permet de comparer d'un coup d'œil | NON puis OUI (tableau Si tu équipes) | Antho, 29/10 : « brouillon, on ne sait pas si ATK est pour l'ancienne arme ou la nouvelle » -> tableau « Si tu équipes » |
+| (4) les écarts colorés stat par stat se lisent (vert, vermillon, blanc) | OUI | Antho |
+| (5) Purifier (« Prochain : … ») et Crédits vont avec le reste | NON, puis « pas convaincu, plus simple », puis OUI (bouton à droite des Éclats) | Antho, 29/10 : « il faudrait mettre Purifier un Éclat ailleurs, ça fait confus » -> bouton dans la fiche des Éclats |
+
+Refonte de la carte après Z11 (3) : capture du Fold (build/captures/z11-fold-4630947004648141459.png). Les 2 colonnes alignaient les affixes ligne à ligne sans que ce soient les mêmes stats (« +67 PV » en face de « +7,8 ATK »), et les écarts n'avaient pas de titre. Choix d'Antho : tableau par stat. La carte montre maintenant la tête, le verdict, une ligne par pièce (Nouvelle, Équipée : EqText.piece_summary, rareté, ilvl, Écoles de l'arme), puis une grille « Si tu équipes » de 4 colonnes (stat, valeur avec l'équipée, valeur avec la nouvelle, écart en couleur DIFF_COLORS ; EqText.stat_rows sur stat_values et diff_parts). Les affixes des pièces ne sont plus listés : ils sont pris en compte dans les stats du personnage. Largeurs dans Godot : tableau 221 px, résumé de pièce 147 px (limite 296). 822 PASS. AG3 et AG4 refaites (jalon20bis-AG3-apercu-arme-mixte.png, jalon20bis-AG4-apercu-armure-superieure.png). APK réexporté, même version 0.20.2 (code 25), SHA-256 742fad6e996f7bf3aa51e524911a27b50936f6f938007315380a6a834ba482f0 ; sauvegarde du Fold copiée dans build/backup-fold-z11/, intacte après installation.
+
+Purifier déplacé après Z11 (5) : son rendu de ligne (icône, 2 lignes, même fond que Cendre, Éclats et Coffre) ne se lisait pas comme un bouton. Choix d'Antho : dans la fiche des Éclats, sous la liste par ilvl, bouton simple sur une ligne (EqText.purify_label : « Purifier l'Éclat d'Élite, ilvl 6 », Éclat de Purification.next_index ; « Purifier un Éclat » si vide), raison dessous. purify_button supprimée. 822 PASS. AG5 refaite (jalon20bis-AG5-sacoche-purifier.png, fiche ouverte). APK réexporté, même version 0.20.2 (code 25), SHA-256 a4c397e99a66acd07d7dee5a08a4bd58222a47e35440c5984858be089f1e5a88 ; sauvegarde du Fold copiée dans build/backup-fold-z11b/, intacte.
+
+Fermetures du 29/10 vers 10:40 (logcat, aucune erreur de script ni plantage natif) : 10:39:49 geste Retour (onMainBackPressed -> OnGodotTerminating, Godot quitte au Retour par défaut) ; 10:40:06 à 10:40:16 écran partagé (2e instance de l'activité, puis destruction et arrêt du processus).
+
+Geste Retour (choix B d'Antho) : SceneTree.quit_on_go_back = false dans main.gd ; NOTIFICATION_WM_GO_BACK_REQUEST -> ui_layer.go_back sur la couche active : ferme l'écran Crédits, sinon le Rapport, sinon l'onglet ouvert ; la carte Équiper / Jeter ne se ferme pas ; sinon rien. Le jeu ne quitte plus au Retour. Fold : OK (Antho, 29/10).
+
+Purifier, 2e version (Z11 (5) « plus simple », choix d'Antho) : petit bouton « Purifier » toujours visible à droite de la ligne Éclats (rangée [tête | bouton], le bouton n'est pas enfant de la tête : l'appui n'ouvre pas la fiche), fond « pressed » du thème pour se lire comme un bouton, raison sous la rangée. purify_label supprimée. Rangée mesurée : tête 224 + Purifier 48 = 274 px (limite 296). 823 PASS. AG5 refaite. APK réexporté, même version 0.20.2 (code 25), SHA-256 18cbb2faf3a68ceab160d387fa95819acc2e993fba4a9d85496b3482ce0a9514 ; sauvegarde du Fold copiée dans build/backup-fold-z11c/, intacte.

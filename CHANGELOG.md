@@ -60,3 +60,4 @@ Format : `AAAA-MM-JJ — type: description`. Une ligne par changement validé.
 - 2026-10-29 — chore: kenney*.zip ignorés par git
 - 2026-10-29 — chore: APK debug 0.18.0 (code 20) testé sur Z Fold 8
 - 2026-10-29 — docs: Z7 (4) et Z8 (4) validés sur Fold
+- 2026-10-29 — feat: Forge, carte d'Aperçu et Purifier à la charte (jalon 20 bis)

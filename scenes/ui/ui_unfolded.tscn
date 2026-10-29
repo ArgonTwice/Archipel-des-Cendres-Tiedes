@@ -172,9 +172,8 @@ layout_mode = 2
 
 [node name="Purifier" type="Button" parent="Margin/VBox/Monde/Fenetre/Box/Defile/Pages/Sacoche"]
 layout_mode = 2
-size_flags_horizontal = 0
 disabled = true
-text = "Purifier un Éclat"
+text = "Purifier"
 
 [node name="Raison" type="Label" parent="Margin/VBox/Monde/Fenetre/Box/Defile/Pages/Sacoche"]
 visible = false
@@ -184,20 +183,6 @@ autowrap_mode = 3
 [node name="Forge" type="VBoxContainer" parent="Margin/VBox/Monde/Fenetre/Box/Defile/Pages"]
 visible = false
 layout_mode = 2
-
-[node name="Reserve" type="Label" parent="Margin/VBox/Monde/Fenetre/Box/Defile/Pages/Forge"]
-layout_mode = 2
-autowrap_mode = 3
-
-[node name="AvecCendre" type="CheckButton" parent="Margin/VBox/Monde/Fenetre/Box/Defile/Pages/Forge"]
-layout_mode = 2
-size_flags_horizontal = 0
-button_pressed = true
-text = "Avec Cendre"
-
-[node name="Aide" type="Label" parent="Margin/VBox/Monde/Fenetre/Box/Defile/Pages/Forge"]
-layout_mode = 2
-autowrap_mode = 3
 
 [node name="Boutons" type="VBoxContainer" parent="Margin/VBox/Monde/Fenetre/Box/Defile/Pages/Forge"]
 layout_mode = 2
@@ -231,8 +216,8 @@ layout_mode = 2
 
 [node name="CreditsButton" type="Button" parent="Margin/VBox/Monde/Fenetre/Box/Defile/Pages/Options"]
 layout_mode = 2
-size_flags_horizontal = 0
-text = "Crédits"
+text = "Crédits
+Licences des assets"
 
 [node name="Report" type="PanelContainer" parent="Margin/VBox/Monde"]
 visible = false
@@ -261,16 +246,7 @@ grow_vertical = 2
 [node name="Box" type="VBoxContainer" parent="Margin/VBox/Monde/Apercu"]
 layout_mode = 2
 
-[node name="Superieure" type="Label" parent="Margin/VBox/Monde/Apercu/Box"]
-visible = false
-layout_mode = 2
-autowrap_mode = 3
-
 [node name="Verdict" type="Label" parent="Margin/VBox/Monde/Apercu/Box"]
-layout_mode = 2
-autowrap_mode = 3
-
-[node name="Lines" type="Label" parent="Margin/VBox/Monde/Apercu/Box"]
 layout_mode = 2
 autowrap_mode = 3
 
