@@ -8,6 +8,7 @@ signal expedition_changed(shown: bool, cendre: int, shards: int, cargo_kg: float
 signal leveled(voc: String, level: int)
 signal xp_changed
 signal expedition_ended(reason: String) # main.gd écrit alors la sauvegarde, sans attendre un pliage
+signal elite_awakened # saturation : une fois par expédition (toast, jalon 20 ter)
 
 const SG = preload("res://scripts/segment/segment_gen.gd")
 const VL = preload("res://scripts/village/village_layout.gd")
@@ -253,6 +254,7 @@ func _after_gain() -> void:
 		_nodes[BA.SEGMENT_ELITE_NODE_INDEX].wake_elite()
 		_player_solids[BA.SEGMENT_ELITE_NODE_INDEX].erase(SG.elite_cell())
 		_log("eveil_elite", {})
+		elite_awakened.emit()
 
 # Événements seulement ; build debug seulement.
 func _log(event: String, extra: Dictionary) -> void:

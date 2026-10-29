@@ -67,6 +67,7 @@ func _ready() -> void:
 	for layer in [_ui_folded, _ui_unfolded]: # ui_layer.gd
 		seg.expedition_changed.connect(layer.show_expedition)
 		seg.leveled.connect(layer.show_level_up)
+		seg.elite_awakened.connect(layer.show_elite_awake)
 	_ui_unfolded.purify_requested.connect(_on_purify_requested)
 	_ui_unfolded.purify_chosen.connect(_on_purify_chosen)
 	_ui_unfolded.forge_requested.connect(_on_forge_requested)

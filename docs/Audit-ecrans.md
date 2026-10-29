@@ -94,7 +94,7 @@ Deux colonnes de 144 px (le jumeau vérifie les largeurs), et un écart stat par
 **Actuel** : un seul bouton « Crédits ».
 **Cible** : une `_line` à icône [TT 83] « Crédits », avec « Licences des assets » en 2e ligne, qui ouvre l'écran Crédits. Les futures options suivront le même modèle.
 
-### Rapport de veillée (jalon 20 ter)
+### Rapport de veillée (jalon 20 ter) — fait (jalon 20 ter)
 **Actuel** : des Labels créés à chaque show_report, sans icône. C'est le seul endroit qui reconstruit de l'UI dans un show_*.
 **Cible** : 6 `_line` créées une fois, masquées quand leur valeur est nulle.
 ```
@@ -107,7 +107,7 @@ Deux colonnes de 144 px (le jumeau vérifie les largeurs), et un écart stat par
 Touche pour fermer {MUTED}
 ```
 
-## Plié (jalon 20 ter)
+## Plié (jalon 20 ter) — fait (jalon 20 ter)
 - **Bandeau** : conforme (icône + valeur, sans l'Or). Rien à changer.
 - **Jauge de saturation** : 2 px, aujourd'hui sans couleur de rôle. Cible : TEXT, puis BAD quand elle est pleine (budget atteint, Élite éveillé), sans aucun seuil nouveau.
 - **Boutons d'aptitude** : « I » et « II », compte à rebours, tous validés sur Fold au jalon 12. Rien à changer. Une icône par aptitude demanderait un asset (accord d'Antho).

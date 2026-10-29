@@ -38,11 +38,15 @@ const FIRE_FRAME_MS: int = 125 # durée de l'auteur (GIF 120–130 ms) ; techniq
 @onready var _margin: MarginContainer = $Margin
 @onready var _hud: Control = $Margin/VBox/Hud
 @onready var _gauge: ProgressBar = $Margin/VBox/Jauge
-@onready var _toast: Label = $Margin/VBox/Monde/Messages/Toast
+@onready var _toast: HBoxContainer = $Margin/VBox/Monde/Messages/Toast # icône 16 px + texte (jalon 20 ter)
+@onready var _toast_icon: TextureRect = $Margin/VBox/Monde/Messages/Toast/Icone
+@onready var _toast_text: Label = $Margin/VBox/Monde/Messages/Toast/Texte
+var _gauge_fill: StyleBoxFlat # remplissage de la jauge, recoloré sans recréer la jauge (jalon 20 ter)
 
 var _toast_id: int = 0 # numéro du dernier toast affiché
 @onready var _report: PanelContainer = find_child("Report", true, false) # plié : sous le bandeau ; déplié : fenêtre centrée
 @onready var _report_lines: VBoxContainer = _report.get_node("Lines")
+var _report_rows: Dictionary = {} # clé de VeilleeReport.KEYS -> _line, créée une fois (jalon 20 ter)
 @onready var _error: Label = $Margin/VBox/Monde/Messages/Error
 @onready var _fire: TextureRect = get_node_or_null("Margin/VBox/Hud/Ligne/Cendre/Icone")
 var _fire_frame: int = 0 # image affichée : _ready pose l'image 0
@@ -116,6 +120,15 @@ func _animate_fire(ms: int) -> void:
 
 func _ready() -> void:
 	_report.gui_input.connect(_on_report_input)
+	for key: String in VeilleeReportS.KEYS:
+		_report_rows[key] = _line(_report_lines, UiStyle.icon(VeilleeReportS.ICONS[key]))
+		_report_rows[key]["tag"].add_theme_color_override("font_color", UiStyle.MUTED)
+	var close: Label = Label.new()
+	close.text = "Touche pour fermer"
+	close.add_theme_color_override("font_color", UiStyle.MUTED)
+	_report_lines.add_child(close)
+	_gauge_fill = (_gauge.get_theme_stylebox("fill") as StyleBoxFlat).duplicate()
+	_gauge.add_theme_stylebox_override("fill", _gauge_fill)
 	for key: String in UiStyle.HUD_KEYS:
 		var icon: TextureRect = _hud.get_node_or_null("Ligne/%s/Icone" % key.capitalize())
 		if icon != null:
@@ -275,6 +288,8 @@ func _build_sacoche() -> void:
 	card.move_child(row, 0)
 	c[0].reparent(row)
 	c[0].size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_purify.owner = null # nœuds de la scène déplacés sous des nœuds créés en code : sans propriétaire de scène
+	_purify_reason.owner = null
 	_purify.reparent(row)
 	_purify.text = "Purifier"
 	_purify.focus_mode = Control.FOCUS_NONE
@@ -479,7 +494,7 @@ func _line(parent: Node, icon: Texture2D) -> Dictionary:
 	tag.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	tag.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
 	row.add_child(tag)
-	return {"text": text, "tag": tag, "icon": pic}
+	return {"text": text, "tag": tag, "icon": pic, "panel": panel}
 
 # Ligne dépliable : bouton de tête (icône, texte sur 2 lignes, étiquette d'état) et fiche cachée dessous, une ouverte par
 # groupe. -> [tête, VBox de la fiche, étiquette].
@@ -667,11 +682,12 @@ func show_perso(player: Dictionary, stats: Dictionary) -> void:
 			c["lines"].text = EqText.empty_detail(slot)
 			continue
 		var detail: PackedStringArray = EqText.piece_detail(slot, piece)
-		if slot == 0:
+		if slot == 0: # Écoles seules en couleur, ATK d'arme en tête du reste (jalon 20 ter)
 			var s: Array = piece["schools"]
-			c["schools"].text = detail[0]
+			var wl: PackedStringArray = EqText.weapon_lines(piece)
+			c["schools"].text = wl[0]
 			c["schools"].add_theme_color_override("font_color", UiStyle.school_color(s[0]) if s[0] == s[1] and s[1] == s[2] else UiStyle.TEXT)
-			detail = detail.slice(1)
+			detail[0] = wl[1]
 		c["lines"].text = "\n".join(detail)
 		c["lines"].visible = not detail.is_empty()
 
@@ -763,18 +779,26 @@ func _apply_tabs() -> void:
 		_title.text = TAB_TITLES[open]
 
 func show_level_up(voc: String, level: int) -> void:
-	show_toast("%s niveau %d !" % [ProgressionS.VOCATION_NAMES[voc], level])
+	show_toast("%s niveau %d !" % [ProgressionS.VOCATION_NAMES[voc], level], voc)
+
+# Saturation de Brume (jalon 20 ter) : accompagne la jauge pleine en BAD, la couleur ne porte jamais seule le sens.
+func show_elite_awake() -> void:
+	show_toast("L'Élite s'éveille !", "ELITE")
 
 # Changement de poste (jalon 19) : result = sortie de Assignment.move.
 func show_move(index: int, post: String, result: Dictionary) -> void:
-	show_toast(VText.move_toast(index, post, result, _names))
+	show_toast(VText.move_toast(index, post, result, _names), "TAB_PNJ")
 
-# Un nouveau toast (montée, poste) remplace le texte et relance la durée.
-func show_toast(text: String) -> void:
-	_toast.text = text
+# Un nouveau toast (montée, poste) remplace le texte et relance la durée. icon_notion : clé de UiStyle.ICONS, "" sans icône.
+func show_toast(text: String, icon_notion: String = "") -> void:
+	_toast_text.text = text
+	_toast_icon.visible = icon_notion != ""
+	if _toast_icon.visible:
+		_toast_icon.texture = UiStyle.icon(icon_notion)
 	_toast.visible = true
 	_toast_id += 1
-	get_tree().create_timer(LEVEL_UP_TOAST_SEC).timeout.connect(_hide_toast.bind(_toast_id))
+	if is_inside_tree(): # hors arbre sous le simulateur headless
+		get_tree().create_timer(LEVEL_UP_TOAST_SEC).timeout.connect(_hide_toast.bind(_toast_id))
 
 # Seul le dernier timer masque : comparer à ticks_msec ratait quand le timer (somme des delta) finissait quelques ms avant.
 func _hide_toast(id: int) -> void:
@@ -787,18 +811,22 @@ func show_expedition(shown: bool, cendre: int, _shards: int, cargo_kg: float, ca
 	_gauge.visible = shown
 	_gauge.max_value = BA.SEGMENT_PRE_ELITE_CENDRE_BUDGET
 	_gauge.value = cendre
+	_gauge_fill.bg_color = UiStyle.BAD if _gauge.value >= _gauge.max_value else UiStyle.TEXT # pleine : Élite éveillé
 	_cargo = [cargo_kg, cap_kg] if shown else null
 	_refresh_hud()
 
+# Lignes créées une fois dans _ready : on masque les clés absentes, on remplit texte, couleur de rôle et étiquette.
 func show_report(report: Dictionary) -> void:
-	for child: Node in _report_lines.get_children():
-		_report_lines.remove_child(child)
-		child.queue_free()
-	for line: String in VeilleeReportS.lines(report, compact):
-		var label: Label = Label.new()
-		label.text = line
-		label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		_report_lines.add_child(label)
+	var shown: Dictionary = {}
+	for r: Dictionary in VeilleeReportS.rows(report, compact):
+		shown[r["key"]] = r
+	for key: String in _report_rows:
+		var l: Dictionary = _report_rows[key]
+		l["panel"].visible = shown.has(key)
+		if shown.has(key):
+			l["text"].text = shown[key]["text"]
+			l["text"].add_theme_color_override("font_color", UiStyle.ROLES[shown[key]["role"]])
+			l["tag"].text = shown[key]["tag"]
 	_report.visible = true
 
 func show_error(text: String) -> void:

@@ -47,7 +47,7 @@ Règles :
 | Découper une fiche ou une page | **intertitre** en TITLE | `_section` |
 | Une action principale de page (Purifier, Forger) | **bouton d'action** en bas de la page, avec sa raison en MUTED juste dessous s'il est grisé | — |
 | Une décision qui bloque tout le reste (Équiper ou Jeter) | **carte plein écran** : onglets grisés jusqu'au choix | Apercu |
-| Un retour bref, sans décision (montée de niveau, changement de poste) | **toast** de 2,5 s, qui ne bloque rien | `show_toast` |
+| Un retour bref, sans décision (montée de niveau, changement de poste) | **toast à icône** de 2,5 s, qui ne bloque rien | `show_toast` |
 
 Règles communes :
 - Une seule fiche ouverte par page (ButtonGroup allow_unpress), et toutes fermées au lancement.

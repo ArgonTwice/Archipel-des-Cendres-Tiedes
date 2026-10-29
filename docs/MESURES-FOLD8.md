@@ -725,3 +725,32 @@ Export debug le 29/10 : 0 ERROR ; versionCode 25, versionName 0.20.2 ; SHA-256 7
 | (2) ressources et niveaux arrivent et restent après une relance de l'appli | OUI | Antho |
 | (3) Invincible et Saturation pleine marchent en Brume | OUI | Antho |
 | (4) « Copier la sauvegarde » met bien un texte dans le presse-papiers | OUI | Antho |
+
+## Jalon 20 ter (APK 0.20.3)
+
+Fin du chantier de la charte (docs/Audit-ecrans.md, Rapport de veillée et Plié), UI seule. Rapport de veillée : VeilleeReport.rows(report, compact) remplace lines() ; clés fixes new_game, absence, or, frais, outils, greve, fiches, une _line par clé créée une fois dans _ready (plié et déplié, sous Report/Lines), puis « Touche pour fermer » en MUTED ; show_report ne fait que masquer les clés absentes et remplir texte, couleur de rôle (UiStyle.ROLES) et étiquette (« plafond » en MUTED). « Absence comptée : … (plafond) » devient « Absence : … » + étiquette ; Or et Frais fixes par EqText.num (espace insécable). Toasts : nœud Toast = HBoxContainer (Icone 16 px + Texte) dans les 2 scènes ; show_toast(text, icon_notion) ; montée de niveau = icône de la vocation, changement de poste = TAB_PNJ, debug sans icône. Jauge : stylebox « fill » dupliqué une fois, recoloré TEXT puis BAD à value >= max_value. Éveil de l'Élite : aucun message avant ce jalon (normaux dissipés, Élite éclairé et en chasse dans l'Antre seulement) ; montré à Antho (captures AI4 avant / après), qui a choisi d'ajouter le toast « L'Élite s'éveille ! » (icône ELITE = TD 110, tuile elite de village.json), émis par segment.elite_awakened une fois par expédition. Perso : EqText.weapon_lines(piece) = [Écoles, « ATK d'arme X »] ; seules les Écoles prennent la couleur d'École ; la carte d'Aperçu s'en sert aussi (piece_summary). Correctif : Purifier et sa raison n'ont plus de propriétaire de scène avant reparent (avertissement « owner inconsistent » du 20 bis).
+
+Largeurs mesurées dans Godot (identiques au jumeau) : plié 138 (Absence : 12 h 00 + plafond), 61, 152 (Nouvelle partie : Clair-Foyer), 120, 86, 100 px, limite 152 ; déplié 154 px, limite 264.
+
+Tests : 841 PASS, 0 échec (823 + 18 ; 7 tests du Rapport réécrits pour rows).
+
+Export debug le 29/10 : 0 ERROR ; versionCode 26, versionName 0.20.3 ; SHA-256 2e204fd98c6acdae4f64b8515d6e4b5ee0f7fdcfd5a4f1d35ac1f16a6335bc84. Sauvegarde du Fold copiée dans build/backup-fold-jalon20ter/ avant `adb install -r`, save_a.dat identique après.
+
+### AI1 à AI5 (PC, déplié 924 × 1224, plié 416 × 657, --hour=10 ; captures produites avec le mode debug ; sauvegarde PC restaurée ensuite)
+
+| Test | Résultat | Preuve |
+|---|---|---|
+| AI1 Rapport déplié après « +12 h d'absence » | OK | « Absence : 12 h 00 » + « plafond » en MUTED, « Or : +0 » en blanc, « Fiches de rupture : 1 », « Touche pour fermer » (jalon20ter-AI1-rapport-deplie-12h.png) |
+| AI2 Rapport plié sous le bandeau | OK | absence + plafond, Or, sur une ligne chacun (jalon20ter-AI2-rapport-plie.png) |
+| AI3 toast de montée de niveau en plié | OK | pioche + « Mineur niveau 3 ! » (jalon20ter-AI3-toast-niveau-plie.png) |
+| AI4 jauge pleine et toast de l'Élite, en plié | OK | avant : jauge vide, Élite assombri ; après « Saturation pleine » : jauge rouge, Élite éclairé en chasse, toast à icône « L'Élite s'éveille ! » (jalon20ter-AI4-antre-avant.png, jalon20ter-AI4-antre-saturation.png) |
+| AI5 Perso, arme ouverte | OK | « Enclume 3/3 » en ambre, « ATK d'arme 10,9 » et affixes en blanc (jalon20ter-AI5-perso-arme.png) |
+
+### Z13 (Fold 8, APK 0.20.3, sauvegarde copiée dans build/backup-fold-jalon20ter/)
+
+| Test | Résultat | Preuve |
+|---|---|---|
+| (1) le Rapport de veillée se lit d'un coup d'œil, en plié comme en déplié | OUI | Antho |
+| (2) les toasts à icône se lisent en marchant | OUI | Antho |
+| (3) la jauge pleine en rouge, avec « L'Élite s'éveille ! », est claire | OUI | Antho |
+| (4) dans Perso, seules les Écoles sont en couleur | OUI | Antho : arme du Fold mêlée (Enclume / Brasier / Enclume, en blanc) ; arme 3/3 forgée avec le mode debug, Enclume en ambre |

@@ -63,3 +63,5 @@ Format : `AAAA-MM-JJ — type: description`. Une ligne par changement validé.
 - 2026-10-29 — feat: Forge, carte d'Aperçu et Purifier à la charte (jalon 20 bis)
 - 2026-10-29 — feat: mode debug dans Options (build debug seulement)
 - 2026-10-29 — chore: APK debug 0.20.2 (code 25) testé sur Z Fold 8
+- 2026-10-29 — feat: Rapport de veillée en lignes, toasts à icône, jauge pleine en rouge (jalon 20 ter)
+- 2026-10-29 — chore: APK debug 0.20.3 (code 26) testé sur Z Fold 8

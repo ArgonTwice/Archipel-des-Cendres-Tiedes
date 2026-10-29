@@ -102,7 +102,11 @@ static func column_head(slot: int, piece: Variant) -> String:
 # Résumé d'une pièce sur la carte (Z11) : « Bonne, ilvl 5, Enclume 3/3 » pour l'arme, « Bon, ilvl 8 », « Vide ».
 static func piece_summary(slot: int, piece: Variant) -> String:
 	var head: String = column_head(slot, piece)
-	return head + ", " + schools(piece) if piece != null and slot == 0 else head
+	return head + ", " + weapon_lines(piece)[0] if piece != null and slot == 0 else head
+
+# 1re ligne de la fiche de l'arme en 2 morceaux (jalon 20 ter) : Écoles (seules en couleur d'École), puis « ATK d'arme 10,4 ».
+static func weapon_lines(piece: Dictionary) -> PackedStringArray:
+	return PackedStringArray([schools(piece), "ATK d'arme " + dec1(EquipmentS.weapon_atk(piece))])
 
 const STAT_LABELS: Array[String] = ["PV", "ATK", "DEF", "Cadence", "Critique", "Dégâts crit."]
 

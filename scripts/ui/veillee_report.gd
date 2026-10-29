@@ -4,26 +4,32 @@ extends RefCounted
 # report : sortie de SaveManager.boot / sync. compact (plié) : absence et Or seulement.
 
 const BB = preload("res://balance/balance_b.gd")
+const EqText = preload("res://scripts/ui/equipment_text.gd")
 
-static func lines(report: Dictionary, compact: bool) -> PackedStringArray:
-	var out: PackedStringArray = []
+# Clés fixes (jalon 20 ter) : une _line créée par clé dans chaque couche, masquée si la clé est absente de rows.
+const KEYS: Array[String] = ["new_game", "absence", "or", "frais", "outils", "greve", "fiches"]
+const ICONS: Dictionary = {"new_game": "ATRE", "absence": "ATRE", "or": "or", "frais": "or", "outils": "FORGE", "greve": "TAB_PNJ",
+	"fiches": "TAB_VILLAGE"}
+
+static func _row(key: String, text: String, role: String = "TEXT", tag: String = "") -> Dictionary:
+	return {"key": key, "icon": ICONS[key], "text": text, "role": role, "tag": tag}
+
+# Lignes dans l'ordre de KEYS : {key, icon (notion de UiStyle.ICONS), text, role (couleur du texte), tag (en MUTED)}.
+static func rows(report: Dictionary, compact: bool) -> Array:
 	if report.get("new_game", false):
-		out.append("Nouvelle partie : Clair-Foyer.")
-		return out
+		return [_row("new_game", "Nouvelle partie : Clair-Foyer")]
 	var m: int = roundi(report["t_eff"] * 60.0)
-	var absence: String = "Absence comptée : %d h %02d" % [m / 60, m % 60]
-	if report["t_eff"] >= BB.OFFLINE_MAX_HOURS:
-		absence += " (plafond)"
-	out.append(absence)
-	out.append("Or : %+d" % report["gold_delta"])
+	var gold: int = report["gold_delta"]
+	var out: Array = [_row("absence", "Absence : %d h %02d" % [m / 60, m % 60], "TEXT", "plafond" if report["t_eff"] >= BB.OFFLINE_MAX_HOURS else ""),
+		_row("or", "Or : %s%s" % ["+" if gold >= 0 else "-", EqText.num(absi(gold))], "GOOD" if gold > 0 else ("BAD" if gold < 0 else "TEXT"))]
 	if compact:
 		return out
 	if report["ticked"]:
-		out.append("Frais fixes du jour : %d Or" % report["fixed_cost_paid"])
+		out.append(_row("frais", "Frais fixes du jour : %s Or" % EqText.num(report["fixed_cost_paid"])))
 	if report["tools_replaced"] > 0:
-		out.append("Outils remplacés : %d" % report["tools_replaced"])
+		out.append(_row("outils", "Outils remplacés : %d" % report["tools_replaced"]))
 	if report["strikes"] > 0:
-		out.append("PNJ en grève : %d" % report["strikes"])
+		out.append(_row("greve", "PNJ en grève : %d" % report["strikes"], "BAD"))
 	if not report["fiches"].is_empty():
-		out.append("Fiches de rupture : %d" % report["fiches"].size())
+		out.append(_row("fiches", "Fiches de rupture : %d" % report["fiches"].size()))
 	return out

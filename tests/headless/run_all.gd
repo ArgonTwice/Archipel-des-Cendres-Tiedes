@@ -2135,6 +2135,92 @@ func _mode_debug() -> void:
 		and full == [false, false, false, true, true, false, false, false, false, false, false, true, false], str(off) + str(full))
 	uu.free()
 
+func _row_texts(rows: Array) -> Array:
+	return rows.map(func(r: Dictionary) -> String: return r["text"])
+
+# Jalon 20 ter : Rapport de veillée en lignes fixes, toasts à icône, jauge pleine en BAD, Écoles de l'arme seules en couleur.
+# Références : sortie de prep_jalon_20ter.py.
+func _jalon_20t() -> void:
+	var view: Callable = func(rs: Array) -> Array: return rs.map(func(r: Dictionary) -> Array: return [r["key"], r["text"], r["role"], r["tag"]])
+	var r1: Dictionary = {"t_eff": 7.2, "gold_delta": 120, "ticked": true, "fixed_cost_paid": 3, "tools_replaced": 1, "strikes": 1, "fiches": [{}, {}]}
+	var r2: Dictionary = {"t_eff": 12.0, "gold_delta": -8, "ticked": false, "fixed_cost_paid": 0, "tools_replaced": 0, "strikes": 0, "fiches": []}
+	var r3: Dictionary = {"t_eff": 0.5, "gold_delta": 0, "ticked": false, "fixed_cost_paid": 0, "tools_replaced": 0, "strikes": 0, "fiches": []}
+	var ng: Dictionary = {"new_game": true}
+	var v1: Array = view.call(VeilleeReportS.rows(r1, false))
+	print("      R1 déplié " + str(v1))
+	print("      R1 plié " + str(view.call(VeilleeReportS.rows(r1, true))))
+	print("      R2 déplié " + str(view.call(VeilleeReportS.rows(r2, false))))
+	print("      R3 déplié " + str(view.call(VeilleeReportS.rows(r3, false))))
+	print("      nouvelle partie " + str(view.call(VeilleeReportS.rows(ng, false))))
+	_check("rows R1 déplié", v1 == [["absence", "Absence : 7 h 12", "TEXT", ""], ["or", "Or : +120", "GOOD", ""], ["frais", "Frais fixes du jour : 3 Or", "TEXT", ""],
+		["outils", "Outils remplacés : 1", "TEXT", ""], ["greve", "PNJ en grève : 1", "BAD", ""], ["fiches", "Fiches de rupture : 2", "TEXT", ""]], str(v1))
+	_check("rows R1 plié (absence et Or seulement)", view.call(VeilleeReportS.rows(r1, true)) == v1.slice(0, 2))
+	_check("rows R2 : plafond, Or négatif", view.call(VeilleeReportS.rows(r2, false)) == [["absence", "Absence : 12 h 00", "TEXT", "plafond"], ["or", "Or : -8", "BAD", ""]])
+	_check("rows R3 : Or nul en TEXT", view.call(VeilleeReportS.rows(r3, false)) == [["absence", "Absence : 0 h 30", "TEXT", ""], ["or", "Or : +0", "TEXT", ""]])
+	_check("rows nouvelle partie", view.call(VeilleeReportS.rows(ng, false)) == [["new_game", "Nouvelle partie : Clair-Foyer", "TEXT", ""]]
+		and view.call(VeilleeReportS.rows(ng, true)) == [["new_game", "Nouvelle partie : Clair-Foyer", "TEXT", ""]])
+	var big: Array = [VeilleeReportS.rows({"t_eff": 1.0, "gold_delta": 1234, "ticked": false, "fixed_cost_paid": 0, "tools_replaced": 0, "strikes": 0, "fiches": []}, true)[1]["text"],
+		VeilleeReportS.rows({"t_eff": 1.0, "gold_delta": -1234, "ticked": false, "fixed_cost_paid": 0, "tools_replaced": 0, "strikes": 0, "fiches": []}, true)[1]["text"]]
+	_check("Or : +1 234 et -1 234 (U+00A0)", big == ["Or : +1\u00a0234", "Or : -1\u00a0234"], str(big))
+	var w0: Dictionary = EquipmentS.new_equipment()[0]
+	var first: String = EqText.piece_detail(0, w0)[0]
+	_check("weapon_lines(arme de départ) == les 2 morceaux de la 1re ligne de piece_detail", EqText.weapon_lines(w0) == PackedStringArray(first.split(", ", true, 1)),
+		str(EqText.weapon_lines(w0)))
+	# Largeurs (pires cas du jumeau)
+	var font: Font = load(FONT_PATH)
+	var fw: Callable = func(t: String) -> float: return font.get_string_size(t, HORIZONTAL_ALIGNMENT_LEFT, -1, 8).x
+	var fold: Array = [["Absence : 12 h 00", "plafond"], ["Or : -12\u00a0345", ""], ["Nouvelle partie : Clair-Foyer", ""], ["Combattant niveau 50 !", ""],
+		["L'Élite s'éveille !", ""], ["Touche pour fermer", ""]]
+	var fws: Array = fold.map(func(f: Array) -> int: return roundi(fw.call(f[0]) + (8.0 + fw.call(f[1]) if f[1] != "" else 0.0)))
+	var dw: float = ["Frais fixes du jour : 1\u00a0234 Or", "Fiches de rupture : 99", "Outils remplacés : 99", "PNJ en grève : 30"].map(func(t: String) -> float: return fw.call(t)).max()
+	print("      largeurs plié %s ; déplié %d px" % [str(fws), dw])
+	_check("largeurs: plié <= 152 px, déplié <= 264 px", fws.max() <= 152 and dw <= 264.0, "%s %d" % [str(fws), dw])
+	# UI instanciée, plié puis déplié
+	for path: String in ["res://scenes/ui/ui_folded.tscn", "res://scenes/ui/ui_unfolded.tscn"]:
+		var ui: CanvasLayer = _ui_ready(path)
+		var lines: Node = ui.find_child("Report", true, false).get_node("Lines")
+		var n: int = lines.get_child_count()
+		var seen: Array = []
+		for r: Dictionary in [r1, r2, ng]:
+			ui.show_report(r)
+			var vis: Array = lines.get_children().filter(func(c: Node) -> bool: return c is PanelContainer and c.visible).map(
+				func(c: Node) -> String: return c.find_children("*", "Label", true, false)[0].text)
+			seen.append(vis == _row_texts(VeilleeReportS.rows(r, ui.compact)))
+		ui.show_report(r1)
+		var gold_row: Node = lines.get_children().filter(func(c: Node) -> bool: return c is PanelContainer and c.visible)[1]
+		var name: String = "plié" if ui.compact else "déplié"
+		_check("rapport %s: 3 show_report sans nœud créé, lignes visibles = rows, Or +120 en GOOD, « Touche pour fermer » en MUTED" % name,
+			lines.get_child_count() == n and seen == [true, true, true] and gold_row.find_children("*", "Label", true, false)[0].get_theme_color("font_color") == UiStyle.GOOD
+			and lines.get_child(-1).text == "Touche pour fermer" and lines.get_child(-1).get_theme_color("font_color") == UiStyle.MUTED, str(seen))
+		var toast: Control = ui.get_node("Margin/VBox/Monde/Messages/Toast")
+		ui.show_level_up("MINEUR", 4)
+		var t1: Array = [toast.visible, toast.get_node("Icone").visible, _icon_of(toast.get_node("Icone").texture), toast.get_node("Texte").text]
+		ui.show_toast("Debug : +1 Éclat")
+		var t2: Array = [toast.get_node("Icone").visible, toast.get_node("Texte").text]
+		_check("toast %s: montée de niveau avec l'icône MINEUR ; debug sans icône" % name, t1 == [true, true, _icon_of(UiStyle.icon("MINEUR")), "Mineur niveau 4 !"]
+			and t2 == [false, "Debug : +1 Éclat"], str(t1) + str(t2))
+		var gauge: ProgressBar = ui.get_node("Margin/VBox/Jauge")
+		ui.show_expedition(true, BA.SEGMENT_PRE_ELITE_CENDRE_BUDGET - 1, 0, 0.0, 30.0)
+		var c79: Color = (gauge.get_theme_stylebox("fill") as StyleBoxFlat).bg_color
+		ui.show_expedition(true, BA.SEGMENT_PRE_ELITE_CENDRE_BUDGET, 0, 0.0, 30.0)
+		var c80: Color = (gauge.get_theme_stylebox("fill") as StyleBoxFlat).bg_color
+		ui.show_expedition(false, 0, 0, 0.0, 0.0)
+		_check("jauge %s: 79/80 en TEXT, 80/80 en BAD" % name, c79 == UiStyle.TEXT and c80 == UiStyle.BAD, "%s %s" % [c79, c80])
+		ui.show_elite_awake()
+		_check("toast %s: « L'Élite s'éveille ! » avec l'icône ELITE (TD 110 = tuile elite de village.json)" % name, toast.get_node("Texte").text == "L'Élite s'éveille !"
+			and toast.get_node("Icone").visible and UiStyle.ICONS["ELITE"][1] == UiStyle.tile_region(int(VL.load_data()["tiles"]["elite"][1])))
+		if not ui.compact:
+			var p: Dictionary = ProgressionS.new_player()
+			p["equipment"][0]["schools"] = [BC.SchoolId.FOYER, BC.SchoolId.FOYER, BC.SchoolId.FOYER]
+			ui.show_perso(p, EquipmentS.player_stats(1, p["equipment"]))
+			var card: Node = ui.get_node(UiS.PAGES + "Perso").get_children().filter(func(c: Node) -> bool: return c is VBoxContainer)[0]
+			var ecoles: Label = card.find_child("Ecoles", true, false)
+			var atk: Label = ecoles.get_parent().get_child(ecoles.get_index() + 1)
+			_check("perso: Enclume 3/3 en school_color(FOYER), ligne d'ATK d'arme en TEXT", ecoles.text == "Enclume 3/3"
+				and ecoles.get_theme_color("font_color") == UiStyle.school_color(BC.SchoolId.FOYER) and atk.text.begins_with("ATK d'arme ")
+				and atk.get_theme_color("font_color") == UiStyle.TEXT, ecoles.text + " | " + atk.text)
+		ui.free()
+
 # Jalon 17 bis : feu de camp animé (4 images de 125 ms). Références : prompt d'Antho (prep_jalon_17bis.py).
 func _jalon_17b() -> void:
 	var xs: Array = []
@@ -2653,6 +2739,8 @@ func _jalon_11(vd: Dictionary, solid1: Dictionary) -> void:
 	for f in 67:
 		_seg_frame(pl, seg)
 	seg.expedition.cendre = 78
+	var awake: Array[int] = [0]
+	seg.elite_awakened.connect(func() -> void: awake[0] += 1)
 	var node0: Node2D = seg.nodes()[0]
 	var target: Node2D = node0.mobs()[0]
 	while target.alive:
@@ -2674,6 +2762,8 @@ func _jalon_11(vd: Dictionary, solid1: Dictionary) -> void:
 			all_vitrified = all_vitrified and mn.state == MistS.State.VITRIFIED
 	_check("saturation: un kill à 78 -> Cendre 80, normaux des 3 nœuds morts et invisibles (l'Élite s'éveille), aucune réapparition après 1 300 images, nœuds VITRIFIED",
 		seg.expedition.cendre == 80 and all_dead and none_back and all_vitrified, "%d %s %s %s" % [seg.expedition.cendre, str(all_dead), str(none_back), str(all_vitrified)])
+	seg._after_gain()
+	_check("saturation: elite_awakened émis une seule fois par expédition (toast, jalon 20 ter)", awake[0] == 1, str(awake[0]))
 	_seg_free(ctx)
 	# Brasero
 	var pb: Node2D = load("res://scenes/player/player.tscn").instantiate()
@@ -2699,6 +2789,7 @@ func _jalon_11(vd: Dictionary, solid1: Dictionary) -> void:
 	_jalon_20()
 	_jalon_20b()
 	_mode_debug()
+	_jalon_20t()
 	# Scènes et données
 	var vil: Node = load("res://scenes/village/village.tscn").instantiate()
 	var sg: Node2D = vil.get_node_or_null("Entites/Segment")
@@ -3801,19 +3892,21 @@ func _initialize() -> void:
 	rep6["gold_delta"] = rep6["village"]["player_gold"] - V["player_gold"]
 	rep6["strikes"] = 0
 	_check("rapport: +6 h, fiches [MAT, FORGE], gold_delta 11", rep6["fiches"] == ["MAT", "FORGE"] and rep6["gold_delta"] == 11, "%s %d" % [str(rep6["fiches"]), rep6["gold_delta"]])
-	var l6: PackedStringArray = VeilleeReportS.lines(rep6, false)
-	_check("rapport: +6 h deplie", l6 == PackedStringArray(["Absence comptée : 6 h 00", "Or : +11", "Fiches de rupture : 2"]), str(l6))
-	_check("rapport: +6 h plie", VeilleeReportS.lines(rep6, true) == PackedStringArray(["Absence comptée : 6 h 00", "Or : +11"]), str(VeilleeReportS.lines(rep6, true)))
+	var l6: Array = _row_texts(VeilleeReportS.rows(rep6, false))
+	_check("rapport: +6 h deplie", l6 == ["Absence : 6 h 00", "Or : +11", "Fiches de rupture : 2"], str(l6))
+	_check("rapport: +6 h plie", _row_texts(VeilleeReportS.rows(rep6, true)) == ["Absence : 6 h 00", "Or : +11"], str(_row_texts(VeilleeReportS.rows(rep6, true))))
 	var rep24: Dictionary = Dag.resume(V, t10 + 86400)
 	rep24["gold_delta"] = rep24["village"]["player_gold"] - V["player_gold"]
 	rep24["strikes"] = 0
-	var l24: PackedStringArray = VeilleeReportS.lines(rep24, false)
-	_check("rapport: +24 h deplie", l24 == PackedStringArray(["Absence comptée : 12 h 00 (plafond)", "Or : +13", "Frais fixes du jour : 24 Or", "Fiches de rupture : 3"]), str(l24))
-	_check("rapport: +24 h plie", VeilleeReportS.lines(rep24, true) == PackedStringArray(["Absence comptée : 12 h 00 (plafond)", "Or : +13"]), str(VeilleeReportS.lines(rep24, true)))
-	_check("rapport: nouvelle partie", VeilleeReportS.lines({"new_game": true}, true) == PackedStringArray(["Nouvelle partie : Clair-Foyer."]) and VeilleeReportS.lines({"new_game": true}, false) == PackedStringArray(["Nouvelle partie : Clair-Foyer."]))
+	var l24: Array = _row_texts(VeilleeReportS.rows(rep24, false))
+	_check("rapport: +24 h deplie (tag plafond)", l24 == ["Absence : 12 h 00", "Or : +13", "Frais fixes du jour : 24 Or", "Fiches de rupture : 3"]
+		and VeilleeReportS.rows(rep24, false)[0]["tag"] == "plafond", str(l24))
+	_check("rapport: +24 h plie", _row_texts(VeilleeReportS.rows(rep24, true)) == ["Absence : 12 h 00", "Or : +13"], str(_row_texts(VeilleeReportS.rows(rep24, true))))
+	_check("rapport: nouvelle partie", _row_texts(VeilleeReportS.rows({"new_game": true}, true)) == ["Nouvelle partie : Clair-Foyer"]
+		and _row_texts(VeilleeReportS.rows({"new_game": true}, false)) == ["Nouvelle partie : Clair-Foyer"])
 	var syn: Dictionary = {"new_game": false, "t_eff": 2.5, "ticked": true, "fixed_cost_paid": 0, "tools_replaced": 2, "fiches": ["MAT"], "gold_delta": -3, "strikes": 1}
-	var lsyn: PackedStringArray = VeilleeReportS.lines(syn, false)
-	_check("rapport: synthetique", lsyn == PackedStringArray(["Absence comptée : 2 h 30", "Or : -3", "Frais fixes du jour : 0 Or", "Outils remplacés : 2", "PNJ en grève : 1", "Fiches de rupture : 1"]), str(lsyn))
+	var lsyn: Array = _row_texts(VeilleeReportS.rows(syn, false))
+	_check("rapport: synthetique", lsyn == ["Absence : 2 h 30", "Or : -3", "Frais fixes du jour : 0 Or", "Outils remplacés : 2", "PNJ en grève : 1", "Fiches de rupture : 1"], str(lsyn))
 	# Jalon 5 : rapport de boot
 	_clean_saves()
 	SaveS.save(SaveS.new_state(SEED, t10, 0), t10, TEST_SAVE_DIR)

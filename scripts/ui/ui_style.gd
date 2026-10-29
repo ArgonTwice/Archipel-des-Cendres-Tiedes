@@ -19,6 +19,7 @@ const DETAIL_MARGIN_PX: int = 4 # validé sur Fold (jalon 19)
 const MORAL_COLORS: Dictionary = {"STRIKE": BAD, "LOW": ALERT, "NORMAL": TEXT, "HIGH": GOOD} # validé sur Fold (jalon 19 bis)
 const VERDICT_COLORS: Dictionary = {1: GOOD, -1: BAD, 0: TEXT} # PROPOSÉ, à valider (jalon 16 bis)
 const DIFF_COLORS: Dictionary = {1: GOOD, -1: BAD, 0: TEXT} # écart stat par stat de la carte ; PROPOSÉ, à valider (jalon 20 bis)
+const ROLES: Dictionary = {"TEXT": TEXT, "MUTED": MUTED, "GOOD": GOOD, "BAD": BAD} # rôle nommé -> couleur (Rapport de veillée, jalon 20 ter)
 
 # Planches
 const TD = preload("res://assets/tiles/kenney_tiny_dungeon/tilemap_packed.png")
@@ -56,7 +57,8 @@ const ICONS: Dictionary = {
 	"SLOT_1": [preload("res://assets/icons/items/armor_helmet_iron.png"), FULL],
 	"SLOT_2": [preload("res://assets/icons/items/armor_chest_iron.png"), FULL],
 	"SLOT_3": [preload("res://assets/icons/items/armor_boots_iron.png"), FULL],
-	"CREDITS": [TT, Rect2(176, 96, 16, 16)]} # TT 83, même tuile que l'onglet Options (jalon 20 bis)
+	"CREDITS": [TT, Rect2(176, 96, 16, 16)], # TT 83, même tuile que l'onglet Options (jalon 20 bis)
+	"ELITE": [TD, Rect2(32, 144, 16, 16)]} # TD 110, tuile « elite » de village.json (toast d'éveil, jalon 20 ter)
 const HUD_KEYS: Array[String] = ["or", "cendre", "eclats", "minerai"]
 
 static func atlas(sheet: Texture2D, region: Rect2) -> AtlasTexture:
