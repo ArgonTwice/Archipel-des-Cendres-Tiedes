@@ -13,6 +13,8 @@ const EqText = preload("res://scripts/ui/equipment_text.gd")
 const ForgeS = preload("res://scripts/loot/forge.gd")
 const Dag = preload("res://scripts/offline_dag.gd")
 const AssignS = preload("res://scripts/village/assignment.gd")
+const DebugS = preload("res://scripts/debug/debug_tools.gd")
+const BB = preload("res://balance/balance_b.gd")
 
 const DRAG_MIN_PX: float = 4.0 # en deçà, un lâcher est un appui : annulé (jalon 19) ; technique, PROPOSÉ
 
@@ -72,6 +74,10 @@ func _ready() -> void:
 	_ui_unfolded.posture_chosen.connect(_on_village_set.bind("posture"))
 	_ui_unfolded.post_chosen.connect(_on_post_chosen.bind("bouton"))
 	_ui_unfolded.npc_freed.connect(_on_npc_freed)
+	_ui_unfolded.debug_requested.connect(_on_debug)
+	_ui_unfolded.debug_invincible.connect(func(on: bool) -> void:
+		player.debug_invincible = on
+		_debug_done(DebugS.entry("invincible", not on, on), "Debug : invincible" if on else "Debug : invincible coupé"))
 	_show_forge_pending() # carte de craft laissée ouverte à la fermeture de l'appli
 	_black.color = CombatS.EVAC_COLOR
 	_black.color.a = 0.0
@@ -105,6 +111,8 @@ func _process(_delta: float) -> void:
 	if not _folded:
 		_ui_unfolded.set_purify_reason(_purify_block_reason())
 		_ui_unfolded.set_forge_enabled(_forge_block_reason)
+		if not SaveManager.state.is_empty():
+			_ui_unfolded.set_debug_state(CombatS.in_village(player.position), _world.segment().expedition != null, DebugS.bag_full(_player_state()))
 	var key: Vector2i = Vector2i(_world.hour_at(ClockS.now_utc()), int(CombatS.in_village(player.position)))
 	if key != _village_key: # heure locale ou entrée / sortie du village
 		_show_village()
@@ -409,6 +417,55 @@ func _on_npc_freed(index: int) -> void:
 	SaveManager.state["village"]["npcs"][index]["locked"] = false
 	_sync()
 	_show_village()
+
+# Mode debug (build debug seulement, section Debug de l'onglet Options) : action sur l'état courant, puis écriture par
+# _sync, chemin normal. Village : mêmes conditions que la section (au village, jamais sans sauvegarde).
+func _on_debug(action: String) -> void:
+	if SaveManager.state.is_empty():
+		return
+	var st: Dictionary = SaveManager.state
+	if action == "copie":
+		DisplayServer.clipboard_set(SaveManager.export_base64(st))
+		_debug_done(DebugS.entry("copie", "", "%d caractères" % DisplayServer.clipboard_get().length()), "Debug : sauvegarde copiée")
+		return
+	var seg: Node2D = _world.segment() # segment.gd
+	if action == "saturation":
+		if seg.expedition != null:
+			_debug_done(DebugS.saturate(seg.expedition), "Debug : saturation pleine")
+			seg._after_gain() # chemin normal : vitrification, dissipation, éveil de l'Élite
+		return
+	if not CombatS.in_village(_world.player().position):
+		return
+	var d: Dictionary = {}
+	match action:
+		"tick": d = DebugS.tick_day(st)
+		"absence": d = DebugS.absence(st)
+		"cendre": d = DebugS.cendre_max(st)
+		"eclat", "eclat_elite": d = DebugS.add_shard(st, action == "eclat_elite")
+		"minerai": d = DebugS.add_ore(st)
+		"or": d = DebugS.add_gold(st)
+		_: d = DebugS.level_up(st, action)
+	if d.is_empty():
+		return
+	var leveled: bool = ProgressionS.VOCATIONS.has(action)
+	_debug_done(d, "" if leveled else "Debug : " + {"tick": "tick du jour", "absence": "+%d h d'absence" % int(BB.OFFLINE_MAX_HOURS),
+		"cendre": "Cendre au max", "eclat": "+1 Éclat", "eclat_elite": "+1 Éclat d'Élite", "minerai": "+%d minerais" % DebugS.DEBUG_ORE,
+		"or": "+%d Or" % DebugS.DEBUG_GOLD}[action])
+	_sync()
+	for layer in [_ui_folded, _ui_unfolded]: # ui_layer.gd
+		layer.show_gold(SaveManager.state["village"]["player_gold"])
+		if leveled:
+			layer.show_level_up(action, d["apres"]) # toast de montée de niveau, comme en jeu
+	if action == "COMBATTANT":
+		_world.player().set_level(d["apres"])
+	_show_player()
+	_show_village()
+
+func _debug_done(d: Dictionary, toast: String) -> void:
+	_log_json("[DEBUG] ", d)
+	if toast != "":
+		for layer in [_ui_folded, _ui_unfolded]: # ui_layer.gd
+			layer.show_toast(toast)
 
 # Événements seulement ; build debug seulement.
 func _log_json(tag: String, d: Dictionary) -> void:

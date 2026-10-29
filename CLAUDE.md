@@ -47,6 +47,7 @@ build/             APK (ignoré par git)
 - Gérer (jalon 18) : onglets PNJ et Village ; cadence (producteurs) et posture réglables au village, effet au prochain tick (clés _next) ; noms dans data/village/npcs.json.
 - Postes (jalon 19) : aptitudes déduites de la graine (npc/apt/i), saisir-déposer sur la carte et boutons de poste en déplié (verrouille ; échange si plein), auto-assignation à chaque bascule en session (plus grand gain d'abord), effet au prochain tick (post_next / stars_next).
 - Charte UI (jalon 20) : docs/Charte-UI.md ; couleurs par rôle et icônes dans scripts/ui/ui_style.gd, nulle part ailleurs ; ligne dépliable (_card), ligne simple (_line), rangée de choix (_block), intertitre (_section) ; bouton d'action (_action : icône, verbe, rappel) ; carte d'Aperçu : une ligne par pièce, puis tableau « Si tu équipes » stat par stat (équipée, nouvelle, écart en couleur) (jalon 20 bis, Z11).
+- Mode debug : scripts/debug/debug_tools.gd, section Debug de l'onglet Options créée seulement si OS.is_debug_build() ; quantités DEBUG_* = outil de test, jamais dans balance_*.gd ; actions par le chemin d'écriture normal.
 
 ## Assets
 - Uniquement gratuits et open source. Licences acceptées : CC0, CC-BY, MIT, OFL pour les polices. Pas de « non commercial » ni de licence floue sans accord d'Antho.

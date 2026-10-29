@@ -12,6 +12,8 @@ const Dag = preload("res://scripts/offline_dag.gd")
 const VL = preload("res://scripts/village/village_layout.gd")
 const AssignS = preload("res://scripts/village/assignment.gd")
 const UiStyle = preload("res://scripts/ui/ui_style.gd") # couleurs par rôle et icônes (Charte §1 et §3)
+const BB = preload("res://balance/balance_b.gd")
+const DebugS = preload("res://scripts/debug/debug_tools.gd")
 
 signal purify_requested
 signal purify_chosen(equip: bool)
@@ -20,6 +22,8 @@ signal cadence_chosen(index: int, cadence: String)
 signal posture_chosen(key: String, posture: String)
 signal post_chosen(index: int, post: String)
 signal npc_freed(index: int)
+signal debug_requested(action: String) # mode debug (build debug seulement)
+signal debug_invincible(on: bool)
 
 const LEVEL_UP_TOAST_SEC: float = 2.5 # PROPOSÉ, à valider (jalon 13)
 const WINDOW_HEIGHT_RATIO: float = 0.5 # hauteur de la fenêtre / hauteur de la zone ; validé sur Fold (jalon 17)
@@ -70,6 +74,8 @@ var _forge_reason_of: Callable # dernière source de raison reçue (set_forge_en
 var _preview_head: Dictionary = {} # {"text", "tag", "icon"}
 var _summaries: Array[Label] = [] # Nouvelle, Équipée
 var _stat_cells: Array = [] # 6 lignes de 4 Labels : stat, avec l'équipée, avec la nouvelle, écart
+# Mode debug : {"village" (boutons), "village_reasons", "shards", "shards_reason", "mist", "mist_reason"} ; vide en release.
+var _debug: Dictionary = {}
 # Onglets du bas (jalon 17, à la Kairosoft) : une seule fenêtre ouverte à la fois, aucune au lancement ; un 2e appui ou « × » referme.
 var _tabs: Array[Button] = []
 var _pages: Array[Control] = []
@@ -144,6 +150,7 @@ func _ready() -> void:
 		_build_perso()
 		_build_sacoche()
 		_build_preview()
+		build_debug(OS.is_debug_build())
 		if is_inside_tree(): # hors arbre sous le simulateur headless : il appelle fit_window lui-même
 			fit_window(get_viewport().get_visible_rect().size.y)
 			get_viewport().size_changed.connect(func() -> void: fit_window(get_viewport().get_visible_rect().size.y))
@@ -347,6 +354,44 @@ func _build_preview() -> void:
 			_stat_cells.append(cells)
 	box.move_child(box.get_node("Choix"), -1)
 
+# Mode debug, sous Crédits : créé seulement si enabled (OS.is_debug_build() en jeu) ; en release, aucun nœud.
+# Temps, Ressources et Progression au village seulement ; Combat en mémoire, Saturation en Brume seulement.
+func build_debug(enabled: bool) -> void:
+	if not enabled or not _debug.is_empty():
+		return
+	var page: Node = get_node(PAGES + "Options")
+	_section(page, "Debug")
+	_debug = {"village": [], "village_reasons": [], "shards": []}
+	var groups: Array = [["Temps", [["tick", "Tick du jour"], ["absence", "+%d h d'absence" % int(BB.OFFLINE_MAX_HOURS)]]],
+		["Ressources", [["cendre", "Cendre au max"], ["eclat", "+1 Éclat"], ["eclat_elite", "+1 Éclat d'Élite"],
+			["minerai", "+%d minerais" % DebugS.DEBUG_ORE], ["or", "+%d Or" % DebugS.DEBUG_GOLD]]],
+		["Progression", ProgressionS.VOCATIONS.map(func(v: String) -> Array: return [v, "+1 niveau " + ProgressionS.VOCATION_NAMES[v]])],
+		["Combat", [["saturation", "Saturation pleine"]]], ["Sauvegarde", [["copie", "Copier la sauvegarde"]]]]
+	for g: Array in groups:
+		_section(page, g[0])
+		var reason: Label = Label.new()
+		reason.add_theme_color_override("font_color", UiStyle.MUTED)
+		reason.visible = false
+		page.add_child(reason)
+		if g[0] == "Combat":
+			var inv: Button = _action(page, null)
+			inv.text = "Invincible"
+			inv.toggle_mode = true # revient à faux au lancement : jamais sauvegardé
+			inv.toggled.connect(debug_invincible.emit)
+			_debug["mist_reason"] = reason
+		elif g[0] != "Sauvegarde":
+			_debug["village_reasons"].append(reason)
+		for a: Array in g[1]:
+			var b: Button = _action(page, null)
+			b.text = a[1]
+			b.pressed.connect(debug_requested.emit.bind(a[0]))
+			if a[0] == "saturation":
+				_debug["mist"] = b
+			elif g[0] != "Sauvegarde":
+				_debug["village"].append(b)
+			if a[0].begins_with("eclat"):
+				_debug["shards"].append(b)
+
 # Geste Retour d'Android : ferme l'écran Crédits, sinon le Rapport, sinon l'onglet ouvert. La carte Équiper / Jeter reste
 # (décision bloquante). Rend vrai si quelque chose s'est fermé.
 func go_back() -> bool:
@@ -362,6 +407,23 @@ func go_back() -> bool:
 			t.button_pressed = false
 			return true
 	return false
+
+# Grisé et raisons du mode debug ; relu à chaque image par main.gd, ne touche que ce qui change.
+func set_debug_state(in_village: bool, in_mist: bool, bag_full: bool) -> void:
+	if _debug.is_empty():
+		return
+	for b: Button in _debug["village"]:
+		var off: bool = not in_village or (bag_full and b in _debug["shards"])
+		if b.disabled != off:
+			b.disabled = off
+	for k in _debug["village_reasons"].size():
+		var r: Label = _debug["village_reasons"][k]
+		r.text = "Au village seulement" if not in_village else ("Sacoche pleine" if k == 1 and bag_full else "")
+		r.visible = r.text != ""
+	if _debug["mist"].disabled == in_mist:
+		_debug["mist"].disabled = not in_mist
+	_debug["mist_reason"].text = "En Brume seulement"
+	_debug["mist_reason"].visible = not in_mist
 
 # Bouton d'action (Charte §2) : icône 16 px, verbe puis rappel sur 2 lignes, toute la largeur, sans bascule.
 func _action(parent: Node, icon: Texture2D) -> Button:

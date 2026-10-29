@@ -33,6 +33,7 @@ const UiS = preload("res://scripts/ui/ui_layer.gd")
 const VText = preload("res://scripts/ui/village_text.gd")
 const AssignS = preload("res://scripts/village/assignment.gd")
 const UiStyle = preload("res://scripts/ui/ui_style.gd")
+const DebugS = preload("res://scripts/debug/debug_tools.gd")
 const LISIERE_SPAWNS_10: Array = [[0, 16], [0, 20], [0, 24]] # banc d'essai du jalon 10, retiré du village au jalon 11
 const FONT_PATH: String = "res://assets/fonts/silkscreen/Silkscreen-Regular.ttf"
 const OFL_PATH: String = "res://assets/fonts/silkscreen/OFL.txt"
@@ -2054,6 +2055,86 @@ func _jalon_20b() -> void:
 	_check("défilement tactile: aucun Control en STOP dans la Forge non plus", stops.is_empty(), str(stops.map(func(c: Control) -> String: return c.name)))
 	uu.free()
 
+# Mode debug (build debug seulement) : actions sur un state de test, jamais sur une vraie sauvegarde.
+func _mode_debug() -> void:
+	_clean_saves()
+	var sm: Node = SaveS.new()
+	sm.state = SaveS.save(SaveS.new_state(7, D0, 0), D0, TEST_SAVE_DIR)
+	var now: int = D0 + 60
+	var npc: Dictionary = sm.state["village"]["npcs"].filter(func(n: Dictionary) -> bool: return Dag.POST_SHOP.has(n["post"]))[0]
+	var want: String = "PAISIBLE" if npc["cadence"] != "PAISIBLE" else "NORMAL"
+	Dag.set_next(npc, "cadence", want)
+	var idx: int = sm.state["village"]["npcs"].find(npc)
+	var d: Dictionary = DebugS.tick_day(sm.state)
+	var due: bool = SaveS.catch_up_due(sm.state["village"], now)
+	var r: Dictionary = sm.sync(now, TEST_SAVE_DIR)
+	var v: Dictionary = sm.state["village"]
+	_check("debug tick du jour: catch_up_due vrai, après sync last_tick_day = aujourd'hui, cadence demandée la veille appliquée, log avant/après",
+		due and not r.is_empty() and r["ticked"] and v["last_tick_day"] == ClockS.day_index(now, v["tz_offset_sec"])
+		and v["npcs"][idx]["cadence"] == want and not v["npcs"][idx].has("cadence_next") and d["avant"] == d["apres"] + 1, str(d))
+	DebugS.absence(sm.state)
+	var hours: float = ClockS.offline_hours(sm.state["village"]["last_save_utc"], now + 60)
+	var r2: Dictionary = sm.sync(now + 60, TEST_SAVE_DIR)
+	_check("debug +12 h: offline_hours = OFFLINE_MAX_HOURS (plafond), Rapport de reprise à 12 h", hours == BB.OFFLINE_MAX_HOURS
+		and not r2.is_empty() and r2["t_eff"] == BB.OFFLINE_MAX_HOURS, str(hours))
+	var st: Dictionary = sm.state.duplicate(true)
+	var gold: int = st["village"]["player_gold"]
+	DebugS.cendre_max(st)
+	var shards: Array = []
+	for k in BA.LANTERN_SHARD_BAG_CAP[0] + 1:
+		shards.append(not DebugS.add_shard(st, k % 2 == 1).is_empty())
+	var ore: Dictionary = DebugS.add_ore(st)
+	DebugS.add_gold(st)
+	var lvl: int = BA.get_segment_mob_level(st["village"]["isolat"], ProgressionS.combat_level(st["player"]), 0)
+	_check("debug ressources: Cendre 150, Éclats bornés à 6 (7e refusé, ilvl du segment), minerai +20, Or +100, state valide",
+		st["player"]["cendre"] == BA.LANTERN_CENDRE_CAP[0] and st["player"]["shard_bag"].size() == 6 and shards == [true, true, true, true, true, true, false]
+		and st["player"]["shard_bag"].all(func(x: Dictionary) -> bool: return x["ilvl"] == lvl) and st["player"]["shard_bag"][1]["elite"]
+		and ore["apres"] == ore["avant"] + 20 and ForgeS.ore(st["player"]) == 20 and st["village"]["player_gold"] == gold + 100 and SaveS._is_valid(st), str(shards))
+	var xp: Dictionary = st["player"]["voc_xp"]
+	var l0: int = ProgressionS.level_of(xp["MINEUR"])
+	var up: Dictionary = DebugS.level_up(st, "MINEUR")
+	xp["FORGERON"] = BA.get_cumulative_xp(BA.MAX_VOCATION_LEVEL)
+	var top: Dictionary = DebugS.level_up(st, "FORGERON")
+	_check("debug +1 niveau: Mineur N -> N+1 ; Forgeron 50 inchangé ; state valide", ProgressionS.level_of(xp["MINEUR"]) == l0 + 1
+		and up["apres"] == l0 + 1 and top.is_empty() and xp["FORGERON"] == BA.get_cumulative_xp(BA.MAX_VOCATION_LEVEL) and SaveS._is_valid(st), str(up))
+	sm.free()
+	_clean_saves()
+	var pl: Node2D = load("res://scenes/player/player.tscn").instantiate()
+	root.add_child(pl)
+	pl.setup(Vector2(0, 216), null, null, {})
+	pl.debug_invincible = true
+	var hit_inv: bool = pl.take_hit(9)
+	var hp_inv: int = pl.hp
+	pl.debug_invincible = false
+	var hit: bool = pl.take_hit(9)
+	var fresh: Node2D = load("res://scenes/player/player.tscn").instantiate()
+	_check("debug invincible: take_hit faux, PV inchangés ; coupé : take_hit vrai, PV -9 ; faux à la création", not hit_inv and hp_inv == 100
+		and hit and pl.hp == 91 and not fresh.debug_invincible, "%d %d" % [hp_inv, pl.hp])
+	fresh.free()
+	pl.free()
+	var uu: CanvasLayer = _ui_ready("res://scenes/ui/ui_unfolded.tscn")
+	var opts: Node = uu.get_node(UiS.PAGES + "Options")
+	var n: int = opts.find_children("*", "", true, false).size()
+	uu.build_debug(false)
+	uu.build_debug(true) # déjà créée en build debug : rien de plus
+	var titles: Array = opts.get_children().filter(func(c: Node) -> bool: return c is Label and c.get_theme_color("font_color") == UiStyle.TITLE).map(
+		func(l: Label) -> String: return l.text)
+	_check("debug section: build_debug(false) ne crée rien ; en build debug, Debug sous Crédits avec 5 groupes", opts.find_children("*", "", true, false).size() == n
+		and opts.get_child(0).name == "CreditsButton" and titles == ["Debug", "Temps", "Ressources", "Progression", "Combat", "Sauvegarde"], str(titles))
+	var btns: Array = opts.get_children().filter(func(c: Node) -> bool: return c is Button and c.name != "CreditsButton")
+	uu.set_debug_state(false, false, false)
+	var off: Array = btns.map(func(b: Button) -> bool: return b.disabled)
+	var reasons: Array = opts.get_children().filter(func(c: Node) -> bool: return c is Label and c.visible and c.get_theme_color("font_color") == UiStyle.MUTED).map(
+		func(l: Label) -> String: return l.text)
+	uu.set_debug_state(true, false, true)
+	var full: Array = btns.map(func(b: Button) -> bool: return b.disabled)
+	print("      debug %s ; Brume %s %s ; village Sacoche pleine %s" % [str(btns.map(func(b: Button) -> String: return b.text)), str(off), str(reasons), str(full)])
+	_check("debug grisé: en Brume, Temps / Ressources / Progression grisés « Au village seulement » ; Saturation grisée hors Brume ; +1 Éclat grisés Sacoche pleine",
+		btns.size() == 13 and off == [true, true, true, true, true, true, true, true, true, true, false, true, false]
+		and reasons == ["Au village seulement", "Au village seulement", "Au village seulement", "En Brume seulement"]
+		and full == [false, false, false, true, true, false, false, false, false, false, false, true, false], str(off) + str(full))
+	uu.free()
+
 # Jalon 17 bis : feu de camp animé (4 images de 125 ms). Références : prompt d'Antho (prep_jalon_17bis.py).
 func _jalon_17b() -> void:
 	var xs: Array = []
@@ -2617,6 +2698,7 @@ func _jalon_11(vd: Dictionary, solid1: Dictionary) -> void:
 	_jalon_19b()
 	_jalon_20()
 	_jalon_20b()
+	_mode_debug()
 	# Scènes et données
 	var vil: Node = load("res://scenes/village/village.tscn").instantiate()
 	var sg: Node2D = vil.get_node_or_null("Entites/Segment")

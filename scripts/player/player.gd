@@ -55,8 +55,10 @@ var _fade_bounds: Rect2i
 var _range_shown: bool = false
 var _skill_cd: Array[float] = [0.0, 0.0] # secondes restantes
 var _skill_queued: Array[bool] = [false, false] # armée par le bouton, part au prochain créneau de frappe
+var debug_invincible: bool = false # mode debug (build debug seulement), en mémoire, jamais sauvegardé
 
 # Nœuds lus ici et non en @onready : setup peut précéder _ready (simulateur headless).
+
 func setup(pos: Vector2, texture: Texture2D, shadow: Texture2D, solid: Dictionary) -> void:
 	_sprite = $Sprite
 	_sprite.texture = texture
@@ -129,7 +131,7 @@ func is_invulnerable() -> bool:
 
 # Faux si les i-frames ou un fondu annulent le coup. À 0 PV : évacuation (Engourdi reporté).
 func take_hit(dmg: int) -> bool:
-	if in_fade() or is_invulnerable():
+	if in_fade() or is_invulnerable() or debug_invincible:
 		return false
 	_set_hp(hp - dmg)
 	_hit_t = CombatS.PLAYER_HIT_SEC

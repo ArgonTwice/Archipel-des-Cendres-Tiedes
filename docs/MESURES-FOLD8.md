@@ -698,3 +698,30 @@ Fermetures du 29/10 vers 10:40 (logcat, aucune erreur de script ni plantage nati
 Geste Retour (choix B d'Antho) : SceneTree.quit_on_go_back = false dans main.gd ; NOTIFICATION_WM_GO_BACK_REQUEST -> ui_layer.go_back sur la couche active : ferme l'écran Crédits, sinon le Rapport, sinon l'onglet ouvert ; la carte Équiper / Jeter ne se ferme pas ; sinon rien. Le jeu ne quitte plus au Retour. Fold : OK (Antho, 29/10).
 
 Purifier, 2e version (Z11 (5) « plus simple », choix d'Antho) : petit bouton « Purifier » toujours visible à droite de la ligne Éclats (rangée [tête | bouton], le bouton n'est pas enfant de la tête : l'appui n'ouvre pas la fiche), fond « pressed » du thème pour se lire comme un bouton, raison sous la rangée. purify_label supprimée. Rangée mesurée : tête 224 + Purifier 48 = 274 px (limite 296). 823 PASS. AG5 refaite. APK réexporté, même version 0.20.2 (code 25), SHA-256 18cbb2faf3a68ceab160d387fa95819acc2e993fba4a9d85496b3482ce0a9514 ; sauvegarde du Fold copiée dans build/backup-fold-z11c/, intacte.
+
+## Mode debug (APK 0.20.2)
+
+Outil de test, build debug seulement : scripts/debug/debug_tools.gd (statiques pures, actions sur un state passé en argument, chacune rend {action, avant, apres} pour le log « [DEBUG] »). Section « Debug » de l'onglet Options, sous Crédits, créée une fois dans _ready par build_debug(OS.is_debug_build()) : en release, aucun nœud. 5 groupes : Temps (Tick du jour, +12 h d'absence), Ressources (Cendre au max, +1 Éclat, +1 Éclat d'Élite, +20 minerais, +100 Or), Progression (+1 niveau par vocation), Combat (Invincible à bascule, Saturation pleine), Sauvegarde (Copier la sauvegarde). Temps, Ressources et Progression grisés hors du village (« Au village seulement ») ; +1 Éclat grisés Sacoche pleine (« Sacoche pleine ») ; Saturation grisée hors expédition (« En Brume seulement »). Écriture par main.gd._sync (chemin normal), toast « Debug : … » (montée de niveau : toast de jeu « Mineur niveau 4 ! »). Quantités DEBUG_ORE 20 et DEBUG_GOLD 100 : outil de test, pas des valeurs de jeu. Invincible = player.debug_invincible, en mémoire, faux au lancement. Saturation : expedition.cendre porté au budget, puis segment._after_gain (vitrification, dissipation, éveil de l'Élite, chemin normal), rien de sauvegardé. Copier : SaveManager.export_base64 dans le presse-papiers ; rien n'est importé ni effacé.
+
+Double comptage vérifié avant de coder (Dag.resume, SaveManager.sync) : rien n'est compté deux fois. Tick du jour : last_tick_day - 1 rend le tick dû ; resume compte le temps réel depuis l'ancre (last_save_utc, temps de session non encore compté), fait au plus 1 tick, remet last_tick_day à aujourd'hui et l'ancre à maintenant. Le tick rejoué recharge le budget clients du jour, le Moral, l'usure et les frais fixes : c'est le passage au lendemain voulu. +12 h : l'ancre recule de OFFLINE_MAX_HOURS ; Clock.offline_hours plafonne à 12 h, donc le temps de session non compté est absorbé par le plafond (compté une fois au plus, jamais deux) ; resume remet l'ancre à maintenant.
+
+Tests : 820 PASS, 0 échec (812 + 8).
+
+Export debug le 29/10 : 0 ERROR ; versionCode 25, versionName 0.20.2 ; SHA-256 7afdae4456ed992be44be913896705dd0a7652f29f62aeb0385008c0046b067c. Contient aussi le jalon 20 bis, non commité (Z11 à faire avec le mode debug). Sauvegarde du Fold copiée dans build/backup-fold-debug/ avant l'installation (`adb install -r`), save_a.dat identique après.
+
+### AH1 à AH3 (PC 924 × 1224, zone 308 × 408, --hour=10 ; script de capture hors dépôt ; sauvegarde PC restaurée ensuite)
+
+| Test | Résultat | Preuve |
+|---|---|---|
+| AH1 Options, section Debug | OK | Crédits puis Debug, Temps, Ressources, Progression, Combat (« En Brume seulement », Saturation grisée), Sauvegarde (debug-AH1-options-debug-haut.png, debug-AH1-options-debug-bas.png) |
+| AH2 Rapport de veillée après « +12 h d'absence » | OK | « Absence comptée : 12 h 00 (plafond) », toast « Debug : +12 h d'absence » ; log [DEBUG] absence avant/après = -43 200 s (debug-AH2-rapport-12h.png) |
+| AH3 PNJ après « Tick du jour », cadence demandée la veille | OK | veille : « Demain : Forge ardente » ; après le tick : Forge ardente appliquée, plus d'attente, outil 80 % -> 60 %, frais fixes payés (Or 13 -> 0) (debug-AH3-pnj-veille.png, debug-AH3-rapport-tick.png, debug-AH3-pnj-lendemain.png) |
+
+### Z12 (Fold 8, APK 0.20.2, sauvegarde copiée dans build/backup-fold-debug/)
+
+| Test | Résultat | Preuve |
+|---|---|---|
+| (1) « Tick du jour » fait passer au lendemain (réglages appliqués, Rapport) | OUI | Antho |
+| (2) ressources et niveaux arrivent et restent après une relance de l'appli | OUI | Antho |
+| (3) Invincible et Saturation pleine marchent en Brume | OUI | Antho |
+| (4) « Copier la sauvegarde » met bien un texte dans le presse-papiers | OUI | Antho |
