@@ -57,3 +57,4 @@ Format : `AAAA-MM-JJ — type: description`. Une ligne par changement validé.
 - 2026-10-28 — chore: APK debug 0.19.1 (code 22) testé sur Z Fold 8
 - 2026-10-29 — feat: charte d'interface, onglets Perso et Sacoche en lignes, icônes d'objets DB32 (jalon 20)
 - 2026-10-29 — chore: APK debug 0.20.0 (code 23) testé sur Z Fold 8
+- 2026-10-29 — chore: kenney*.zip ignorés par git

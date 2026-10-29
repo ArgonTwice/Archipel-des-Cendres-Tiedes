@@ -16,3 +16,6 @@ Thumbs.db
 
 # Secrets
 .env
+
+# Archives d'assets
+kenney*.zip
