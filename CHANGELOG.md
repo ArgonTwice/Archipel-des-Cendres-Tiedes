@@ -67,3 +67,5 @@ Format : `AAAA-MM-JJ — type: description`. Une ligne par changement validé.
 - 2026-10-29 — chore: APK debug 0.20.3 (code 26) testé sur Z Fold 8
 - 2026-10-29 — feat: École de l'Arme expliquée dans la Forge et dans Perso (jalon 20 quater)
 - 2026-10-29 — chore: APK debug 0.20.4 (code 27) testé sur Z Fold 8
+- 2026-10-29 — feat: Grand Âtre niveau 2 par chantier et surbrillance du bâtiment visé (jalon 21)
+- 2026-10-29 — chore: APK debug 0.21.0 (code 28) testé sur Z Fold 8

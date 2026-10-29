@@ -7,6 +7,7 @@ const BA = preload("res://balance/balance_a.gd")
 const BB = preload("res://balance/balance_b.gd")
 const ProgressionS = preload("res://scripts/progression.gd")
 const ForgeS = preload("res://scripts/loot/forge.gd")
+const Eco = preload("res://scripts/economy.gd")
 
 const DEBUG_ORE: int = 20 # outil de test, pas une valeur de jeu (5 crafts)
 const DEBUG_GOLD: int = 100 # outil de test, pas une valeur de jeu
@@ -64,6 +65,22 @@ static func level_up(state: Dictionary, voc: String) -> Dictionary:
 		return {}
 	xp[voc] = BA.get_cumulative_xp(level + 1)
 	return entry("niveau_" + voc.to_lower(), level, level + 1)
+
+# Chantier du Grand Âtre (jalon 21) : la fin passe ensuite par le chemin normal (Atre.finish_if_due dans main._process).
+static func finish_chantier(state: Dictionary, now_utc: int) -> Dictionary:
+	var v: Dictionary = state["village"]
+	if not v.has("atre_chantier_end"):
+		return {}
+	var before: int = v["atre_chantier_end"]
+	v["atre_chantier_end"] = now_utc
+	return entry("fin_chantier", before, now_utc)
+
+# Stock de la boutique Matériaux au maximum (Griffe comprise).
+static func materials_max(state: Dictionary) -> Dictionary:
+	var shop: Dictionary = state["village"]["shops"]["MAT"]
+	var before: int = shop["stock"]
+	shop["stock"] = Eco.stock_max(true, shop["lvl"], shop["griffe_trait"])
+	return entry("materiaux_max", before, shop["stock"])
 
 # En mémoire seulement : l'appelant relance la saturation par segment.gd._after_gain.
 static func saturate(expedition: RefCounted) -> Dictionary:

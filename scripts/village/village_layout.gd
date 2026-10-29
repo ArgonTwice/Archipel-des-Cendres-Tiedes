@@ -27,8 +27,11 @@ static func load_data() -> Dictionary:
 	return v if v is Dictionary else {}
 
 # Niveau 1 tant que l'état de la partie ne porte pas de niveau d'Âtre.
+# Niveau du Grand Âtre (jalon 21) : seul état partagé, posé par main.gd au lancement et à la fin du chantier.
+static var atre_level: int = 1
+
 static func atre_radius() -> int:
-	return BD.ATRE_RADIUS_TILES[0]
+	return BD.ATRE_RADIUS_TILES[atre_level - 1]
 
 static func in_radius(cell: Vector2i, r: int) -> bool:
 	return cell.x * cell.x + cell.y * cell.y <= r * r

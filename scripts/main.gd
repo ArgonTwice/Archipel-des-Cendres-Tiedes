@@ -14,6 +14,9 @@ const ForgeS = preload("res://scripts/loot/forge.gd")
 const Dag = preload("res://scripts/offline_dag.gd")
 const AssignS = preload("res://scripts/village/assignment.gd")
 const DebugS = preload("res://scripts/debug/debug_tools.gd")
+const AtreS = preload("res://scripts/village/atre.gd")
+const VText = preload("res://scripts/ui/village_text.gd")
+const UiStyle = preload("res://scripts/ui/ui_style.gd")
 const BB = preload("res://balance/balance_b.gd")
 
 const DRAG_MIN_PX: float = 4.0 # en deçà, un lâcher est un appui : annulé (jalon 19) ; technique, PROPOSÉ
@@ -33,12 +36,18 @@ var _preview_place: String = ""
 var _village_key: Vector2i = Vector2i(-1, -1) # (heure locale, joueur au village) du dernier show_village
 var _drag: int = -1 # PNJ saisi sur la carte (déplié), -1 sinon
 var _drag_from: Vector2
+var _drag_site: String = "" # site sous le doigt pendant le glissé : la surbrillance ne change qu'au changement de site
+var _names: Dictionary = {} # npcs.json (noms des postes, surbrillance)
 
 func _ready() -> void:
 	get_tree().quit_on_go_back = false # Retour ne quitte plus (Z11) : il referme (_notification)
 	var now: int = ClockS.now_utc()
 	var r: Dictionary = SaveManager.start(now)
 	var capture: String = _debug_args()
+	_names = VText.load_names()
+	# Grand Âtre (jalon 21) : chantier fini hors-ligne, puis rayon au niveau courant, avant de construire le village.
+	var atre_done: bool = not r.is_empty() and AtreS.finish_if_due(r["state"]["village"], now)
+	VL.atre_level = 1 if r.is_empty() else AtreS.level(r["state"]["village"])
 	_ui_unfolded.set_world_seed(0 if r.is_empty() else r["state"]["world_seed"]) # avant le premier _show : noms et aptitudes
 	if r.is_empty(): # state reste vide : plus aucune sauvegarde
 		_world.setup(0, {}, now, _player_state)
@@ -48,6 +57,8 @@ func _ready() -> void:
 		_world.setup(r["state"]["world_seed"], r["state"]["village"], now, _player_state)
 		_show(r)
 		_auto_assign()
+		if atre_done:
+			_atre_done(false)
 	var player: Node2D = _world.player() # player.gd
 	player.set_equipment(_player_state()["equipment"])
 	player.set_level(ProgressionS.combat_level(_player_state()))
@@ -76,6 +87,7 @@ func _ready() -> void:
 	_ui_unfolded.post_chosen.connect(_on_post_chosen.bind("bouton"))
 	_ui_unfolded.npc_freed.connect(_on_npc_freed)
 	_ui_unfolded.debug_requested.connect(_on_debug)
+	_ui_unfolded.atre_requested.connect(_on_atre_requested)
 	_ui_unfolded.debug_invincible.connect(func(on: bool) -> void:
 		player.debug_invincible = on
 		_debug_done(DebugS.entry("invincible", not on, on), "Debug : invincible" if on else "Debug : invincible coupé"))
@@ -112,8 +124,12 @@ func _process(_delta: float) -> void:
 	if not _folded:
 		_ui_unfolded.set_purify_reason(_purify_block_reason())
 		_ui_unfolded.set_forge_enabled(_forge_block_reason)
+		_ui_unfolded.set_atre_reason(_atre_block_reason())
 		if not SaveManager.state.is_empty():
 			_ui_unfolded.set_debug_state(CombatS.in_village(player.position), _world.segment().expedition != null, DebugS.bag_full(_player_state()))
+	if not SaveManager.state.is_empty() and SaveManager.state["village"].has("atre_chantier_end") \
+			and AtreS.finish_if_due(SaveManager.state["village"], ClockS.now_utc()):
+		_atre_done(true)
 	var key: Vector2i = Vector2i(_world.hour_at(ClockS.now_utc()), int(CombatS.in_village(player.position)))
 	if key != _village_key: # heure locale ou entrée / sortie du village
 		_show_village()
@@ -384,6 +400,15 @@ func _input(event: InputEvent) -> void:
 	var pos: Vector2 = _to_world(event.position)
 	if event is InputEventScreenDrag:
 		_world.drag_npc(_drag, pos)
+		var site: String = _world.site_at(pos)
+		if site != _drag_site: # surbrillance du bâtiment visé (jalon 21)
+			_drag_site = site
+			var village: Dictionary = SaveManager.state["village"]
+			var hint: Array = VText.drop_hint(village, _drag, site, AtreS.level(village), _names)
+			if hint.is_empty():
+				_world.clear_highlight()
+			else:
+				_world.highlight_site(site, hint[0], UiStyle.ROLES[hint[1]])
 		return
 	var i: int = _drag
 	_release_drag()
@@ -398,6 +423,36 @@ func _release_drag() -> void:
 	if _drag >= 0:
 		_world.release_npc(_drag)
 	_drag = -1
+	_drag_site = ""
+	_world.clear_highlight()
+
+# Grand Âtre (jalon 21) : raison qui grise « Agrandir », relue à chaque image (lieu, heure, Or, coffre, stock).
+func _atre_block_reason() -> String:
+	if SaveManager.state.is_empty():
+		return "Sauvegarde illisible. Rien n'a été écrit."
+	return AtreS.block_reason(SaveManager.state["village"], ForgeS.ore(_player_state()), CombatS.in_village(_world.player().position), ClockS.now_utc())
+
+func _on_atre_requested() -> void:
+	if _atre_block_reason() != "":
+		return
+	_log_json("[VILLAGE] ", AtreS.start(SaveManager.state["village"], _player_state(), ClockS.now_utc()))
+	_sync()
+	for layer in [_ui_folded, _ui_unfolded]: # ui_layer.gd
+		layer.show_gold(SaveManager.state["village"]["player_gold"])
+	_show_player()
+	_show_village()
+
+# Fin du chantier : rayon, décor et brume (en session seulement : au lancement, setup construit déjà au bon rayon), toast.
+func _atre_done(in_session: bool) -> void:
+	var lvl: int = AtreS.level(SaveManager.state["village"])
+	VL.atre_level = lvl
+	if in_session:
+		_world.set_atre_level()
+	for layer in [_ui_folded, _ui_unfolded]: # ui_layer.gd
+		layer.show_toast(VText.atre_toast(lvl), "ATRE")
+	_log_json("[VILLAGE] ", {"event": "atre", "niveau": lvl})
+	_sync()
+	_show_village()
 
 # Bouton de poste ou lâcher sur un bâtiment : verrouille ; poste plein = échange (Assignment.move).
 func _on_post_chosen(index: int, post: String, source: String) -> void:
@@ -445,13 +500,15 @@ func _on_debug(action: String) -> void:
 		"eclat", "eclat_elite": d = DebugS.add_shard(st, action == "eclat_elite")
 		"minerai": d = DebugS.add_ore(st)
 		"or": d = DebugS.add_gold(st)
+		"chantier": d = DebugS.finish_chantier(st, ClockS.now_utc())
+		"materiaux": d = DebugS.materials_max(st)
 		_: d = DebugS.level_up(st, action)
 	if d.is_empty():
 		return
 	var leveled: bool = ProgressionS.VOCATIONS.has(action)
 	_debug_done(d, "" if leveled else "Debug : " + {"tick": "tick du jour", "absence": "+%d h d'absence" % int(BB.OFFLINE_MAX_HOURS),
 		"cendre": "Cendre au max", "eclat": "+1 Éclat", "eclat_elite": "+1 Éclat d'Élite", "minerai": "+%d minerais" % DebugS.DEBUG_ORE,
-		"or": "+%d Or" % DebugS.DEBUG_GOLD}[action])
+		"or": "+%d Or" % DebugS.DEBUG_GOLD, "chantier": "fin du chantier", "materiaux": "Matériaux au max"}[action])
 	_sync()
 	for layer in [_ui_folded, _ui_unfolded]: # ui_layer.gd
 		layer.show_gold(SaveManager.state["village"]["player_gold"])

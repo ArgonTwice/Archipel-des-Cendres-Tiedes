@@ -19,7 +19,10 @@ const DETAIL_MARGIN_PX: int = 4 # validé sur Fold (jalon 19)
 const MORAL_COLORS: Dictionary = {"STRIKE": BAD, "LOW": ALERT, "NORMAL": TEXT, "HIGH": GOOD} # validé sur Fold (jalon 19 bis)
 const VERDICT_COLORS: Dictionary = {1: GOOD, -1: BAD, 0: TEXT} # PROPOSÉ, à valider (jalon 16 bis)
 const DIFF_COLORS: Dictionary = {1: GOOD, -1: BAD, 0: TEXT} # écart stat par stat de la carte ; PROPOSÉ, à valider (jalon 20 bis)
-const ROLES: Dictionary = {"TEXT": TEXT, "MUTED": MUTED, "GOOD": GOOD, "BAD": BAD} # rôle nommé -> couleur (Rapport de veillée, jalon 20 ter)
+const ROLES: Dictionary = {"TEXT": TEXT, "MUTED": MUTED, "GOOD": GOOD, "BAD": BAD, "ALERT": ALERT} # rôle nommé -> couleur (jalons 20 ter, 21)
+const HIGHLIGHT_FILL_ALPHA: float = 0.25 # surbrillance du bâtiment visé ; technique, PROPOSÉ, à valider (jalon 21)
+const HIGHLIGHT_LINE_PX: float = 2.0 # contour, en pixels monde ; technique, PROPOSÉ, à valider (jalon 21)
+const HIGHLIGHT_TEXT_OUTLINE: Color = Color(0, 0, 0) # contour de l'étiquette, lisible sur l'herbe et la brume ; PROPOSÉ (jalon 21)
 
 # Planches
 const TD = preload("res://assets/tiles/kenney_tiny_dungeon/tilemap_packed.png")

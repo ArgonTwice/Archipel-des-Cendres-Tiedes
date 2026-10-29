@@ -4,6 +4,7 @@ extends CanvasLayer
 const VeilleeReportS = preload("res://scripts/ui/veillee_report.gd")
 const FoldModeS = preload("res://scripts/ui/fold_mode.gd")
 const BA = preload("res://balance/balance_a.gd")
+const BD = preload("res://balance/balance_d.gd")
 const ProgressionS = preload("res://scripts/progression.gd")
 const EqText = preload("res://scripts/ui/equipment_text.gd")
 const VText = preload("res://scripts/ui/village_text.gd")
@@ -22,6 +23,7 @@ signal cadence_chosen(index: int, cadence: String)
 signal posture_chosen(key: String, posture: String)
 signal post_chosen(index: int, post: String)
 signal npc_freed(index: int)
+signal atre_requested # Agrandir le Grand Âtre (jalon 21)
 signal debug_requested(action: String) # mode debug (build debug seulement)
 signal debug_invincible(on: bool)
 
@@ -92,7 +94,7 @@ var _npc_sprites: Array = [] # village.json : le sprite fixe le genre du nom (VT
 var _npc_cards: Array[Dictionary] = []
 var _world_seed: int = 0
 var _shop_blocks: Dictionary = {} # clé de boutique -> {"head", "lines", "buttons", "help"}
-var _atre: Dictionary = {} # {"head", "detail", "slots"}
+var _atre: Dictionary = {} # {"head", "tag", "detail", "slots", "upgrade" (titre, effet, bouton, raison), "button", "effect", "reason"}
 var _detail_style: StyleBoxFlat # fond de fiche, partagé par toutes les cartes
 # Perso et Sacoche (jalon 20) : créés une fois dans _ready ; show_perso / show_player ne changent que textes, couleurs, visibilité.
 var _voc_lines: Dictionary = {} # vocation -> {"text", "tag"}
@@ -234,11 +236,26 @@ func _build_village_pages() -> void:
 	var vgroup: ButtonGroup = ButtonGroup.new()
 	vgroup.allow_unpress = true
 	var a: Array = _card(village, vgroup, UiStyle.icon("ATRE"))
-	_atre = {"head": a[0], "detail": Label.new(), "slots": Label.new()}
+	_atre = {"head": a[0], "tag": a[2], "detail": Label.new(), "slots": Label.new()}
+	_atre["tag"].add_theme_color_override("font_color", UiStyle.NEXT)
 	a[1].add_child(_atre["detail"])
 	_section(a[1], "Postes")
 	_atre["slots"].name = "Occupation"
 	a[1].add_child(_atre["slots"])
+	# Agrandir (jalon 21) : effet, bouton d'action, raison ; toute la section cachée au niveau maximal.
+	var up_title: Label = _section(a[1], "Agrandir")
+	_atre["effect"] = Label.new()
+	_atre["effect"].add_theme_color_override("font_color", UiStyle.MUTED)
+	a[1].add_child(_atre["effect"])
+	_atre["button"] = _action(a[1], UiStyle.icon("ATRE"))
+	_atre["button"].name = "Agrandir"
+	_atre["button"].disabled = true
+	_atre["button"].pressed.connect(atre_requested.emit)
+	_atre["reason"] = Label.new()
+	_atre["reason"].autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_atre["reason"].add_theme_color_override("font_color", UiStyle.MUTED)
+	a[1].add_child(_atre["reason"])
+	_atre["upgrade"] = [up_title, _atre["effect"], _atre["button"], _atre["reason"]]
 	for key: String in Dag.SHOP_ITEM:
 		var s: Array = _card(village, vgroup, UiStyle.icon(key))
 		var block: Dictionary = _block(s[1], _names["postures"], func(value: String) -> void: posture_chosen.emit(key, value))
@@ -390,9 +407,10 @@ func build_debug(enabled: bool) -> void:
 	var page: Node = get_node(PAGES + "Options")
 	_section(page, "Debug")
 	_debug = {"village": [], "village_reasons": [], "shards": []}
-	var groups: Array = [["Temps", [["tick", "Tick du jour"], ["absence", "+%d h d'absence" % int(BB.OFFLINE_MAX_HOURS)]]],
+	var groups: Array = [["Temps", [["tick", "Tick du jour"], ["absence", "+%d h d'absence" % int(BB.OFFLINE_MAX_HOURS)],
+			["chantier", "Finir le chantier"]]],
 		["Ressources", [["cendre", "Cendre au max"], ["eclat", "+1 Éclat"], ["eclat_elite", "+1 Éclat d'Élite"],
-			["minerai", "+%d minerais" % DebugS.DEBUG_ORE], ["or", "+%d Or" % DebugS.DEBUG_GOLD]]],
+			["minerai", "+%d minerais" % DebugS.DEBUG_ORE], ["or", "+%d Or" % DebugS.DEBUG_GOLD], ["materiaux", "Matériaux au max"]]],
 		["Progression", ProgressionS.VOCATIONS.map(func(v: String) -> Array: return [v, "+1 niveau " + ProgressionS.VOCATION_NAMES[v]])],
 		["Combat", [["saturation", "Saturation pleine"]]], ["Sauvegarde", [["copie", "Copier la sauvegarde"]]]]
 	for g: Array in groups:
@@ -619,6 +637,13 @@ func show_village(village: Dictionary, hour: int, can_set: bool, reason: String)
 	_atre["head"].text = "\n".join(VText.atre_head(lvl, village["npcs"].size()))
 	_atre["detail"].text = VText.atre_detail(lvl)
 	_atre["slots"].text = VText.slots_line(village, lvl, _names)
+	_atre["tag"].text = "Chantier" if village.has("atre_chantier_end") else ""
+	var more: bool = lvl < BD.VERTICAL_SLICE_MAX_ATRE_LEVEL
+	for c: Control in _atre["upgrade"]:
+		c.visible = more
+	if more:
+		_atre["effect"].text = VText.upgrade_effect(lvl)
+		_atre["button"].text = "\n".join(VText.upgrade_button(lvl, _names))
 	for key: String in _shop_blocks:
 		var shop: Dictionary = village["shops"][key]
 		var block: Dictionary = _shop_blocks[key]
@@ -638,6 +663,16 @@ func _set_choice(buttons: Array[Button], on: int, enabled: bool) -> void:
 			b.add_theme_stylebox_override("disabled", b.get_theme_stylebox("pressed"))
 		else:
 			b.remove_theme_stylebox_override("disabled")
+
+# Bouton Agrandir actif si reason est vide, sinon grisé avec la raison dessous ; relu à chaque image par main.gd.
+func set_atre_reason(reason: String) -> void:
+	if _atre.is_empty():
+		return
+	var on: bool = reason == ""
+	if _atre["button"].disabled == on:
+		_atre["button"].disabled = not on
+	_atre["reason"].text = reason
+	_atre["reason"].visible = not on and _atre["button"].visible
 
 # Hauteur fixe de la fenêtre, ancrée en bas de Monde (juste au-dessus des onglets) : offsets seulement.
 func fit_window(zone_height: float) -> void:

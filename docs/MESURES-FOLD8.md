@@ -781,3 +781,38 @@ Export debug le 29/10 : 0 ERROR ; versionCode 27, versionName 0.20.4 ; SHA-256 2
 | (2) je comprends ce que rapporte le 3/3 | OUI | Antho |
 | (3) dans Perso, je vois tout de suite si mon arme a le bonus ou non | OUI | Antho |
 | (4) la ligne « Affixes : Brasier vise l'ATK, Enclume les PV et la DEF » m'aide (si non, on la retire) | OUI | Antho |
+
+## Jalon 21 (APK 0.21.0)
+
+Grand Âtre niveau 2 par chantier et surbrillance du bâtiment visé ; aucune valeur de jeu créée (Volet D §6, Volet B §3 et §5, n°38). scripts/village/atre.gd (statiques pures) : level, cost (BalanceD.compute_atre_upgrade_* et CHANTIER_ATRE_LVL2_MIN : 600 Or, 40 minerais, 40 Matériaux, 240 min), block_reason (lieu, chantier en cours avec « fini à … » / « fini demain à … » sur la date civile locale, niveau maximal, Or, minerais, Matériaux), start (tout payé au lancement), finish_if_due (now >= fin ; horloge qui recule : rien), sanitize (SaveManager.unpack). Règles validées par Antho (Z15) : Matériaux pris dans le stock de la boutique MAT, minerais du coffre, Or du village ; chantier non annulable ; fini en session ou au lancement suivant ; effets immédiats. Clés optionnelles atre_lvl et atre_chantier_end, SAVE_FORMAT_VERSION 1 inchangé.
+
+Rayon : VillageLayout.atre_level (static var), posé par main.gd avant _world.setup et à la fin du chantier ; Combat.in_village, in_safe_zone, village_cells et VL.deco le lisent. village.gd garde graine, cellules bloquées, décor et le dictionnaire solid ; set_atre_level() (fin du chantier seulement) recalcule le décor, efface et repeint les cellules qui changent, retire de solid en place les arbres disparus (même dictionnaire chez le Joueur et le Segment) et repose radius_px du ShaderMaterial partagé (200 puis 296). Lisières du segment inchangées. Onglet Village : atre_head plafonne les PNJ à VERTICAL_SLICE_NPC_CAP (Nv2 « PNJ 5/5, postes occupés 5/10 »), étiquette « Chantier » en NEXT, section Agrandir créée une fois (effet en MUTED, bouton d'action à icône ATRE, raison relue à chaque image), cachée au niveau maximal. Fin : toast « Grand Âtre niveau 2 ! » (icône ATRE), [VILLAGE] {"event": "atre"}, _sync.
+
+Surbrillance (déplié, saisir-déposer) : VText.drop_hint -> « Forge 1/2, libre » (GOOD) ou « Forge 1/1, échange » (ALERT), rien sur l'herbe, une maison, l'Âtre ou le poste de demain du PNJ ; village.gd « Cible » créé une fois (rectangle des tuiles du site, remplissage alpha 0,25, contour 2 px, étiquette à l'échelle 2), mise à jour au changement de site seulement, effacée au lâcher, à la bascule et au Retour. UiStyle : HIGHLIGHT_FILL_ALPHA 0,25, HIGHLIGHT_LINE_PX 2 et HIGHLIGHT_TEXT_OUTLINE noir (ajouté : l'étiquette verte se perdait sur le fond vert, AF5) : PROPOSÉ. Debug : « Finir le chantier » (fin = maintenant, puis chemin normal) et « Matériaux au max » (Eco.stock_max, Griffe comprise). village.gd : minuteur de rafraîchissement en autostart (même effet en jeu, plus d'erreur hors de l'arbre sous le simulateur).
+
+Références du jumeau toutes retrouvées : 10 raisons, start, finish_if_due, sanitize 9 cas, décor graine 1 (326/13 -> 204/47, 122 arbres retirés, 34 touffes, (-8, -16), (-6, -16)) et graine 42 (312/17 -> 202/50, 110, 33), village_cells 441 / 1 009, auto-assignation Nv2 graines 1 à 3 (graine 2 : les 2 gardes en Forge et en Taverne, Garde 0/3), drop_hint 9 cas, rectangles des 5 sites.
+
+Tests : 862 PASS, 0 échec (847 + 15 ; le test de grisé du debug compte 15 boutons).
+
+Export debug le 29/10 : 0 ERROR ; versionCode 28, versionName 0.21.0 ; SHA-256 6d6198d731b6983e9254ee20c48441bef7ac63bc4282d4780cbf515e4fb429e5. Sauvegarde du Fold copiée dans build/backup-fold-jalon21/ avant `adb install -r`, save_a.dat identique après.
+
+### AF1 à AF5 du jalon 21 (PC 924 × 1224, --hour=10 ; Or, minerais et stock posés en mémoire, glissé synthétique ; sauvegarde PC restaurée ensuite)
+
+| Test | Résultat | Preuve |
+|---|---|---|
+| AF1 carte Grand Âtre, bouton grisé | OK | Agrandir, « Niveau 2 : rayon 18 tuiles, 10 postes », bouton « 600 Or, 40 minerais, 40 Matériaux, 4 h » grisé, « Il manque 600 Or » (jalon21-AF1-atre-grise.png) |
+| AF2 chantier en cours | OK | étiquette « Chantier » en vert, « Chantier en cours, fini à 16 h 08 », Or et minerais à 0, stock Matériaux 0/60 (jalon21-AF2-chantier.png) |
+| AF3 Nv2, Vision d'architecte, fenêtre fermée | OK | toast « Grand Âtre niveau 2 ! », arbres retirés jusqu'à 18 tuiles, brume repoussée, tout le cercle visible (jalon21-AF3-nv2-vision.png) |
+| AF4 Forge visée au Nv1 | OK | cadre orange « Forge 1/1, échange » (jalon21-AF4-forge-nv1.png) |
+| AF5 Forge visée au Nv2 | OK | cadre vert « Forge 1/2, libre », étiquette contournée (jalon21-AF5-forge-nv2.png) |
+
+### Z15 (Fold 8, APK 0.21.0, sauvegarde copiée dans build/backup-fold-jalon21/)
+
+| Test | Résultat | Preuve |
+|---|---|---|
+| (1) sur la carte Grand Âtre, le bouton grisé dit clairement ce qui manque | OUI | Antho |
+| (2) lancer le chantier (debug : Or, minerais, Matériaux au max) est naturel ; Or, minerais et stock baissent ; « Chantier » et l'heure de fin se lisent | OUI | Antho |
+| (3) fermer puis rouvrir l'appli pendant le chantier : toujours là, même heure | OUI | Antho |
+| (4) « Finir le chantier » : toast, arbres retirés, brume repoussée, Postes sur 10 ; la règle « 40 Matériaux pris dans le stock » convient | OUI | Antho |
+| (5) en glissant un PNJ, le bâtiment visé s'encadre avec « libre » ou « échange », rien sur l'herbe ni sur son propre poste | OUI | Antho |
+| (6) au Nv2, la Vision d'architecte montre tout le cercle, fenêtre fermée | OUI | Antho |

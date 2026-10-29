@@ -55,6 +55,9 @@ Purification au village ou au Brasero {MUTED, si grisé}
 ```
 L'ordre de la fiche est celui de Purification.next_index : Élite d'abord, puis l'ilvl le plus haut.
 
+### Village
+Grand Âtre niveau 2 (jalon 21).
+
 ### Forge (jalon 20 bis) — fait (jalon 20 bis)
 **Actuel** : une ligne « Tu as », un CheckButton « Avec Cendre (25) », une aide de 5 lignes, 4 boutons « Forger l'Arme… » et la raison.
 **Cible** :

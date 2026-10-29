@@ -19,6 +19,7 @@ const ProgressionS = preload("res://scripts/progression.gd")
 const EquipmentS = preload("res://scripts/loot/equipment.gd")
 const BF = preload("res://balance/balance_f.gd")
 const BD = preload("res://balance/balance_d.gd")
+const AtreS = preload("res://scripts/village/atre.gd")
 const AssignS = preload("res://scripts/village/assignment.gd")
 
 const SAVE_FORMAT_VERSION: int = 1
@@ -128,6 +129,7 @@ static func unpack(bytes: PackedByteArray) -> Dictionary:
 	for shop: Dictionary in v["village"]["shops"].values():
 		if shop.has("posture_next") and not BB.POSTURE_TARGET_STOCK_RATIO.has(shop["posture_next"]):
 			shop.erase("posture_next")
+	AtreS.sanitize(v["village"]) # Grand Âtre (jalon 21) : atre_lvl, atre_chantier_end
 	return v
 
 # Aucune migration : un autre format est refusé.

@@ -11,6 +11,7 @@ const Dag = preload("res://scripts/offline_dag.gd")
 const RngS = preload("res://autoload/Rng.gd")
 const AssignS = preload("res://scripts/village/assignment.gd")
 
+const AtreS = preload("res://scripts/village/atre.gd")
 const NAMES_PATH: String = "res://data/village/npcs.json"
 const ACTIVITY: Dictionary = {"WORK": "au travail", "MEAL": "au repas", "VEILLEE": "à la veillée", "STRIKE": "se réchauffe à l'Âtre"}
 
@@ -127,10 +128,36 @@ static func shop_lines(key: String, shop: Dictionary, isolat: int, manager_index
 # Ligne d'un onglet Village (jalon 19 bis) : 2 lignes de tête, détail dans la carte dépliée.
 static func atre_head(lvl: int, npc_count: int) -> PackedStringArray:
 	return PackedStringArray(["Grand Âtre, niveau %d" % lvl,
-		"PNJ %d/%d, postes occupés %d/%d" % [npc_count, BD.ATRE_NPC_CAP[lvl - 1], npc_count, BD.ATRE_WORK_POSTS_CAP[lvl - 1]]])
+		"PNJ %d/%d, postes occupés %d/%d" % [npc_count, mini(BD.ATRE_NPC_CAP[lvl - 1], BD.VERTICAL_SLICE_NPC_CAP), npc_count, BD.ATRE_WORK_POSTS_CAP[lvl - 1]]])
 
 static func atre_detail(lvl: int) -> String:
 	return "Rayon %d tuiles autour de l'Âtre" % BD.ATRE_RADIUS_TILES[lvl - 1]
+
+# Agrandir (jalon 21) : « Niveau 2 : rayon 18 tuiles, 10 postes ».
+static func upgrade_effect(lvl: int) -> String:
+	return "Niveau %d : rayon %d tuiles, %d postes" % [lvl + 1, BD.ATRE_RADIUS_TILES[lvl], BD.ATRE_WORK_POSTS_CAP[lvl]]
+
+# « Agrandir le Grand Âtre », « 600 Or, 40 minerais, 40 Matériaux, 4 h ».
+static func upgrade_button(lvl: int, names: Dictionary) -> PackedStringArray:
+	var c: Dictionary = AtreS.cost(lvl)
+	var m: int = c["minutes"]
+	var d: String = "%d min" % m if m < 60 else ("%d h" % (m / 60) if m % 60 == 0 else "%d h %02d" % [m / 60, m % 60])
+	return PackedStringArray(["Agrandir le Grand Âtre", "%d Or, %d minerai%s, %d %s, %s" % [c["gold"], c["ore"], "s" if c["ore"] > 1 else "",
+		c["mat"], names["shops"]["MAT"], d]])
+
+static func atre_toast(lvl: int) -> String:
+	return "Grand Âtre niveau %d !" % lvl
+
+# Surbrillance du bâtiment visé (jalon 21) : [texte, rôle] ou [] (herbe, maison, Âtre, ou poste de demain du PNJ saisi).
+static func drop_hint(village: Dictionary, index: int, site: String, lvl: int, names: Dictionary) -> Array:
+	var post: String = VL.SITE_POST.get(site, "")
+	if post == "" or post == AssignS.effective_post(village["npcs"][index]):
+		return []
+	var occ: int = AssignS.occupancy(village)[post]
+	var cap: int = AssignS.slots(lvl, post)
+	if occ < cap:
+		return ["%s %d/%d, libre" % [names["posts"][post], occ, cap], "GOOD"]
+	return ["%s %d/%d, échange" % [names["posts"][post], occ, cap], "ALERT"]
 
 # « Stock 12/30, Solidaire, demain Exportation » : max Griffe comprise, posture en attente si elle diffère.
 static func shop_head(key: String, shop: Dictionary, names: Dictionary) -> PackedStringArray:

@@ -34,6 +34,7 @@ const VText = preload("res://scripts/ui/village_text.gd")
 const AssignS = preload("res://scripts/village/assignment.gd")
 const UiStyle = preload("res://scripts/ui/ui_style.gd")
 const DebugS = preload("res://scripts/debug/debug_tools.gd")
+const AtreS = preload("res://scripts/village/atre.gd")
 const LISIERE_SPAWNS_10: Array = [[0, 16], [0, 20], [0, 24]] # banc d'essai du jalon 10, retiré du village au jalon 11
 const FONT_PATH: String = "res://assets/fonts/silkscreen/Silkscreen-Regular.ttf"
 const OFL_PATH: String = "res://assets/fonts/silkscreen/OFL.txt"
@@ -2130,9 +2131,9 @@ func _mode_debug() -> void:
 	var full: Array = btns.map(func(b: Button) -> bool: return b.disabled)
 	print("      debug %s ; Brume %s %s ; village Sacoche pleine %s" % [str(btns.map(func(b: Button) -> String: return b.text)), str(off), str(reasons), str(full)])
 	_check("debug grisé: en Brume, Temps / Ressources / Progression grisés « Au village seulement » ; Saturation grisée hors Brume ; +1 Éclat grisés Sacoche pleine",
-		btns.size() == 13 and off == [true, true, true, true, true, true, true, true, true, true, false, true, false]
+		btns.size() == 15 and off == [true, true, true, true, true, true, true, true, true, true, true, true, false, true, false]
 		and reasons == ["Au village seulement", "Au village seulement", "Au village seulement", "En Brume seulement"]
-		and full == [false, false, false, true, true, false, false, false, false, false, false, true, false], str(off) + str(full))
+		and full == [false, false, false, false, true, true, false, false, false, false, false, false, false, true, false], str(off) + str(full))
 	uu.free()
 
 func _row_texts(rows: Array) -> Array:
@@ -2299,6 +2300,172 @@ func _jalon_20q() -> void:
 		s1 == [true, "Bonus 3/3 : +3,5 % d'ATK d'arme", UiStyle.TEXT, true] and s2 == [bl[2][0], UiStyle.MUTED, UiStyle.TEXT]
 		and box.get_child_count() == nb and others == 1, str(s1) + str(s2))
 	uu.free()
+
+# Jalon 21 : Grand Âtre niveau 2 par chantier, surbrillance du bâtiment visé. Références : sortie de prep_jalon_21.py.
+func _jalon_21() -> void:
+	var names: Dictionary = VText.load_names()
+	var c1: Dictionary = AtreS.cost(1)
+	print("      coût Nv1 -> Nv2 : " + str(c1))
+	_check("Âtre: coût Nv1 -> Nv2 = 600 Or, 40 minerais, 40 Matériaux, 240 min", c1 == {"gold": 600, "ore": 40, "mat": 40, "minutes": 240}, str(c1))
+	var t0: int = 1793268300 # 2026-10-29 10:05 UTC (11 h 05 à Paris)
+	var t1: int = 1793311800 # 2026-10-29 22:10 UTC (23 h 10 à Paris)
+	var vf: Callable = func(gold: int, mat: int, extra: Dictionary = {}) -> Dictionary:
+		var v: Dictionary = {"player_gold": gold, "tz_offset_sec": 3600, "shops": {"MAT": {"stock": mat, "lvl": 1, "griffe_trait": -1}}}
+		v.merge(extra)
+		return v
+	var cases: Array = [[vf.call(700, 50), 45, false, t0, "Chantier au village seulement"], [vf.call(0, 0), 0, true, t0, "Il manque 600 Or"],
+		[vf.call(480, 0), 0, true, t0, "Il manque 120 Or"], [vf.call(600, 0), 39, true, t0, "Il manque 1 minerai"],
+		[vf.call(600, 0), 28, true, t0, "Il manque 12 minerais"], [vf.call(650, 35), 40, true, t0, "Il manque 5 Matériaux en stock"],
+		[vf.call(600, 40), 40, true, t0, ""], [vf.call(0, 0, {"atre_chantier_end": t0 + 14400}), 0, true, t0, "Chantier en cours, fini à 15 h 05"],
+		[vf.call(0, 0, {"atre_chantier_end": t1 + 14400}), 0, true, t1, "Chantier en cours, fini demain à 3 h 10"],
+		[vf.call(9999, 69, {"atre_lvl": 2}), 99, true, t0, "Niveau maximal"]]
+	var got: Array = cases.map(func(c: Array) -> String: return AtreS.block_reason(c[0], c[1], c[2], c[3]))
+	for g: String in got:
+		print("      raison « %s »" % g)
+	_check("Âtre: 10 raisons du jumeau (lieu, chantier, niveau maximal, Or, minerais, Matériaux)", got == cases.map(func(c: Array) -> String: return c[4]), str(got))
+	var v: Dictionary = vf.call(700, 50)
+	var pl: Dictionary = ProgressionS.new_player()
+	pl["chest"][ForgeS.ORE] = 45
+	var log: Dictionary = AtreS.start(v, pl, t0)
+	print("      après start : Or %d, minerais %d, Matériaux %d ; %s" % [v["player_gold"], ForgeS.ore(pl), v["shops"]["MAT"]["stock"], str(log)])
+	_check("Âtre: start : Or 700 -> 100, minerais 45 -> 5, Matériaux 50 -> 10, fin = T0 + 14 400 s, raison « Chantier en cours »",
+		[v["player_gold"], ForgeS.ore(pl), v["shops"]["MAT"]["stock"], v["atre_chantier_end"]] == [100, 5, 10, t0 + 14400]
+		and log == {"event": "chantier", "niveau": 2, "fin": t0 + 14400} and AtreS.block_reason(v, 5, true, t0) == "Chantier en cours, fini à 15 h 05", str(log))
+	var fin: Array = [AtreS.finish_if_due(v, t0 + 14399), AtreS.level(v), AtreS.finish_if_due(v, t0 - 86400), AtreS.level(v)]
+	fin.append_array([AtreS.finish_if_due(v, t0 + 14400), AtreS.level(v), v.has("atre_chantier_end"), AtreS.finish_if_due(v, t0 + 99999), AtreS.level(v)])
+	_check("Âtre: finish_if_due : 1 s avant rien, horloge reculée rien, à la fin pile Nv2 et clé effacée, 2e appel sans effet",
+		fin == [false, 1, false, 1, true, 2, false, false, 2], str(fin))
+	var sc: Array = [[{"atre_lvl": 2}, {"atre_lvl": 2}], [{"atre_lvl": 3}, {}], [{"atre_lvl": 0}, {}], [{"atre_lvl": "2"}, {}],
+		[{"atre_chantier_end": t0}, {"atre_chantier_end": t0}], [{"atre_chantier_end": -5}, {}], [{"atre_chantier_end": 1.5}, {}],
+		[{"atre_lvl": 2, "atre_chantier_end": t0}, {"atre_lvl": 2}], [{}, {}]]
+	var san: Array = sc.map(func(c: Array) -> Dictionary:
+		var d: Dictionary = c[0].duplicate()
+		AtreS.sanitize(d)
+		return d)
+	_check("Âtre: sanitize, 9 cas", san == sc.map(func(c: Array) -> Dictionary: return c[1]), str(san))
+	# Sauvegarde : clés optionnelles relues à l'identique, atre_lvl 3 effacé
+	var st: Dictionary = SaveS.new_state(7, D0, 0)
+	st["village"]["atre_lvl"] = 2
+	var st2: Dictionary = SaveS.new_state(7, D0, 0)
+	st2["village"]["atre_chantier_end"] = D0 + 14400
+	var st3: Dictionary = SaveS.new_state(7, D0, 0)
+	st3["village"]["atre_lvl"] = 3
+	for x: Dictionary in [st, st2, st3]:
+		x["seq"] = 1 # posé par save() en jeu
+	var back: Array = [SaveS.unpack(SaveS.pack(st))["village"].get("atre_lvl"), SaveS.unpack(SaveS.pack(st2))["village"].get("atre_chantier_end"),
+		SaveS.unpack(SaveS.pack(st3))["village"].has("atre_lvl")]
+	_check("save: atre_lvl 2 et chantier relus à l'identique, atre_lvl 3 effacé au chargement", back == [2, D0 + 14400, false], str(back))
+	# Textes
+	var tx: Array = [VText.atre_head(1, 5), VText.atre_head(2, 5), VText.atre_detail(2), VText.upgrade_effect(1), VText.upgrade_button(1, names), VText.atre_toast(2)]
+	for t: Variant in tx:
+		print("      " + str(t))
+	_check("textes: atre_head Nv1 inchangé, Nv2 PNJ 5/5 postes 5/10, atre_detail(2), upgrade_effect(1), upgrade_button(1), toast", tx == [
+		PackedStringArray(["Grand Âtre, niveau 1", "PNJ 5/5, postes occupés 5/6"]), PackedStringArray(["Grand Âtre, niveau 2", "PNJ 5/5, postes occupés 5/10"]),
+		"Rayon 18 tuiles autour de l'Âtre", "Niveau 2 : rayon 18 tuiles, 10 postes",
+		PackedStringArray(["Agrandir le Grand Âtre", "600 Or, 40 minerais, 40 Matériaux, 4 h"]), "Grand Âtre niveau 2 !"], str(tx))
+	# Décor au rayon 18 (bâti + chemins + props, comme village.gd)
+	var vd: Dictionary = VL.load_data()
+	var blocked: Dictionary = VL.built_cells(vd["sites"], vd["patterns"])
+	blocked.merge(VL.paths(vd["sites"], vd["patterns"])["cells"])
+	for prop: Dictionary in vd["props"]:
+		blocked[VL.v2i(prop["cell"])] = true
+	var count: Callable = func(d: Dictionary) -> Array:
+		var n: Array = [0, 0]
+		for c: Vector2i in d:
+			n[0 if d[c][0] == "tree" else 1] += 1
+		return n
+	var deco_out: Array = []
+	var cells: Array = []
+	for sd: int in [1, 42]:
+		VL.atre_level = 1
+		var d1: Dictionary = VL.deco(sd, blocked)
+		cells.append(CombatS.village_cells().size())
+		VL.atre_level = 2
+		var d2: Dictionary = VL.deco(sd, blocked)
+		cells.append(CombatS.village_cells().size())
+		var gone: Array = d1.keys().filter(func(c: Vector2i) -> bool: return d1[c][0] == "tree" and not (d2.has(c) and d2[c][0] == "tree"))
+		var tufts: Array = d2.keys().filter(func(c: Vector2i) -> bool: return d2[c][0] == "tuft" and not (d1.has(c) and d1[c][0] == "tuft"))
+		var by_yx: Callable = func(a: Vector2i, b: Vector2i) -> bool: return a.y < b.y or (a.y == b.y and a.x < b.x)
+		gone.sort_custom(by_yx)
+		tufts.sort_custom(by_yx)
+		var ring: bool = d2.keys().all(func(c: Vector2i) -> bool: return d1.get(c) == d2[c] or (c.x * c.x + c.y * c.y > 144 and c.x * c.x + c.y * c.y <= 324)) \
+			and d1.keys().all(func(c: Vector2i) -> bool: return d2.get(c) == d1[c] or (c.x * c.x + c.y * c.y > 144 and c.x * c.x + c.y * c.y <= 324))
+		var no_new_tree: bool = d2.keys().all(func(c: Vector2i) -> bool: return d2[c][0] != "tree" or (d1.has(c) and c.x * c.x + c.y * c.y > 324))
+		deco_out.append([sd, count.call(d1), count.call(d2), gone.size(), tufts.size(), gone[0], tufts[0], ring, no_new_tree])
+		print("      graine %d : Nv1 %s -> Nv2 %s ; %d arbres retirés, %d touffes ajoutées ; 1er arbre retiré %s, 1re touffe ajoutée %s" % deco_out[-1].slice(0, 7))
+	VL.atre_level = 1
+	_check("décor: graine 1 Nv1 326/13 -> Nv2 204/47, 122 retirés, 34 touffes, (-8, -16) et (-6, -16) ; graine 42 312/17 -> 202/50, 110 et 33 ; anneau 12 < d <= 18 seulement, aucun arbre nouveau",
+		deco_out == [[1, [326, 13], [204, 47], 122, 34, Vector2i(-8, -16), Vector2i(-6, -16), true, true],
+		[42, [312, 17], [202, 50], 110, 33, Vector2i(0, -17), Vector2i(0, -17), true, true]], str(deco_out))
+	_check("Combat.village_cells : 441 au Nv1, 1 009 au Nv2 ; VL.atre_level remis à 1", cells == [441, 1009, 441, 1009] and VL.atre_radius() == 12, str(cells))
+	# Auto-assignation au Nv2, jour 1
+	var want: Dictionary = {1: ["[\"(4, GUARD, EXTRACTION, 0.35)\"]", "Extraction 2/3, Forge 1/2, Taverne 1/2, Garde 1/3"],
+		2: ["[\"(4, GUARD, FORGE, 0.61)\", \"(3, GUARD, TAVERN, 0.45)\"]", "Extraction 1/3, Forge 2/2, Taverne 2/2, Garde 0/3"],
+		3: ["[\"(4, GUARD, EXTRACTION, 0.51)\", \"(3, GUARD, FORGE, 0.45)\"]", "Extraction 2/3, Forge 2/2, Taverne 1/2, Garde 0/3"]}
+	var auto: Dictionary = {}
+	for sd: int in want:
+		var va: Dictionary = NewGameS.village(sd, D0, 0)
+		auto[sd] = [_moves_str(AssignS.auto_assign(va, sd, 100, 2)), VText.slots_line(va, 2, names)]
+		print("      auto Nv2 graine %d : %s ; %s" % [sd, auto[sd][0], auto[sd][1]])
+	_check("auto Nv2: graines 1, 2, 3, jour 1 = jumeau (n°38 : graine 2, les 2 gardes en Forge et en Taverne)", auto == want, str(auto))
+	# Surbrillance
+	var vh: Dictionary = NewGameS.village(1, D0, 0)
+	var hints: Array = [[3, "FORGE", 1], [3, "FORGE", 2], [3, "MAT", 1], [3, "GISEMENT", 1], [3, "MAT", 2], [0, "GATE", 1], [3, "GATE", 1], [3, "HOUSE0", 1], [3, "", 1]].map(
+		func(h: Array) -> Array: return VText.drop_hint(vh, h[0], h[1], h[2], names))
+	_check("drop_hint : 9 cas du jumeau", hints == [["Forge 1/1, échange", "ALERT"], ["Forge 1/2, libre", "GOOD"], ["Extraction 1/2, libre", "GOOD"],
+		["Extraction 1/2, libre", "GOOD"], ["Extraction 1/3, libre", "GOOD"], ["Garde 2/2, échange", "ALERT"], [], [], []], str(hints))
+	# UI instanciée : carte Grand Âtre
+	var uu: CanvasLayer = _ui_ready("res://scenes/ui/ui_unfolded.tscn")
+	var page: Node = uu.get_node(UiS.PAGES + "Village")
+	var titles: Array = page.find_children("*", "Label", true, false).filter(func(l: Label) -> bool: return l.text == "Agrandir")
+	var btn: Button = page.find_child("Agrandir", true, false)
+	var card: Node = btn.get_parent()
+	var tag: Label = card.get_parent().get_parent().find_child("Tag", true, false) # fiche -> Detail -> carte
+	var vn: Dictionary = NewGameS.village(1, D0, 0)
+	uu.show_village(vn, 10, true, "")
+	var n: int = page.find_children("*", "", true, false).size()
+	uu.set_atre_reason(AtreS.block_reason(vn, 0, true, D0))
+	var reason: Label = card.get_child(btn.get_index() + 1)
+	var s0: Array = [btn.disabled, reason.visible, reason.text, btn.text]
+	vn["player_gold"] = 600
+	vn["shops"]["MAT"]["stock"] = 40
+	uu.set_atre_reason(AtreS.block_reason(vn, 40, true, D0))
+	var s1: Array = [btn.disabled, reason.visible]
+	AtreS.start(vn, pl, D0)
+	uu.show_village(vn, 10, true, "")
+	var s2: String = tag.text
+	AtreS.finish_if_due(vn, D0 + 14400)
+	uu.show_village(vn, 10, true, "")
+	var s3: Array = [btn.visible, titles[0].visible, tag.text, page.find_children("*", "", true, false).size() == n]
+	print("      carte Âtre %s %s « %s » %s" % [str(s0), str(s1), s2, str(s3)])
+	_check("carte Âtre: section Agrandir une fois ; grisé « Il manque 600 Or » puis actif ; étiquette « Chantier » ; cachée au Nv2 ; aucun nœud créé par show_village",
+		titles.size() == 1 and s0 == [true, true, "Il manque 600 Or", "Agrandir le Grand Âtre\n600 Or, 40 minerais, 40 Matériaux, 4 h"] and s1 == [false, false]
+		and s2 == "Chantier" and s3 == [false, false, "", true] and tag.get_theme_color("font_color") == UiStyle.NEXT, str(s0) + str(s3))
+	uu.free()
+	# village.gd : arbres retirés de solid en place, brume repoussée, surbrillance
+	var vil: Node2D = load("res://scenes/village/village.tscn").instantiate()
+	root.add_child(vil)
+	vil.propagate_notification(Node.NOTIFICATION_READY)
+	VL.atre_level = 1
+	vil.setup(1, {}, D0, func() -> Dictionary: return ProgressionS.new_player()) # sans PNJ : leurs nœuds ne sont prêts que dans l'arbre
+	var psolid: Dictionary = vil.player()._solid
+	var mat: ShaderMaterial = vil.get_node("Sol").material
+	var before: Array = [psolid.has(Vector2i(-8, -16)), mat.get_shader_parameter("radius_px")]
+	VL.atre_level = 2
+	vil.set_atre_level()
+	var after: Array = [psolid.has(Vector2i(-8, -16)), mat.get_shader_parameter("radius_px"), vil.player()._solid == psolid and is_same(vil.player()._solid, psolid)]
+	VL.atre_level = 1
+	var rects: Array = ["MAT", "GISEMENT", "FORGE", "TAVERN", "GATE"].map(func(s: String) -> Rect2: return vil.site_rect(s))
+	vil.highlight_site("FORGE", "Forge 1/2, libre", UiStyle.GOOD)
+	var cible: Node2D = vil.get_node("Cible")
+	var h1: Array = [cible.visible, cible.get_child(0).text, cible.get_child(0).scale]
+	vil.clear_highlight()
+	_check("village.gd: (-8, -16) pleine puis libre au Nv2 (même dictionnaire chez le Joueur), radius_px 200 puis 296",
+		before == [true, 200.0] and after == [false, 296.0, true], str(before) + str(after))
+	_check("surbrillance: rectangles des 5 sites = jumeau ; Cible visible avec l'étiquette à l'échelle 2, puis masquée",
+		rects == [Rect2(56, -56, 48, 48), Rect2(72, 88, 32, 32), Rect2(-104, -56, 48, 48), Rect2(-24, -120, 48, 48), Rect2(-24, 168, 48, 16)]
+		and h1 == [true, "Forge 1/2, libre", Vector2(2, 2)] and not cible.visible, str(rects) + str(h1))
+	vil.free()
 
 # Jalon 17 bis : feu de camp animé (4 images de 125 ms). Références : prompt d'Antho (prep_jalon_17bis.py).
 func _jalon_17b() -> void:
@@ -2870,6 +3037,7 @@ func _jalon_11(vd: Dictionary, solid1: Dictionary) -> void:
 	_mode_debug()
 	_jalon_20t()
 	_jalon_20q()
+	_jalon_21()
 	# Scènes et données
 	var vil: Node = load("res://scenes/village/village.tscn").instantiate()
 	var sg: Node2D = vil.get_node_or_null("Entites/Segment")

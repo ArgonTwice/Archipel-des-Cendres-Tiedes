@@ -8,6 +8,7 @@ const BD = preload("res://balance/balance_d.gd")
 const ClockS = preload("res://autoload/Clock.gd")
 const NpcScene = preload("res://scenes/village/npc.tscn")
 const SG = preload("res://scripts/segment/segment_gen.gd")
+const UiStyle = preload("res://scripts/ui/ui_style.gd")
 
 const REFRESH_SEC: float = 60.0
 const PHASE_COLOR: Dictionary = {BD.DayPhase.DAWN: Color(0.82, 0.76, 0.8), BD.DayPhase.DAY: Color(1, 1, 1),
@@ -41,6 +42,16 @@ var _acts: Array = []
 var _base_energy: float = 0.0
 var _t: float = 0.0
 var _brazier_light: PointLight2D
+# Grand Âtre (jalon 21) : de quoi recalculer le décor au nouveau rayon sans reconstruire le village.
+var _seed: int = 0
+var _blocked: Dictionary = {} # bâti + chemins + props
+var _deco_map: Dictionary = {} # sortie de VL.deco au rayon courant
+var _solid: Dictionary = {} # partagé avec le Joueur et le Segment : modifié en place, jamais réaffecté
+# Surbrillance du bâtiment visé au saisir-déposer (jalon 21), créée une fois.
+var _target: Node2D
+var _target_label: Label
+var _target_rect: Rect2
+var _target_color: Color
 
 # player_ref : rend le dictionnaire courant du joueur (main.gd), transmis au Segment.
 func setup(world_seed: int, village: Dictionary, now_utc: int, player_ref: Callable) -> void:
@@ -68,12 +79,17 @@ func setup(world_seed: int, village: Dictionary, now_utc: int, player_ref: Calla
 		blocked[VL.v2i(prop["cell"])] = true
 	var deco: Dictionary = VL.deco(world_seed, blocked)
 	for c: Vector2i in deco:
-		var names: Array = _data["trees"] if deco[c][0] == "tree" else _data["tufts"]
-		_paint(_deco, c, names[deco[c][1] % names.size()])
+		_paint_deco(c, deco[c])
+	_seed = world_seed
+	_blocked = blocked
+	_deco_map = deco
+	_set_fog_radius()
 	var shadow: ImageTexture = _shadow_texture()
 	$Entites/Atre/Ombre.texture = shadow
 	_torch.texture = _tile_texture("torche")
 	var solid: Dictionary = VL.solid_cells(sites, patterns, _data["props"], deco)
+	_solid = solid
+	_build_target()
 	_player.setup(VL.cell_center(VL.PLAYER_SPAWN_CELL), _tile_texture(_data["player_sprite"]), shadow, solid)
 	_setup_segment(world_seed, village.get("isolat", 0), solid, shadow, player_ref)
 	_village = village
@@ -91,11 +107,76 @@ func setup(world_seed: int, village: Dictionary, now_utc: int, player_ref: Calla
 	var timer: Timer = Timer.new()
 	timer.wait_time = REFRESH_SEC
 	timer.timeout.connect(func() -> void: refresh(_village, ClockS.now_utc()))
+	timer.autostart = true # démarre à l'entrée dans l'arbre (hors arbre sous le simulateur headless)
 	add_child(timer)
-	timer.start()
 
 func player() -> Node2D:
 	return _player
+
+# Fin du chantier (jalon 21), jamais sur size_changed : décor au rayon VL.atre_radius(), arbres disparus retirés de solid
+# en place, brume repoussée. Les lisières du segment ne bougent pas (nœuds loin du village).
+func set_atre_level() -> void:
+	var deco: Dictionary = VL.deco(_seed, _blocked)
+	for c: Vector2i in _deco_map:
+		if _deco_map[c][0] == "tree" and not (deco.has(c) and deco[c][0] == "tree"):
+			_solid.erase(c)
+		if not deco.has(c):
+			_deco.erase_cell(c)
+	for c: Vector2i in deco:
+		if _deco_map.get(c) != deco[c]:
+			_paint_deco(c, deco[c])
+	_deco_map = deco
+	_set_fog_radius()
+
+# Brume de la Cendre Grise (ShaderMaterial partagé par les calques) au bord du rayon de l'Âtre.
+func _set_fog_radius() -> void:
+	(_ground.material as ShaderMaterial).set_shader_parameter("radius_px", (VL.atre_radius() + 0.5) * VL.CELL)
+
+func _paint_deco(c: Vector2i, d: Array) -> void:
+	var names: Array = _data["trees"] if d[0] == "tree" else _data["tufts"]
+	_paint(_deco, c, names[d[1] % names.size()])
+
+# Surbrillance : rectangle des tuiles du site (couleur du rôle, remplissage atténué, contour), étiquette au-dessus à
+# l'échelle 2 (zoom déplié 0,5 : taille de l'UI). Le mot porte le sens (« libre », « échange »).
+func _build_target() -> void:
+	_target = Node2D.new()
+	_target.name = "Cible"
+	_target.z_index = 10 # au-dessus des bâtiments et des PNJ
+	_target.visible = false
+	add_child(_target)
+	_target.draw.connect(func() -> void:
+		_target.draw_rect(_target_rect, Color(_target_color, UiStyle.HIGHLIGHT_FILL_ALPHA))
+		_target.draw_rect(_target_rect, _target_color, false, UiStyle.HIGHLIGHT_LINE_PX))
+	_target_label = Label.new()
+	_target_label.scale = Vector2(2, 2)
+	_target_label.add_theme_color_override("font_outline_color", UiStyle.HIGHLIGHT_TEXT_OUTLINE)
+	_target_label.add_theme_constant_override("outline_size", 2)
+	_target.add_child(_target_label)
+
+func highlight_site(site: String, text: String, color: Color) -> void:
+	_target_rect = site_rect(site)
+	_target_color = color
+	_target_label.text = text
+	_target_label.add_theme_color_override("font_color", color)
+	_target_label.reset_size()
+	var w: Vector2 = _target_label.get_minimum_size() * _target_label.scale
+	_target_label.position = Vector2(_target_rect.get_center().x - w.x / 2.0, _target_rect.position.y - w.y - 2.0)
+	_target.visible = true
+	_target.queue_redraw()
+
+func clear_highlight() -> void:
+	if _target != null:
+		_target.visible = false
+
+# Rectangle monde des tuiles d'un site (tuile (0, 0) centrée sur l'origine).
+func site_rect(site: String) -> Rect2:
+	var tiles: Dictionary = VL.site_tiles(_data["sites"][site], _data["patterns"])
+	var lo: Vector2i = tiles.keys()[0]
+	var hi: Vector2i = lo
+	for c: Vector2i in tiles:
+		lo = Vector2i(mini(lo.x, c.x), mini(lo.y, c.y))
+		hi = Vector2i(maxi(hi.x, c.x), maxi(hi.y, c.y))
+	return Rect2(Vector2(lo) * VL.CELL - Vector2(VL.CELL, VL.CELL) / 2.0, Vector2(hi - lo + Vector2i.ONE) * VL.CELL)
 
 func segment() -> Node2D:
 	return _segment
